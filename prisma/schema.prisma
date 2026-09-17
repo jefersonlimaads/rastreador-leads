@@ -1,0 +1,241 @@
+// Modelo de dados do escopo: toda tabela carrega clienteId, inclusive eventos e enviosCapi.
+// Exclusão é lógica (arquivadoEm). Lead e clique nunca são apagados.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+
+}
+
+enum Papel {
+  ADMIN
+  GESTOR
+  ATENDENTE
+}
+
+enum StatusClique {
+  PENDENTE
+  CASADO
+  SEM_CONTATO
+}
+
+enum Origem {
+  MANUAL
+  WEBHOOK
+}
+
+enum StatusLead {
+  NOVO
+  EM_ATENDIMENTO
+  ORCAMENTO_ENVIADO
+  FECHADO
+  PERDIDO
+}
+
+enum Atribuicao {
+  EXATA
+  PROVAVEL
+  DESCONHECIDA
+}
+
+enum TipoEvento {
+  MENSAGEM
+  MUDANCA_STATUS
+  CONTATO
+  FOLLOW_UP
+  NOTA
+  RETORNO
+}
+
+enum TipoEnvioCapi {
+  LEAD
+  PURCHASE
+}
+
+model Cliente {
+  id              String  @id @default(cuid())
+  nome            String
+  contaAnunciosId String?
+  fuso            String  @default("America/Sao_Paulo")
+  ativo           Boolean @default(true)
+
+  // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
+  pixelId        String?
+  capiToken      String?
+  marketingToken String?
+
+  criadoEm DateTime @default(now())
+
+  numeros    NumeroWhatsapp[]
+  usuarios   Usuario[]
+  cliques    Clique[]
+  leads      Lead[]
+  eventos    Evento[]
+  gastos     Gasto[]
+  enviosCapi EnvioCapi[]
+}
+
+model NumeroWhatsapp {
+  id        String  @id @default(cuid())
+  clienteId String
+  numero    String // E.164 só com dígitos, ex: 5511999999999
+  rotulo    String?
+  ativo     Boolean @default(true)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@index([clienteId])
+}
+
+model Usuario {
+  id        String  @id @default(cuid())
+  clienteId String? // nulo = administrador da JL Ads, vê todos os clientes
+  nome      String
+  email     String  @unique
+  senhaHash String
+  papel     Papel   @default(ATENDENTE)
+  ativo     Boolean @default(true)
+
+  criadoEm DateTime @default(now())
+
+  cliente          Cliente? @relation(fields: [clienteId], references: [id])
+  leadsResponsavel Lead[]   @relation("responsavel")
+  eventos          Evento[]
+
+  @@index([clienteId])
+}
+
+model Clique {
+  id        String @id @default(cuid())
+  clienteId String
+  codigo    String
+
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+
+  campaignId String?
+  adsetId    String?
+  adId       String?
+
+  fbclid    String?
+  fbp       String?
+  fbc       String?
+  ip        String?
+  userAgent String?
+  url       String?
+
+  status   StatusClique @default(PENDENTE)
+  criadoEm DateTime     @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  lead    Lead?
+
+  @@unique([clienteId, codigo])
+  @@index([clienteId, status, criadoEm])
+  @@index([clienteId, adId])
+}
+
+model Lead {
+  id             String  @id @default(cuid())
+  clienteId      String
+  cliqueId       String? @unique
+  leadAnteriorId String? // oportunidade nova de um telefone que já foi lead
+
+  telefone String // E.164 só com dígitos
+  nome     String?
+
+  origem     Origem     @default(MANUAL)
+  status     StatusLead @default(NOVO)
+  atribuicao Atribuicao @default(DESCONHECIDA)
+
+  mensagemEm DateTime // horário da mensagem, base da janela de atribuição
+  valorVenda Decimal? @db.Decimal(12, 2)
+  motivoPerda String?
+
+  responsavelId String?
+
+  criadoEm    DateTime  @default(now())
+  fechadoEm   DateTime?
+  arquivadoEm DateTime?
+
+  cliente       Cliente   @relation(fields: [clienteId], references: [id])
+  clique        Clique?   @relation(fields: [cliqueId], references: [id])
+  leadAnterior  Lead?     @relation("retorno", fields: [leadAnteriorId], references: [id])
+  leadsSeguintes Lead[]   @relation("retorno")
+  responsavel   Usuario?  @relation("responsavel", fields: [responsavelId], references: [id])
+
+  eventos    Evento[]
+  enviosCapi EnvioCapi[]
+
+  @@index([clienteId, telefone])
+  @@index([clienteId, status, criadoEm])
+  @@index([clienteId, criadoEm])
+}
+
+model Evento {
+  id        String     @id @default(cuid())
+  clienteId String
+  leadId    String
+  tipo      TipoEvento
+  descricao String?
+  usuarioId String?
+  criadoEm  DateTime   @default(now())
+
+  cliente Cliente  @relation(fields: [clienteId], references: [id])
+  lead    Lead     @relation(fields: [leadId], references: [id])
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([leadId, criadoEm])
+  @@index([clienteId, criadoEm])
+}
+
+model Gasto {
+  id         String   @id @default(cuid())
+  clienteId  String
+  adId       String
+  adsetId    String?
+  campaignId String?
+
+  adNome       String?
+  adsetNome    String?
+  campaignNome String?
+
+  dia          DateTime @db.Date
+  valor        Decimal  @db.Decimal(12, 2)
+  impressoes   Int      @default(0)
+  cliques      Int      @default(0)
+  atualizadoEm DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@unique([clienteId, adId, dia])
+  @@index([clienteId, dia])
+}
+
+model EnvioCapi {
+  id        String        @id @default(cuid())
+  clienteId String
+  leadId    String
+  eventId   String        @unique // event_id próprio, para deduplicação no Meta
+  tipo      TipoEnvioCapi
+  valor     Decimal?      @db.Decimal(12, 2)
+
+  statusResposta Int?
+  resposta       String?
+  payload        Json
+  tentativas     Int      @default(0)
+  enviadoEm      DateTime?
+  criadoEm       DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+  lead    Lead    @relation(fields: [leadId], references: [id])
+
+  @@index([clienteId, criadoEm])
+  @@index([leadId])
+}

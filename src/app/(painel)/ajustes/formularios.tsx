@@ -1,0 +1,142 @@
+"use client";
+
+import { useActionState } from "react";
+import {
+  acaoCriarCliente,
+  acaoCriarUsuario,
+  acaoSalvarCredenciais,
+  type EstadoAjustes,
+} from "./acoes";
+import type { Papel } from "@prisma/client";
+
+const vazio: EstadoAjustes = {};
+
+const campo =
+  "rounded-xl border border-borda bg-fundo px-3 py-2.5 text-sm outline-none focus:border-marca";
+const botao = "rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60";
+
+function Aviso({ estado }: { estado: EstadoAjustes }) {
+  if (estado.erro) {
+    return <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>;
+  }
+  if (estado.ok) {
+    return <p className="rounded-lg bg-ok-suave px-3 py-2 text-sm text-ok">{estado.ok}</p>;
+  }
+  return null;
+}
+
+export function FormulariosAjustes({
+  papel,
+  clienteEmFoco,
+  clientes,
+}: {
+  papel: Papel;
+  clienteEmFoco: { id: string; nome: string } | null;
+  clientes: { id: string; nome: string }[];
+}) {
+  const [estadoCliente, criarCliente, criandoCliente] = useActionState(acaoCriarCliente, vazio);
+  const [estadoUsuario, criarUsuario, criandoUsuario] = useActionState(acaoCriarUsuario, vazio);
+  const [estadoCred, salvarCred, salvandoCred] = useActionState(acaoSalvarCredenciais, vazio);
+
+  return (
+    <>
+      {papel === "ADMIN" && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Novo cliente
+          </h2>
+          <form
+            action={criarCliente}
+            className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
+          >
+            <input name="nome" placeholder="Nome do cliente" required className={campo} />
+            <input name="numero" placeholder="WhatsApp com DDD" required className={campo} />
+            <input name="contaAnunciosId" placeholder="act_000000000000000" className={campo} />
+            <Aviso estado={estadoCliente} />
+            <button type="submit" disabled={criandoCliente} className={botao}>
+              {criandoCliente ? "Criando..." : "Criar cliente"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {papel === "ADMIN" && clienteEmFoco && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Credenciais do Meta — {clienteEmFoco.nome}
+          </h2>
+          <form
+            action={salvarCred}
+            className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
+          >
+            <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
+            <input name="pixelId" placeholder="ID do pixel" className={campo} />
+            <input
+              name="capiToken"
+              type="password"
+              placeholder="Token da API de Conversões"
+              className={campo}
+            />
+            <input
+              name="marketingToken"
+              type="password"
+              placeholder="Token da API de Marketing"
+              className={campo}
+            />
+            <input name="contaAnunciosId" placeholder="act_000000000000000" className={campo} />
+            <p className="text-xs text-suave">
+              Campo em branco mantém o valor atual. Use token de usuário do sistema da BM da JL Ads.
+            </p>
+            <Aviso estado={estadoCred} />
+            <button type="submit" disabled={salvandoCred} className={botao}>
+              {salvandoCred ? "Salvando..." : "Salvar credenciais"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {papel !== "ATENDENTE" && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Novo usuário
+          </h2>
+          <form
+            action={criarUsuario}
+            className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
+          >
+            <input name="nome" placeholder="Nome" required className={campo} />
+            <input name="email" type="email" placeholder="E-mail" required className={campo} />
+            <input
+              name="senha"
+              type="password"
+              placeholder="Senha (mínimo 8 caracteres)"
+              required
+              className={campo}
+            />
+            <select name="papel" defaultValue="ATENDENTE" className={campo}>
+              <option value="ATENDENTE">Atendente</option>
+              <option value="GESTOR">Gestor</option>
+              {papel === "ADMIN" && <option value="ADMIN">Administrador</option>}
+            </select>
+            <select
+              name="clienteId"
+              defaultValue={clienteEmFoco?.id ?? ""}
+              className={campo}
+              disabled={papel !== "ADMIN"}
+            >
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+            <Aviso estado={estadoUsuario} />
+            <button type="submit" disabled={criandoUsuario} className={botao}>
+              {criandoUsuario ? "Criando..." : "Criar usuário"}
+            </button>
+          </form>
+        </section>
+      )}
+    </>
+  );
+}

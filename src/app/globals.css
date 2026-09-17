@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --fundo: #f5f6f8;
+  --superficie: #ffffff;
+  --texto: #14161a;
+  --texto-suave: #5c6672;
+  --borda: #e3e6ea;
+  --marca: #1f6feb;
+  --marca-suave: #e8f0fe;
+  --alerta: #c2410c;
+  --alerta-suave: #fff1e7;
+  --ok: #15803d;
+  --ok-suave: #e7f6ec;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --fundo: #0d0f12;
+    --superficie: #15181d;
+    --texto: #f2f4f7;
+    --texto-suave: #98a2b0;
+    --borda: #262b33;
+    --marca: #539bff;
+    --marca-suave: #16243a;
+    --alerta: #fb923c;
+    --alerta-suave: #2a1a10;
+    --ok: #4ade80;
+    --ok-suave: #10261a;
   }
 }
 
+@theme inline {
+  --color-fundo: var(--fundo);
+  --color-superficie: var(--superficie);
+  --color-texto: var(--texto);
+  --color-suave: var(--texto-suave);
+  --color-borda: var(--borda);
+  --color-marca: var(--marca);
+  --color-marca-suave: var(--marca-suave);
+  --color-alerta: var(--alerta);
+  --color-alerta-suave: var(--alerta-suave);
+  --color-ok: var(--ok);
+  --color-ok-suave: var(--ok-suave);
+  --font-sans: var(--font-geist-sans);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--fundo);
+  color: var(--texto);
+  /* Evita zoom automático do iOS ao focar um campo. */
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Campos com 16px de fonte: abaixo disso o Safari do iPhone dá zoom sozinho. */
+input,
+select,
+textarea,
+button {
+  font-size: 16px;
 }
