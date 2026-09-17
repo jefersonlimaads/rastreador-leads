@@ -5,6 +5,7 @@ import {
   acaoCriarCliente,
   acaoCriarUsuario,
   acaoSalvarCredenciais,
+  acaoTrocarSenha,
   type EstadoAjustes,
 } from "./acoes";
 import type { Papel } from "@prisma/client";
@@ -37,6 +38,7 @@ export function FormulariosAjustes({
   const [estadoCliente, criarCliente, criandoCliente] = useActionState(acaoCriarCliente, vazio);
   const [estadoUsuario, criarUsuario, criandoUsuario] = useActionState(acaoCriarUsuario, vazio);
   const [estadoCred, salvarCred, salvandoCred] = useActionState(acaoSalvarCredenciais, vazio);
+  const [estadoSenha, trocarSenha, trocandoSenha] = useActionState(acaoTrocarSenha, vazio);
 
   return (
     <>
@@ -94,6 +96,45 @@ export function FormulariosAjustes({
           </form>
         </section>
       )}
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+          Minha senha
+        </h2>
+        <form
+          action={trocarSenha}
+          className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
+        >
+          <input
+            name="atual"
+            type="password"
+            autoComplete="current-password"
+            placeholder="Senha atual"
+            required
+            className={campo}
+          />
+          <input
+            name="nova"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Nova senha (mínimo 10 caracteres)"
+            required
+            className={campo}
+          />
+          <input
+            name="confirmacao"
+            type="password"
+            autoComplete="new-password"
+            placeholder="Repita a nova senha"
+            required
+            className={campo}
+          />
+          <Aviso estado={estadoSenha} />
+          <button type="submit" disabled={trocandoSenha} className={botao}>
+            {trocandoSenha ? "Trocando..." : "Trocar senha"}
+          </button>
+        </form>
+      </section>
 
       {papel !== "ATENDENTE" && (
         <section className="mt-6">

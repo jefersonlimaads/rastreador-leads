@@ -13,7 +13,9 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prod:migrar": "tsx scripts/producao.ts migrar",
+    "prod:admin": "tsx scripts/producao.ts admin"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",

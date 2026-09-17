@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirSessao, exigirAdmin, hashSenha } from "@/lib/auth";
+import { exigirSessao, exigirAdmin, hashSenha, conferirSenha } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
@@ -87,6 +87,44 @@ export async function acaoCriarUsuario(
 
   revalidatePath("/ajustes");
   return { ok: "Usuário criado." };
+}
+
+const TrocaSenha = z
+  .object({
+    atual: z.string().min(1),
+    nova: z.string().min(10).max(72),
+    confirmacao: z.string(),
+  })
+  .refine((d) => d.nova === d.confirmacao, { message: "confirmação diferente" });
+
+/** Troca da própria senha. Ninguém troca a senha de outro usuário por aqui. */
+export async function acaoTrocarSenha(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirSessao();
+
+  const dados = TrocaSenha.safeParse({
+    atual: String(formData.get("atual") ?? ""),
+    nova: String(formData.get("nova") ?? ""),
+    confirmacao: String(formData.get("confirmacao") ?? ""),
+  });
+  if (!dados.success) {
+    return { erro: "A nova senha precisa de 10 caracteres e as duas precisam ser iguais." };
+  }
+
+  const usuario = await prisma.usuario.findUnique({ where: { id: sessao.usuarioId } });
+  if (!usuario) return { erro: "Usuário não encontrado." };
+
+  const confere = await conferirSenha(dados.data.atual, usuario.senhaHash);
+  if (!confere) return { erro: "A senha atual está errada." };
+
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: { senhaHash: await hashSenha(dados.data.nova) },
+  });
+
+  return { ok: "Senha trocada." };
 }
 
 const Credenciais = z.object({
