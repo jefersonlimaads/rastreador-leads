@@ -115,8 +115,11 @@ depender de nomenclatura manual:
 
 ## Deploy na Vercel com Supabase
 
-1. Crie o projeto no Supabase (região São Paulo) e copie a connection string do
-   pooler, com `?sslmode=require`.
+1. Crie o projeto no Supabase (região São Paulo). As strings de conexão ficam no
+   botão **Connect**, no topo da página do projeto: use a aba **Transaction
+   pooler** (6543) para a aplicação e a **Session pooler** (5432) para as
+   migrations. No plano free, a Direct connection é só IPv6 e costuma falhar em
+   rede doméstica.
 2. Suba o repositório e importe na Vercel, com a raiz apontando para `rastreador/`.
 3. Defina `DATABASE_URL`, `AUTH_SECRET`, `APP_URL` e `CRON_SECRET` nas variáveis da
    Vercel.
