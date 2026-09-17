@@ -1,10 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirSessao, clienteEmFoco, podeVerDinheiro, type Sessao } from "@/lib/auth";
+import {
+  exigirSessao,
+  clienteEmFoco,
+  podeVerDinheiro,
+  COOKIE_CLIENTE,
+  type Sessao,
+} from "@/lib/auth";
 import { cadastrarLead, sugerirClique } from "@/lib/atribuicao";
 import { normalizarTelefone } from "@/lib/telefone";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
@@ -237,6 +244,28 @@ export async function acaoRegistrarContato(formData: FormData) {
   });
 
   revalidarPainel(lead.id);
+}
+
+/** Seletor de cliente do administrador. Grava a escolha num cookie. */
+export async function acaoTrocarCliente(formData: FormData) {
+  const sessao = await exigirSessao();
+  if (sessao.papel !== "ADMIN") return;
+
+  const clienteId = String(formData.get("clienteId") ?? "");
+  const cliente = await prisma.cliente.findFirst({
+    where: { id: clienteId, ativo: true },
+    select: { id: true },
+  });
+  if (!cliente) return;
+
+  (await cookies()).set(COOKIE_CLIENTE, cliente.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 90,
+  });
+
+  revalidatePath("/", "layout");
 }
 
 export async function acaoAdicionarNota(formData: FormData) {

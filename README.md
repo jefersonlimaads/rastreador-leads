@@ -44,6 +44,23 @@ Logins criados pelo seed:
 Para parar o banco: `npm run db:stop`. Para abrir o banco numa interface:
 `npm run db:studio`.
 
+O administrador vê um seletor de cliente no topo do painel. A escolha fica num
+cookie e vale em todas as telas. Gestor e atendente ficam presos ao próprio
+cliente, e isso é conferido no servidor a cada consulta.
+
+## Testes
+
+```bash
+npm test
+```
+
+São 19 testes. Os de código e telefone rodam sozinhos; os de atribuição precisam
+do banco local no ar (`npm run db:start`) e cobrem os critérios de aceite do
+escopo: código na mensagem gerando atribuição exata, dois anúncios no mesmo dia,
+janela de 30 minutos contada pelo horário da mensagem, retorno de telefone,
+reabertura depois de 60 dias e clique sem contato em 24 horas. Eles usam um
+cliente próprio no banco e limpam tudo no fim.
+
 ## Variáveis de ambiente
 
 Copie `.env.example` para `.env` e preencha:
@@ -93,6 +110,7 @@ depender de nomenclatura manual:
 | `src/lib/meta/capi.ts` | API de Conversões, com auditoria em `envios_capi` |
 | `src/lib/meta/marketing.ts` | Gasto por anúncio e por dia |
 | `src/lib/regras.ts` | Os números das regras (janelas, prazos) num lugar só |
+| `src/lib/retencao.ts` | Descarte por retenção: lead sem interação há 24 meses, clique sem contato há 12 |
 | `prisma/schema.prisma` | Modelo de dados, com `clienteId` em todas as tabelas |
 
 ## Deploy na Vercel com Supabase

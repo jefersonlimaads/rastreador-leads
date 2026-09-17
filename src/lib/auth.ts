@@ -92,13 +92,26 @@ export async function exigirAdmin(): Promise<Sessao> {
   return sessao;
 }
 
+export const COOKIE_CLIENTE = "jl_cliente";
+
 /**
- * Cliente cujos dados a sessão pode ver. Admin escolhe pelo seletor; os demais
- * ficam presos ao próprio cliente, independente do que vier na URL.
+ * Cliente cujos dados a sessão pode ver. Admin escolhe pelo seletor, que grava a
+ * escolha num cookie; os demais ficam presos ao próprio cliente, independente do
+ * que vier na URL ou no cookie.
  */
 export async function clienteEmFoco(sessao: Sessao, pedido?: string | null): Promise<string | null> {
   if (sessao.papel === "ADMIN") {
     if (pedido) return pedido;
+
+    const escolhido = (await cookies()).get(COOKIE_CLIENTE)?.value;
+    if (escolhido) {
+      const existe = await prisma.cliente.findFirst({
+        where: { id: escolhido, ativo: true },
+        select: { id: true },
+      });
+      if (existe) return existe.id;
+    }
+
     const primeiro = await prisma.cliente.findFirst({
       where: { ativo: true },
       orderBy: { nome: "asc" },

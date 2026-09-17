@@ -1,10 +1,23 @@
 import Link from "next/link";
-import { exigirSessao } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { clienteEmFoco, exigirSessao } from "@/lib/auth";
 import { sair } from "../login/actions";
 import { Navegacao } from "./navegacao";
+import { SeletorCliente } from "./seletor-cliente";
 
 export default async function LayoutPainel({ children }: LayoutProps<"/">) {
   const sessao = await exigirSessao();
+
+  // O seletor é só do admin: os demais papéis nem carregam a lista de clientes.
+  const clientes =
+    sessao.papel === "ADMIN"
+      ? await prisma.cliente.findMany({
+          where: { ativo: true },
+          orderBy: { nome: "asc" },
+          select: { id: true, nome: true },
+        })
+      : [];
+  const emFoco = sessao.papel === "ADMIN" ? await clienteEmFoco(sessao) : null;
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -14,6 +27,7 @@ export default async function LayoutPainel({ children }: LayoutProps<"/">) {
             JL Ads
           </Link>
           <div className="flex items-center gap-3 text-sm text-suave">
+            <SeletorCliente clientes={clientes} atual={emFoco} />
             <span className="hidden sm:inline">{sessao.nome}</span>
             <form action={sair}>
               <button type="submit" className="rounded-lg px-2 py-1 hover:bg-fundo">

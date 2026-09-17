@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sincronizarGastos } from "@/lib/meta/marketing";
 import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
+import { aplicarRetencao } from "@/lib/retencao";
 
 /**
  * Rotina diária: puxa o gasto dos últimos 7 dias de cada cliente, reenvia os
@@ -28,7 +29,14 @@ export async function GET(request: NextRequest) {
     const gastos = await sincronizarGastos(cliente.id);
     const capi = await reenviarFalhas(cliente.id);
     const cliques = await encerrarCliquesSemContato(cliente.id);
-    resultado.push({ cliente: cliente.nome, gastos, capi, cliquesEncerrados: cliques });
+    const retencao = await aplicarRetencao(cliente.id);
+    resultado.push({
+      cliente: cliente.nome,
+      gastos,
+      capi,
+      cliquesEncerrados: cliques,
+      retencao,
+    });
   }
 
   return NextResponse.json({ rodadoEm: new Date().toISOString(), resultado });
