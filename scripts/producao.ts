@@ -14,6 +14,7 @@ import { execFileSync } from "node:child_process";
 import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import bcrypt from "bcryptjs";
+import { conexaoPg } from "../src/lib/supabase-ca";
 
 const ARQUIVO = path.join(process.cwd(), ".env.production.local");
 
@@ -64,7 +65,9 @@ async function criarAdmin() {
     throw new Error("ADMIN_SENHA precisa de pelo menos 10 caracteres.");
   }
 
-  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
+  const prisma = new PrismaClient({
+    adapter: new PrismaPg(conexaoPg(url)),
+  });
   const senhaHash = await bcrypt.hash(senha, 10);
 
   const usuario = await prisma.usuario.upsert({
