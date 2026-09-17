@@ -2,20 +2,41 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Diagnóstico de ambiente. Responde só com sim/não e o tipo do erro: nunca
- * mostra valor de variável, senha ou string de conexão. Serve para descobrir,
- * de fora, se o painel está sem variável ou sem banco.
+ * Diagnóstico de ambiente. Responde só com o estado de cada variável e o tipo do
+ * erro do banco: nunca mostra valor, senha ou string de conexão.
+ *
+ * A diferença entre "ausente" e "vazia" importa: ausente é variável que não
+ * chegou ao deploy; vazia é variável que chegou sem conteúdo.
  */
+function estado(valor: string | undefined) {
+  if (valor === undefined) return "ausente";
+  if (valor.trim() === "") return "vazia";
+  return `ok (${valor.length} caracteres)`;
+}
+
 export async function GET() {
   const url = process.env.DATABASE_URL;
 
+  let destino: string | null = null;
+  if (url) {
+    try {
+      const u = new URL(url);
+      destino = `${u.hostname.replace(/^[^.]+/, "***")}:${u.port || "padrão"}`;
+    } catch {
+      destino = "string de conexão em formato inválido";
+    }
+  }
+
   const ambiente = {
-    DATABASE_URL: Boolean(url),
-    AUTH_SECRET: Boolean(process.env.AUTH_SECRET),
-    CRON_SECRET: Boolean(process.env.CRON_SECRET),
-    APP_URL: Boolean(process.env.APP_URL),
-    portaDoBanco: url ? (new URL(url).port || "padrão") : null,
-    hostDoBanco: url ? new URL(url).hostname.replace(/^[^.]+/, "***") : null,
+    DATABASE_URL: estado(url),
+    AUTH_SECRET: estado(process.env.AUTH_SECRET),
+    CRON_SECRET: estado(process.env.CRON_SECRET),
+    APP_URL: estado(process.env.APP_URL),
+    destino,
+    vercelEnv: process.env.VERCEL_ENV ?? "fora da Vercel",
+    // Quantas variáveis o processo enxerga no total, para saber se o problema
+    // é só com as nossas ou com a injeção inteira.
+    totalDeVariaveis: Object.keys(process.env).length,
   };
 
   let banco: { ok: boolean; erro?: string; usuarios?: number } = { ok: false };
