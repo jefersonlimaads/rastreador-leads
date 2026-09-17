@@ -3,6 +3,7 @@
  *
  *   npm run prod:migrar   aplica as migrations usando a conexão direta
  *   npm run prod:admin    cria o primeiro administrador
+ *   npm run prod:senha <email>   gera uma senha temporária para quem esqueceu
  *
  * As migrations usam DIRECT_URL, na porta 5432: o pooler do Supabase não aceita
  * os comandos de criação de tabela. A aplicação, em produção, usa o pooler.
@@ -81,8 +82,46 @@ async function criarAdmin() {
   console.log("Agora apague ADMIN_EMAIL e ADMIN_SENHA de .env.production.local.");
 }
 
+/**
+ * Redefine a senha de um usuário para uma senha temporária gerada aqui.
+ * Quem recebe deve trocar em Ajustes no primeiro acesso: esta senha passa por
+ * terminal e histórico, então não serve como senha definitiva.
+ */
+async function redefinirSenha() {
+  const valores = carregarProducao();
+  const url = exigir(valores, "DIRECT_URL");
+  const email = (process.argv[3] ?? "").toLowerCase();
+  if (!email) throw new Error("Informe o e-mail: npm run prod:senha -- alguem@exemplo.com");
+
+  const prisma = new PrismaClient({ adapter: new PrismaPg(conexaoPg(url)) });
+  const usuario = await prisma.usuario.findUnique({ where: { email } });
+  if (!usuario) {
+    await prisma.$disconnect();
+    throw new Error(`Não existe usuário com o e-mail ${email}.`);
+  }
+
+  // Palavras fáceis de digitar no celular, que é onde o painel é usado.
+  const palavras = ["lead", "anuncio", "painel", "conversa", "funil", "clique", "venda", "cliente"];
+  const sortear = (n: number) => crypto.getRandomValues(new Uint32Array(1))[0] % n;
+  const senha = `${palavras[sortear(palavras.length)]}-${palavras[sortear(palavras.length)]}-${100 + sortear(900)}`;
+
+  await prisma.usuario.update({
+    where: { id: usuario.id },
+    data: { senhaHash: await bcrypt.hash(senha, 10) },
+  });
+  await prisma.$disconnect();
+
+  console.log(`Senha temporária de ${email}: ${senha}`);
+  console.log("Entre no painel e troque em Ajustes > Minha senha.");
+}
+
 const comando = process.argv[2];
-if (comando === "admin") {
+if (comando === "senha") {
+  redefinirSenha().catch((e) => {
+    console.error(String(e.message ?? e));
+    process.exit(1);
+  });
+} else if (comando === "admin") {
   criarAdmin().catch((e) => {
     console.error(String(e.message ?? e));
     process.exit(1);

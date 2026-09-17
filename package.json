@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "prod:migrar": "tsx scripts/producao.ts migrar",
-    "prod:admin": "tsx scripts/producao.ts admin"
+    "prod:admin": "tsx scripts/producao.ts admin",
+    "prod:senha": "tsx scripts/producao.ts senha"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
