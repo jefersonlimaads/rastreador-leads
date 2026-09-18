@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
-import { cifrar } from "@/lib/cripto";
+import { chaveValida, cifrar } from "@/lib/cripto";
 import { sincronizarGastos } from "@/lib/meta/marketing";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
@@ -151,8 +151,10 @@ export async function acaoSalvarCredenciais(
 
   // Sem a chave de criptografia o token não pode ser guardado: avisa em vez
   // de derrubar a tela.
-  if ((dados.data.capiToken || dados.data.marketingToken) && !process.env.CHAVE_CRIPTOGRAFIA) {
-    return { erro: "Falta configurar CHAVE_CRIPTOGRAFIA na Vercel. Nada foi salvo." };
+  if ((dados.data.capiToken || dados.data.marketingToken) && !chaveValida()) {
+    return {
+      erro: "CHAVE_CRIPTOGRAFIA não está configurada ou está com valor errado na Vercel. Nada foi salvo.",
+    };
   }
 
   // Campo em branco mantém o que já estava: o formulário nunca mostra o token.

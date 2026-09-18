@@ -25,6 +25,16 @@ function chave(): Buffer {
   return buf;
 }
 
+/** A chave está configurada e tem o formato certo? Não revela nada dela. */
+export function chaveValida(): boolean {
+  try {
+    chave();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function cifrar(texto: string): string {
   const iv = randomBytes(12);
   const cifra = createCipheriv("aes-256-gcm", chave(), iv);

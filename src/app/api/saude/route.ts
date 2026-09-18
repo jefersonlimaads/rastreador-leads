@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { chaveValida } from "@/lib/cripto";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -35,7 +36,9 @@ export async function GET() {
     AUTH_SECRET: estado(process.env.AUTH_SECRET),
     CRON_SECRET: estado(process.env.CRON_SECRET),
     APP_URL: estado(process.env.APP_URL),
-    CHAVE_CRIPTOGRAFIA: estado(process.env.CHAVE_CRIPTOGRAFIA),
+    CHAVE_CRIPTOGRAFIA:
+      estado(process.env.CHAVE_CRIPTOGRAFIA) +
+      (process.env.CHAVE_CRIPTOGRAFIA ? (chaveValida() ? ", válida" : ", INVÁLIDA: precisa ter 44 caracteres") : ""),
     destino,
     vercelEnv: process.env.VERCEL_ENV ?? "fora da Vercel",
     // Quantas variáveis o processo enxerga no total, para saber se o problema
