@@ -44,7 +44,7 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
             key={d}
             href={`/carteira?dias=${d}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
-              dias === d ? "border-marca bg-marca-suave text-marca" : "border-borda"
+              dias === d ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
           >
             {d} dias

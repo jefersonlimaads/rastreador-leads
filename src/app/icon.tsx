@@ -2,8 +2,8 @@ import { ImageResponse } from "next/og";
 import { MARCA } from "@/lib/marca";
 
 /**
- * Ícone da aba, gerado no build. Substitui o do Next.js que vinha por padrão.
- * Quando houver arquivo de logo, trocar por src/app/icon.png e apagar este.
+ * Ícone da aba. O guia manda usar "jl.ads" centralizado no bloco lima em
+ * avatar e favicon, e o texto sobre lima é grafite.
  */
 export const size = { width: 64, height: 64 };
 export const contentType = "image/png";
@@ -18,14 +18,14 @@ export default function Icone() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: MARCA.cores.marca,
-          color: "#fff",
-          fontSize: 30,
+          background: MARCA.cores.lima,
+          color: MARCA.sobreLima,
+          fontSize: 17,
           fontWeight: 700,
-          letterSpacing: -1,
+          letterSpacing: -0.5,
         }}
       >
-        {MARCA.iniciais}
+        {MARCA.nome}
       </div>
     ),
     size,

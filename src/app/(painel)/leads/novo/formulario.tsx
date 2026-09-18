@@ -182,13 +182,13 @@ export function FormularioCadastro({
         <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>
       )}
       {estado.aviso && (
-        <p className="rounded-lg bg-marca-suave px-3 py-2 text-sm text-marca">{estado.aviso}</p>
+        <p className="rounded-lg bg-marca-suave px-3 py-2 text-sm text-marca-texto">{estado.aviso}</p>
       )}
 
       <button
         type="submit"
         disabled={enviando}
-        className="rounded-xl bg-marca px-4 py-3 font-medium text-white disabled:opacity-60"
+        className="rounded-xl bg-marca px-4 py-3 font-medium text-sobre-marca disabled:opacity-60"
       >
         {enviando ? "Salvando..." : "Salvar lead"}
       </button>

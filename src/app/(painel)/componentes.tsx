@@ -12,7 +12,7 @@ export function Selo({
 }) {
   const tons = {
     neutro: "bg-fundo text-suave",
-    marca: "bg-marca-suave text-marca",
+    marca: "bg-marca-suave text-marca-texto",
     alerta: "bg-alerta-suave text-alerta",
     ok: "bg-ok-suave text-ok",
   };
@@ -104,7 +104,7 @@ export function CartaoLead({
             href={linkWhatsapp(lead.telefone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-xl bg-marca px-3 py-2.5 text-center text-sm font-medium text-white"
+            className="flex-1 rounded-xl bg-marca px-3 py-2.5 text-center text-sm font-medium text-sobre-marca"
           >
             Abrir conversa
           </a>

@@ -16,7 +16,7 @@ const vazio: EstadoAjustes = {};
 
 const campo =
   "rounded-xl border border-borda bg-fundo px-3 py-2.5 text-sm outline-none focus:border-marca";
-const botao = "rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60";
+const botao = "rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca disabled:opacity-60";
 
 function Aviso({ estado }: { estado: EstadoAjustes }) {
   if (estado.erro) {

@@ -39,7 +39,7 @@ export function FormularioLogin() {
       <button
         type="submit"
         disabled={enviando}
-        className="mt-1 rounded-xl bg-marca px-4 py-3 font-medium text-white disabled:opacity-60"
+        className="mt-1 rounded-xl bg-marca px-4 py-3 font-medium text-sobre-marca disabled:opacity-60"
       >
         {enviando ? "Entrando..." : "Entrar"}
       </button>

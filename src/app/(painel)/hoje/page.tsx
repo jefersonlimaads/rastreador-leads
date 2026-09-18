@@ -19,14 +19,14 @@ export default async function PaginaHoje({ searchParams }: PageProps<"/hoje">) {
         <h1 className="text-xl font-semibold tracking-tight">Hoje</h1>
         <Link
           href="/leads/novo"
-          className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-white"
+          className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
         >
           Cadastrar lead
         </Link>
       </div>
 
       {cliquesPendentes > 0 && (
-        <p className="mt-3 rounded-xl bg-marca-suave px-3 py-2 text-sm text-marca">
+        <p className="mt-3 rounded-xl bg-marca-suave px-3 py-2 text-sm text-marca-texto">
           {cliquesPendentes} {cliquesPendentes === 1 ? "clique aguardando" : "cliques aguardando"}{" "}
           mensagem nas últimas 24 horas.
         </p>

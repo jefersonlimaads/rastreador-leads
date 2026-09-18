@@ -110,7 +110,7 @@ export default async function PaginaConfirmar({
       )}
 
       <footer className="mt-10 text-center text-xs text-suave">
-        Rastreamento de leads · JL Ads
+        rastreamento de leads · jl<span className="text-marca-texto">.</span>ads
       </footer>
     </main>
   );

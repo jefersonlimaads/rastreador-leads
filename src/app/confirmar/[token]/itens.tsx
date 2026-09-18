@@ -12,7 +12,7 @@ import { ROTULO_STATUS } from "@/lib/regras";
 const vazio: EstadoConfirmacao = {};
 
 const cartao = "rounded-2xl border border-borda bg-superficie p-4";
-const botaoPrimario = "rounded-xl bg-marca px-3 py-2.5 text-sm font-medium text-white disabled:opacity-60";
+const botaoPrimario = "rounded-xl bg-marca px-3 py-2.5 text-sm font-medium text-sobre-marca disabled:opacity-60";
 const botaoSecundario = "rounded-xl border border-borda px-3 py-2.5 text-sm font-medium disabled:opacity-60";
 const campo = "w-full rounded-xl border border-borda bg-fundo px-3 py-2.5 text-base outline-none focus:border-marca";
 
@@ -117,7 +117,7 @@ export function ItemClique({
         <button
           type="button"
           onClick={() => setAbrirTelefone(true)}
-          className="mt-2 text-sm text-marca"
+          className="mt-2 text-sm text-marca-texto"
         >
           {nome ? "Corrigir nome ou telefone" : "Falou comigo e quero anotar quem é"}
         </button>
@@ -233,14 +233,14 @@ export function ItemLead({
               <button
                 type="submit"
                 disabled={enviando}
-                className={`${botaoSecundario} w-full ${etapa === etapaAtual ? "border-marca text-marca" : ""}`}
+                className={`${botaoSecundario} w-full ${etapa === etapaAtual ? "border-marca text-marca-texto" : ""}`}
               >
                 {ROTULO_STATUS[etapa]}
                 {etapa === etapaAtual ? " · atual" : ""}
               </button>
             </form>
           ))}
-          <button type="button" onClick={() => setEscolha("")} className="mt-1 text-sm text-marca">
+          <button type="button" onClick={() => setEscolha("")} className="mt-1 text-sm text-marca-texto">
             Voltar
           </button>
           <Resposta estado={estado} />

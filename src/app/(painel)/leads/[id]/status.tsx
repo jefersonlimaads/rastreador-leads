@@ -40,7 +40,7 @@ export function PainelStatus({
               disabled={bloqueado}
               onClick={() => setEscolhido(s)}
               className={`rounded-xl border px-3 py-2 text-sm ${
-                ativo ? "border-marca bg-marca-suave font-medium text-marca" : "border-borda"
+                ativo ? "border-marca bg-marca-suave font-medium text-marca-texto" : "border-borda"
               } ${bloqueado ? "opacity-40" : ""}`}
             >
               {ROTULO_STATUS[s]}
@@ -86,7 +86,7 @@ export function PainelStatus({
         <button
           type="submit"
           disabled={enviando}
-          className="mt-4 w-full rounded-xl bg-marca px-4 py-2.5 font-medium text-white disabled:opacity-60"
+          className="mt-4 w-full rounded-xl bg-marca px-4 py-2.5 font-medium text-sobre-marca disabled:opacity-60"
         >
           {enviando ? "Salvando..." : `Mudar para ${ROTULO_STATUS[escolhido]}`}
         </button>

@@ -28,7 +28,7 @@ export function Navegacao({ papel }: { papel: Papel }) {
               key={item.href}
               href={item.href}
               className={`flex-1 py-3 text-center text-sm ${
-                ativo ? "font-semibold text-marca" : "text-suave"
+                ativo ? "font-semibold text-marca-texto" : "text-suave"
               }`}
             >
               {item.rotulo}

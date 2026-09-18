@@ -26,7 +26,7 @@ export default async function PaginaLeads({ searchParams }: PageProps<"/leads">)
         <h1 className="text-xl font-semibold tracking-tight">Leads</h1>
         <Link
           href="/leads/novo"
-          className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-white"
+          className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
         >
           Cadastrar
         </Link>
@@ -60,7 +60,7 @@ export default async function PaginaLeads({ searchParams }: PageProps<"/leads">)
       {adId && (
         <p className="mt-3 text-sm text-suave">
           Filtrando pelo anúncio {adId}.{" "}
-          <Link href="/leads" className="text-marca">
+          <Link href="/leads" className="text-marca-texto">
             limpar
           </Link>
         </p>

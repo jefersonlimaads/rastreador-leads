@@ -38,7 +38,7 @@ export function LinkConfirmacao({
   return (
     <div className="mt-3 border-t border-borda pt-3">
       {!link ? (
-        <button type="button" onClick={pegar} disabled={buscando} className="text-sm text-marca">
+        <button type="button" onClick={pegar} disabled={buscando} className="text-sm text-marca-texto">
           {buscando ? "Gerando..." : `Link de confirmação do cliente${pendencias > 0 ? ` (${pendencias} pendentes)` : ""}`}
         </button>
       ) : (
@@ -60,7 +60,7 @@ export function LinkConfirmacao({
                 href={`https://wa.me/${numero}?text=${encodeURIComponent(texto)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="rounded-xl bg-marca px-3 py-2 text-sm font-medium text-white"
+                className="rounded-xl bg-marca px-3 py-2 text-sm font-medium text-sobre-marca"
               >
                 Mandar no WhatsApp
               </a>

@@ -1,25 +1,27 @@
 /**
- * Identidade visual da JL Ads, num lugar só.
+ * Identidade visual jl.ads, conforme o Guia de Identidade Visual & Verbal
+ * (versão 1.1, julho de 2026). As mesmas cores estão em globals.css, nas
+ * variáveis do :root — os dois arquivos precisam contar a mesma história.
  *
- * Trocar os valores daqui muda o ícone da aba e a imagem de prévia do link. As
- * cores do painel ficam em src/app/globals.css, nas variáveis do :root — os dois
- * arquivos precisam contar a mesma história.
- *
- * Quando houver arquivo de logo, apontar LOGO para ele e o ícone passa a usar a
- * imagem em vez das iniciais.
+ * Regras do guia que o código respeita:
+ * - O logotipo é sempre "jl.ads", minúsculo e junto. Nunca "JL Ads".
+ * - Só o ponto recebe cor. Em fundo escuro, lima; em fundo claro, oliva.
+ * - Lima é destaque, nunca texto sobre off-white: reprova em contraste.
+ * - Em avatar e favicon, "jl.ads" centralizado no bloco lima.
  */
 export const MARCA = {
-  nome: "JL Ads",
-  iniciais: "JL",
-  /** Caminho da logo dentro de /public, quando existir. */
-  logo: null as string | null,
+  nome: "jl.ads",
+  assinatura: "jeferson lima.",
 
   cores: {
-    /** Cor de ação: botões, links, destaque de seleção. */
-    marca: "#1f6feb",
-    /** Fundo das telas escuras, como a imagem de prévia. */
-    fundoEscuro: "#0d0f12",
-    textoClaro: "#f2f4f7",
-    textoSuave: "#98a2b0",
+    grafite: "#141414",
+    offWhite: "#F6F4EF",
+    lima: "#D8F34F",
+    /** Lima escurecido, para o ponto do logo sobre fundo claro. */
+    oliva: "#B7CE2E",
+    cinzaPedra: "#8A8A85",
   },
+
+  /** Texto que vai por cima do lima. Contraste 12,6:1, aprovado AAA. */
+  sobreLima: "#141414",
 } as const;

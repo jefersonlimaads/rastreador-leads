@@ -62,7 +62,7 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
               </div>
 
               <details className="mt-3">
-                <summary className="cursor-pointer text-sm text-marca">
+                <summary className="cursor-pointer text-sm text-marca-texto">
                   Script para a landing page
                 </summary>
                 <pre className="mt-2 overflow-x-auto rounded-xl bg-fundo p-3 text-xs">

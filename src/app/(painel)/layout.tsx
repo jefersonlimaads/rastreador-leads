@@ -23,8 +23,9 @@ export default async function LayoutPainel({ children }: LayoutProps<"/">) {
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 border-b border-borda bg-superficie/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3">
-          <Link href="/hoje" className="font-semibold tracking-tight">
-            JL Ads
+          {/* O ponto é o único elemento colorido do logo, como manda o guia. */}
+          <Link href="/hoje" className="font-titulo text-lg font-bold tracking-tight">
+            jl<span className="text-marca-texto">.</span>ads
           </Link>
           <div className="flex items-center gap-3 text-sm text-suave">
             <SeletorCliente clientes={clientes} atual={emFoco} />

@@ -1,32 +1,52 @@
 @import "tailwindcss";
 
+/*
+ * Cores da marca jl.ads. Proporção de uso do guia: off-white domina, grafite
+ * estrutura, cinza pedra apoia, e lima aparece pouco — só no que importa.
+ * Lima nunca vira texto sobre off-white: reprova em contraste.
+ */
 :root {
-  --fundo: #f5f6f8;
-  --superficie: #ffffff;
-  --texto: #14161a;
-  --texto-suave: #5c6672;
-  --borda: #e3e6ea;
-  --marca: #1f6feb;
-  --marca-suave: #e8f0fe;
-  --alerta: #c2410c;
-  --alerta-suave: #fff1e7;
-  --ok: #15803d;
-  --ok-suave: #e7f6ec;
+  --grafite: #141414;
+  --off-white: #f6f4ef;
+  --lima: #d8f34f;
+  --oliva: #b7ce2e;
+  --cinza-pedra: #8a8a85;
+
+  --fundo: #efede6;
+  --superficie: var(--off-white);
+  --texto: var(--grafite);
+  --texto-suave: #6b6b66;
+  --borda: #dedbd2;
+
+  /* Ação: bloco lima com texto grafite, que é o par aprovado pelo guia. */
+  --marca: var(--lima);
+  --sobre-marca: var(--grafite);
+  --marca-suave: #eef7c9;
+  --marca-texto: #5f6b12;
+
+  --alerta: #8f3a12;
+  --alerta-suave: #f7e6dc;
+  --ok: #2c5c25;
+  --ok-suave: #e6efdc;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --fundo: #0d0f12;
-    --superficie: #15181d;
-    --texto: #f2f4f7;
-    --texto-suave: #98a2b0;
-    --borda: #262b33;
-    --marca: #539bff;
-    --marca-suave: #16243a;
-    --alerta: #fb923c;
-    --alerta-suave: #2a1a10;
-    --ok: #4ade80;
-    --ok-suave: #10261a;
+    --fundo: var(--grafite);
+    --superficie: #1c1c1c;
+    --texto: var(--off-white);
+    --texto-suave: var(--cinza-pedra);
+    --borda: #2c2c2a;
+
+    --marca: var(--lima);
+    --sobre-marca: var(--grafite);
+    --marca-suave: #26301a;
+    --marca-texto: var(--lima);
+
+    --alerta: #e8a06a;
+    --alerta-suave: #2b1c10;
+    --ok: #a8d98f;
+    --ok-suave: #16240f;
   }
 }
 
@@ -37,19 +57,29 @@
   --color-suave: var(--texto-suave);
   --color-borda: var(--borda);
   --color-marca: var(--marca);
+  --color-sobre-marca: var(--sobre-marca);
   --color-marca-suave: var(--marca-suave);
+  --color-marca-texto: var(--marca-texto);
   --color-alerta: var(--alerta);
   --color-alerta-suave: var(--alerta-suave);
   --color-ok: var(--ok);
   --color-ok-suave: var(--ok-suave);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-texto);
+  --font-titulo: var(--font-titulo);
 }
 
 body {
   background: var(--fundo);
   color: var(--texto);
-  /* Evita zoom automático do iOS ao focar um campo. */
   -webkit-text-size-adjust: 100%;
+}
+
+/* Space Grotesk nos títulos, com o espaçamento negativo que o guia pede. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-titulo), sans-serif;
+  letter-spacing: -0.02em;
 }
 
 /* Campos com 16px de fonte: abaixo disso o Safari do iPhone dá zoom sozinho. */

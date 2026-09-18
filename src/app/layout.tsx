@@ -1,14 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Geist } from "next/font/google";
+import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+// Fontes do guia: Space Grotesk nos títulos, Inter no corpo.
+const titulo = Space_Grotesk({ variable: "--font-titulo", subsets: ["latin"] });
+const texto = Inter({ variable: "--font-texto", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Rastreador de leads — JL Ads",
+  title: "Rastreador de leads — jl.ads",
   description: "Painel de leads, atribuição por anúncio e custo real por cliente.",
 };
 
@@ -22,12 +21,12 @@ export const preferredRegion = "gru1";
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#1f6feb",
+  themeColor: "#141414",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="pt-BR" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="pt-BR" className={`${titulo.variable} ${texto.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

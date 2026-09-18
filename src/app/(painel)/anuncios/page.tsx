@@ -54,7 +54,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
             key={d}
             href={`/anuncios?dias=${d}&nivel=${nivel}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
-              dias === d ? "border-marca bg-marca-suave text-marca" : "border-borda"
+              dias === d ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
           >
             {d} dias
@@ -66,7 +66,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
             key={n.valor}
             href={`/anuncios?dias=${dias}&nivel=${n.valor}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
-              nivel === n.valor ? "border-marca bg-marca-suave text-marca" : "border-borda"
+              nivel === n.valor ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
           >
             {n.rotulo}

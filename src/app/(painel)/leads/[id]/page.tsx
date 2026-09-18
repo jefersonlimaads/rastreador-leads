@@ -38,7 +38,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
             href={linkWhatsapp(lead.telefone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="shrink-0 rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-white"
+            className="shrink-0 rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
           >
             Conversa
           </a>
