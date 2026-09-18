@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Papel } from "@prisma/client";
 
-const ITENS = [
+const ITENS: { href: string; rotulo: string; sóGestor?: boolean; sóAdmin?: boolean }[] = [
+  { href: "/carteira", rotulo: "Carteira", sóAdmin: true },
   { href: "/hoje", rotulo: "Hoje" },
   { href: "/pipeline", rotulo: "Pipeline" },
   { href: "/leads", rotulo: "Leads" },
@@ -18,7 +19,9 @@ export function Navegacao({ papel }: { papel: Papel }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-10 border-t border-borda bg-superficie pb-[env(safe-area-inset-bottom)]">
       <div className="mx-auto flex w-full max-w-4xl">
-        {ITENS.filter((i) => !i.sóGestor || papel !== "ATENDENTE").map((item) => {
+        {ITENS.filter(
+          (i) => (!i.sóGestor || papel !== "ATENDENTE") && (!i.sóAdmin || papel === "ADMIN"),
+        ).map((item) => {
           const ativo = caminho === item.href || caminho.startsWith(item.href + "/");
           return (
             <Link

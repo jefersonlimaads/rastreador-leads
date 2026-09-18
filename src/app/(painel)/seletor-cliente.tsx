@@ -17,7 +17,7 @@ export function SeletorCliente({
 }) {
   const formulario = useRef<HTMLFormElement>(null);
 
-  if (clientes.length < 2) return null;
+  if (clientes.length === 0) return null;
 
   return (
     <form action={acaoTrocarCliente} ref={formulario}>
