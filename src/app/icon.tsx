@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Ícone da aba, gerado no build. Substitui o do Next.js que vinha por padrão.
@@ -17,14 +18,14 @@ export default function Icone() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#1f6feb",
+          background: MARCA.cores.marca,
           color: "#fff",
           fontSize: 30,
           fontWeight: 700,
           letterSpacing: -1,
         }}
       >
-        JL
+        {MARCA.iniciais}
       </div>
     ),
     size,

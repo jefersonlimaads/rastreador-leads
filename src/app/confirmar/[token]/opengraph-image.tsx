@@ -1,11 +1,12 @@
 import { ImageResponse } from "next/og";
 import { clientePorToken, totalPendencias } from "@/lib/confirmacao";
+import { MARCA } from "@/lib/marca";
 
 /**
  * Imagem que aparece na prévia do link no WhatsApp. Sem isso, o cliente recebe
  * um link cru e a chance de ele abrir cai.
  */
-export const alt = "Leads para confirmar — JL Ads";
+export const alt = `Leads para confirmar — ${MARCA.nome}`;
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -30,8 +31,8 @@ export default async function Imagem({ params }: { params: Promise<{ token: stri
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#0d0f12",
-          color: "#f2f4f7",
+          background: MARCA.cores.fundoEscuro,
+          color: MARCA.cores.textoClaro,
           padding: 72,
           fontFamily: "sans-serif",
         }}
@@ -42,7 +43,7 @@ export default async function Imagem({ params }: { params: Promise<{ token: stri
               width: 76,
               height: 76,
               borderRadius: 20,
-              background: "#1f6feb",
+              background: MARCA.cores.marca,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -50,14 +51,14 @@ export default async function Imagem({ params }: { params: Promise<{ token: stri
               fontWeight: 700,
             }}
           >
-            JL
+            {MARCA.iniciais}
           </div>
-          <div style={{ fontSize: 34, color: "#98a2b0" }}>JL Ads</div>
+          <div style={{ fontSize: 34, color: MARCA.cores.textoSuave }}>{MARCA.nome}</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ fontSize: 68, fontWeight: 700, lineHeight: 1.1 }}>{titulo}</div>
-          <div style={{ fontSize: 34, color: "#98a2b0" }}>{subtitulo}</div>
+          <div style={{ fontSize: 34, color: MARCA.cores.textoSuave }}>{subtitulo}</div>
         </div>
       </div>
     ),
