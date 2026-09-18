@@ -66,10 +66,23 @@
     return "fb.1." + Date.now() + "." + fbclid;
   }
 
-  // Mesmo aparelho, visita nova: reaproveita o código em vez de gerar outro.
+  /*
+   * Quando gerar código novo e quando reaproveitar o do cookie.
+   *
+   * Chegou com marca de anúncio na URL (fbclid, ad_id, utm) = clique novo,
+   * possivelmente de outro anúncio: precisa de código próprio, senão a pessoa
+   * que volta pelo anúncio B seria atribuída ao anúncio A da semana passada.
+   *
+   * Chegou sem marca nenhuma = a mesma pessoa voltando direto ao site: aí sim
+   * reaproveita o código, que é o caso para o qual o cookie existe.
+   */
+  var veioDeAnuncio = Boolean(
+    param("fbclid") || param("ad_id") || param("utm_ad_id") || param("utm_source")
+  );
+
   var codigo = lerCookie(COOKIE);
   var codigoNovo = false;
-  if (!codigo || !/^[A-Z0-9]{4,6}$/.test(codigo)) {
+  if (veioDeAnuncio || !codigo || !/^[A-Z0-9]{4,6}$/.test(codigo)) {
     codigo = gerarCodigo();
     codigoNovo = true;
   }
