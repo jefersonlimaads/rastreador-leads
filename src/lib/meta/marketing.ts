@@ -9,7 +9,7 @@ import { prisma } from "../prisma";
  * anterior deixa o número errado no painel.
  */
 
-const VERSAO_API = "v21.0";
+const VERSAO_API = process.env.META_API_VERSION ?? "v26.0";
 const DIAS_REBUSCA = 7;
 
 type LinhaInsights = {

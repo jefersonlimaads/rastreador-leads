@@ -3,8 +3,14 @@ import { prisma } from "../prisma";
 import { hashSha256 } from "../telefone";
 import type { TipoEnvioCapi } from "@prisma/client";
 
-const VERSAO_API = "v21.0";
-/** O Meta recusa evento com mais de 7 dias. */
+/**
+ * Versão da Graph API. A atual é a v26.0 (julho de 2026), e cada versão fica de
+ * pé por cerca de dois anos. Dá para trocar por variável de ambiente sem mexer
+ * no código quando a próxima sair.
+ */
+const VERSAO_API = process.env.META_API_VERSION ?? "v26.0";
+
+/** O Meta recusa a requisição inteira se o evento tiver mais de 7 dias. */
 const JANELA_DIAS = 7;
 
 type Params = { leadId: string; tipo: TipoEnvioCapi; valor?: number };
@@ -33,7 +39,25 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
     (tipo === "LEAD" ? lead.mensagemEm.getTime() : (lead.fechadoEm ?? new Date()).getTime()) / 1000,
   );
   const limite = agora - JANELA_DIAS * 24 * 60 * 60;
-  const eventTime = quando < limite ? agora : quando;
+  // Fora da janela de 7 dias o Meta recusa a requisição inteira. Mandamos com a
+  // hora atual e registramos o ajuste, em vez de perder o evento em silêncio.
+  const forcado = quando < limite;
+  const eventTime = forcado ? agora : quando;
+
+  /*
+   * event_source_url é obrigatório para evento de site e precisa bater com o
+   * domínio verificado. O lead sem clique ligado não tem URL própria, então
+   * usamos a landing page onde os cliques deste cliente acontecem.
+   */
+  let origem = lead.clique?.url ?? null;
+  if (!origem) {
+    const ultimo = await prisma.clique.findFirst({
+      where: { clienteId: lead.clienteId, url: { not: null } },
+      orderBy: { criadoEm: "desc" },
+      select: { url: true },
+    });
+    origem = ultimo?.url ?? null;
+  }
 
   const payload = {
     data: [
@@ -42,7 +66,7 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
         event_time: eventTime,
         event_id: eventId,
         action_source: "website",
-        event_source_url: lead.clique?.url ?? undefined,
+        event_source_url: origem ?? undefined,
         user_data: {
           ph: [await hashSha256(lead.telefone)],
           fbc: lead.clique?.fbc ?? undefined,
@@ -82,7 +106,18 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
     return envio;
   }
 
-  return enviarAoMeta(envio.id, pixelId, capiToken, payload);
+  const resultado = await enviarAoMeta(envio.id, pixelId, capiToken, payload);
+
+  if (forcado) {
+    await prisma.envioCapi.update({
+      where: { id: envio.id },
+      data: {
+        resposta: `${resultado.resposta ?? ""} | horário do evento ajustado: o original passava da janela de 7 dias do Meta`.slice(0, 2000),
+      },
+    });
+  }
+
+  return resultado;
 }
 
 async function enviarAoMeta(
