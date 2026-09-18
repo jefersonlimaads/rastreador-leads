@@ -7,6 +7,17 @@ import { ItemClique, ItemLead } from "./itens";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const cliente = await clientePorToken(token);
+  return {
+    title: cliente ? `Leads de ${cliente.nome} — JL Ads` : "JL Ads",
+    description: "Confirme quem falou com você e no que deu. Leva menos de um minuto.",
+    // A página tem dados de lead: não deve aparecer em busca.
+    robots: { index: false, follow: false },
+  };
+}
+
 /**
  * Página que o cliente abre pelo link, sem senha. Duas perguntas, em lote:
  * quem falou com você, e no que deu. Pensada para ser respondida em pé, no
