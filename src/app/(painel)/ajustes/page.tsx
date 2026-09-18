@@ -5,6 +5,9 @@ import { Selo } from "../componentes";
 import { ROTULO_FUNIL } from "@/lib/regras";
 import { FormulariosAjustes } from "./formularios";
 
+// "Puxar dados do Meta agora" busca 90 dias e pode passar de um minuto.
+export const maxDuration = 300;
+
 export default async function PaginaAjustes({ searchParams }: PageProps<"/ajustes">) {
   const { cliente: pedido } = await searchParams;
   const sessao = await exigirSessao();

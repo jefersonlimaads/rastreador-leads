@@ -4,8 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
-import { normalizarTelefone } from "@/lib/telefone";
 import { cifrar } from "@/lib/cripto";
+import { sincronizarGastos } from "@/lib/meta/marketing";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
 
@@ -149,6 +149,12 @@ export async function acaoSalvarCredenciais(
     return { erro: "Cliente inválido." };
   }
 
+  // Sem a chave de criptografia o token não pode ser guardado: avisa em vez
+  // de derrubar a tela.
+  if ((dados.data.capiToken || dados.data.marketingToken) && !process.env.CHAVE_CRIPTOGRAFIA) {
+    return { erro: "Falta configurar CHAVE_CRIPTOGRAFIA na Vercel. Nada foi salvo." };
+  }
+
   // Campo em branco mantém o que já estava: o formulário nunca mostra o token.
   await prisma.cliente.update({
     where: { id: dados.data.clienteId },
@@ -163,4 +169,30 @@ export async function acaoSalvarCredenciais(
 
   revalidatePath("/ajustes");
   return { ok: "Credenciais salvas." };
+}
+
+/**
+ * Puxa o gasto do Meta na hora, sem esperar a rotina diária — e com 90 dias,
+ * para o relatório já ter histórico logo depois de cadastrar o token.
+ */
+export async function acaoSincronizarMeta(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirAdmin();
+  const clienteId = String(formData.get("clienteId") ?? "");
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
+
+  const r = await sincronizarGastos(clienteId, 90);
+  if ("erro" in r) {
+    return { erro: r.detalhe ? `${r.erro}: ${r.detalhe.slice(0, 200)}` : String(r.erro) };
+  }
+  revalidatePath("/anuncios");
+  revalidatePath("/relatorios");
+  return {
+    ok:
+      r.gravados === 0
+        ? "Conectou no Meta, mas não há gasto nos últimos 90 dias nesta conta."
+        : `Pronto: ${r.gravados} registros de anúncio por dia, de ${r.de.split("-").reverse().join("/")} a ${r.ate.split("-").reverse().join("/")}.`,
+  };
 }

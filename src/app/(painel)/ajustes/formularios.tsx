@@ -1,10 +1,12 @@
 "use client";
 
 import { Formulario, useLimparAoConcluir } from "@/app/formulario";
+import Link from "next/link";
 import { useActionState } from "react";
 import {
   acaoCriarUsuario,
   acaoSalvarCredenciais,
+  acaoSincronizarMeta,
   acaoTrocarFunil,
   acaoTrocarSenha,
   type EstadoAjustes,
@@ -43,6 +45,7 @@ export function FormulariosAjustes({
   const [estadoCred, salvarCred, salvandoCred] = useActionState(acaoSalvarCredenciais, vazio);
   const [estadoSenha, trocarSenha, trocandoSenha] = useActionState(acaoTrocarSenha, vazio);
   const [estadoFunil, trocarFunil, trocandoFunil] = useActionState(acaoTrocarFunil, vazio);
+  const [estadoSync, sincronizar, sincronizando] = useActionState(acaoSincronizarMeta, vazio);
   // Senha e token não podem ficar na tela depois de salvos.
   const chaveSenha = useLimparAoConcluir(estadoSenha);
   const chaveUsuario = useLimparAoConcluir(estadoUsuario);
@@ -53,9 +56,9 @@ export function FormulariosAjustes({
       {papel === "ADMIN" && (
         <p className="mt-6 rounded-2xl border border-dashed border-borda px-4 py-4 text-sm text-suave">
           Cliente novo se cadastra em{" "}
-          <a href="/negocio/novo" className="text-marca-texto underline">
+          <Link href="/negocio/novo" className="text-marca-texto underline">
             Negócio → Novo cliente
-          </a>
+          </Link>
           , com fee, vencimento e contrato.
         </p>
       )}
@@ -91,6 +94,24 @@ export function FormulariosAjustes({
             <Aviso estado={estadoCred} />
             <button type="submit" disabled={salvandoCred} className={botao}>
               {salvandoCred ? "Salvando..." : "Salvar credenciais"}
+            </button>
+          </Formulario>
+          <Formulario
+            acao={sincronizar}
+            className="mt-3 flex flex-col gap-2 rounded-2xl border border-borda bg-superficie p-4"
+          >
+            <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
+            <p className="text-sm text-suave">
+              O gasto é atualizado sozinho todo dia de manhã. Depois de cadastrar o token, puxe
+              os últimos 90 dias agora para já ter histórico no relatório.
+            </p>
+            <Aviso estado={estadoSync} />
+            <button
+              type="submit"
+              disabled={sincronizando}
+              className="rounded-xl border border-borda px-4 py-2.5 text-sm disabled:opacity-60"
+            >
+              {sincronizando ? "Buscando no Meta... pode levar um minuto" : "Puxar dados do Meta agora"}
             </button>
           </Formulario>
         </section>
