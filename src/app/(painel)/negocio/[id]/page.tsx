@@ -13,10 +13,10 @@ export default async function PaginaClienteComercial({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const { id } = await params;
 
-  const cliente = await detalheComercial(id);
+  const cliente = await detalheComercial(id, sessao.agenciaId);
   if (!cliente) notFound();
 
   const hoje = new Date();

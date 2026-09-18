@@ -120,8 +120,28 @@ enum TipoEnvioCapi {
   PURCHASE
 }
 
+/*
+ * Agência: o inquilino do SaaS. Tudo pertence a uma — clientes, usuários,
+ * tarefas — e nenhuma consulta do painel atravessa essa fronteira. A jl.ads é a
+ * primeira agência; os dados que existiam antes da camada nasceram nela.
+ */
+model Agencia {
+  id       String   @id @default(cuid())
+  nome     String
+  slug     String   @unique
+  ativa    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  clientes Cliente[]
+  usuarios Usuario[]
+  tarefas  Tarefa[]
+}
+
 model Cliente {
   id              String  @id @default(cuid())
+  // O default só cobre a janela de deploy: código antigo ainda no ar criando
+  // cliente sem agência. O código novo sempre informa, e o default sai depois.
+  agenciaId       String  @default("agencia-jlads")
   nome            String
   contaAnunciosId String?
   fuso            String    @default("America/Sao_Paulo")
@@ -174,6 +194,10 @@ model Cliente {
   tarefas    Tarefa[]
   propostas  Proposta[]
   interacoes Interacao[]
+
+  agencia Agencia @relation(fields: [agenciaId], references: [id])
+
+  @@index([agenciaId, ciclo])
 }
 
 /*
@@ -203,6 +227,7 @@ model Interacao {
  */
 model Tarefa {
   id        String       @id @default(cuid())
+  agenciaId String       @default("agencia-jlads") // mesmo motivo do Cliente
   clienteId String?
   titulo    String
   descricao String?
@@ -221,12 +246,13 @@ model Tarefa {
   chave      String?
 
   criadoPorId String?
+  agencia     Agencia  @relation(fields: [agenciaId], references: [id])
   cliente     Cliente? @relation(fields: [clienteId], references: [id])
   criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
 
-  @@index([status, prazo])
+  @@index([agenciaId, status, prazo])
   @@index([clienteId, status])
-  @@index([status, inicio])
+  @@index([agenciaId, status, inicio])
 }
 
 /*
@@ -303,7 +329,11 @@ model NumeroWhatsapp {
 
 model Usuario {
   id        String  @id @default(cuid())
-  clienteId String? // nulo = administrador da JL Ads, vê todos os clientes
+  agenciaId String  @default("agencia-jlads") // mesmo motivo do Cliente
+  clienteId String? // nulo = equipe da agência, vê todos os clientes dela
+  // Dono da plataforma: cria agências. Não tem nada a ver com o papel dentro
+  // de uma agência, e não dá acesso aos dados de outras agências pelo painel.
+  plataforma Boolean @default(false)
   nome      String
   email     String  @unique
   senhaHash String
@@ -312,6 +342,7 @@ model Usuario {
 
   criadoEm DateTime @default(now())
 
+  agencia          Agencia  @relation(fields: [agenciaId], references: [id])
   cliente          Cliente? @relation(fields: [clienteId], references: [id])
   leadsResponsavel Lead[]   @relation("responsavel")
   eventos          Evento[]

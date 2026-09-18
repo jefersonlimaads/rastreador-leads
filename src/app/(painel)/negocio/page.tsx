@@ -15,9 +15,12 @@ import { BotaoGerarFaturas, BotaoPagar } from "./botoes";
  * quem atrasou, e quem ainda é prospect.
  */
 export default async function PaginaNegocio() {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
-  const [resumo, clientes] = await Promise.all([resumoFinanceiro(), carteiraComercial()]);
+  const [resumo, clientes] = await Promise.all([
+    resumoFinanceiro(sessao.agenciaId),
+    carteiraComercial(sessao.agenciaId),
+  ]);
   const emCarteira = clientes.filter(
     (c) => !(CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo) && c.ciclo !== "PERDIDO",
   );

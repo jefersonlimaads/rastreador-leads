@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { inicioDoDia, FUSO_PADRAO } from "./datas";
+import { FUSO_PADRAO, hojeComoDataPura } from "./datas";
 import { CICLOS_EM_PROSPECCAO } from "./regras";
 
 /**
@@ -34,9 +34,10 @@ function vencimentoDe(competencia: Date, dia: number): Date {
  * Cria a fatura do mês para cada cliente ativo com fee. Roda na rotina diária:
  * é idempotente, porque competência é única por cliente.
  */
-export async function gerarFaturasDoMes(competencia = competenciaDe()) {
+/** Sem agência: todas (rotina diária). Com agência: só as dela (botão no painel). */
+export async function gerarFaturasDoMes(competencia = competenciaDe(), agenciaId?: string) {
   const clientes = await prisma.cliente.findMany({
-    where: { ciclo: "ATIVO", feeMensal: { not: null } },
+    where: { ciclo: "ATIVO", feeMensal: { not: null }, ...(agenciaId ? { agenciaId } : {}) },
     select: { id: true, feeMensal: true, diaVencimento: true, linkPagamento: true },
   });
 
@@ -73,21 +74,23 @@ export type ResumoFinanceiro = {
   emProspeccao: number;
 };
 
-export async function resumoFinanceiro(fuso = FUSO_PADRAO): Promise<ResumoFinanceiro> {
+export async function resumoFinanceiro(agenciaId: string, fuso = FUSO_PADRAO): Promise<ResumoFinanceiro> {
   const competencia = competenciaDe();
-  const hoje = inicioDoDia(new Date(), fuso);
+  // Vencimento é data pura: comparar com o instante das 00h de São Paulo
+  // marcava como atrasada a fatura que vence hoje.
+  const hoje = hojeComoDataPura(fuso);
 
   const [clientes, doMes, abertas] = await Promise.all([
     prisma.cliente.findMany({
-      where: { ativo: true },
+      where: { agenciaId, ativo: true },
       select: { ciclo: true, feeMensal: true },
     }),
     prisma.fatura.findMany({
-      where: { competencia },
+      where: { competencia, cliente: { agenciaId } },
       select: { valor: true, status: true },
     }),
     prisma.fatura.findMany({
-      where: { status: "ABERTA" },
+      where: { status: "ABERTA", cliente: { agenciaId } },
       select: { valor: true, vencimento: true },
     }),
   ]);
@@ -114,12 +117,14 @@ export async function resumoFinanceiro(fuso = FUSO_PADRAO): Promise<ResumoFinanc
 }
 
 /** Lista de clientes com a situação financeira de cada um. */
-export async function carteiraComercial(fuso = FUSO_PADRAO) {
-  const hoje = inicioDoDia(new Date(), fuso);
+export async function carteiraComercial(agenciaId: string, fuso = FUSO_PADRAO) {
+  // Vencimento é data pura: comparar com o instante das 00h de São Paulo
+  // marcava como atrasada a fatura que vence hoje.
+  const hoje = hojeComoDataPura(fuso);
   const competencia = competenciaDe();
 
   const clientes = await prisma.cliente.findMany({
-    where: { ativo: true },
+    where: { agenciaId, ativo: true },
     orderBy: [{ ciclo: "asc" }, { nome: "asc" }],
     include: {
       faturas: { orderBy: { competencia: "desc" }, take: 3 },
@@ -156,9 +161,9 @@ export async function carteiraComercial(fuso = FUSO_PADRAO) {
   });
 }
 
-export async function detalheComercial(clienteId: string) {
-  return prisma.cliente.findUnique({
-    where: { id: clienteId },
+export async function detalheComercial(clienteId: string, agenciaId: string) {
+  return prisma.cliente.findFirst({
+    where: { id: clienteId, agenciaId },
     include: {
       faturas: { orderBy: { competencia: "desc" }, take: 24 },
       numeros: true,

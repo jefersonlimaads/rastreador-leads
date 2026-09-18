@@ -15,11 +15,11 @@ import { Selo } from "../../componentes";
 import { FichaProspect, RegistrarContato, SaidaDoFunil } from "./formularios";
 
 export default async function PaginaProspect({ params }: { params: Promise<{ id: string }> }) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const { id } = await params;
 
-  const p = await prisma.cliente.findUnique({
-    where: { id },
+  const p = await prisma.cliente.findFirst({
+    where: { id, agenciaId: sessao.agenciaId },
     include: {
       interacoes: { orderBy: { criadoEm: "desc" }, take: 50 },
       propostas: { orderBy: { criadoEm: "desc" } },

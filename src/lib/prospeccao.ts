@@ -75,9 +75,9 @@ export type ProspectLista = {
   propostaEmAberto: boolean;
 };
 
-export async function listarProspects() {
+export async function listarProspects(agenciaId: string) {
   const prospects = await prisma.cliente.findMany({
-    where: { ativo: true, ciclo: { in: [...CICLOS_EM_PROSPECCAO] } },
+    where: { agenciaId, ativo: true, ciclo: { in: [...CICLOS_EM_PROSPECCAO] } },
     orderBy: [{ proximoContato: { sort: "asc", nulls: "last" } }, { criadoEm: "desc" }],
     include: {
       interacoes: { orderBy: { criadoEm: "desc" }, take: 1 },
@@ -109,7 +109,7 @@ export async function listarProspects() {
   return {
     lista,
     paraHoje: lista.filter((p) => p.proximoContato && p.proximoContato <= hoje),
-    perdidos: await prisma.cliente.count({ where: { ativo: true, ciclo: "PERDIDO" } }),
+    perdidos: await prisma.cliente.count({ where: { agenciaId, ativo: true, ciclo: "PERDIDO" } }),
   };
 }
 

@@ -32,9 +32,9 @@ export type LinhaCliente = {
   gastoSincronizadoEm: Date | null;
 };
 
-export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
+export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaCliente[]> {
   const clientes = await prisma.cliente.findMany({
-    where: { ativo: true },
+    where: { agenciaId, ativo: true, ciclo: { in: ["ATIVO", "PAUSADO"] } },
     orderBy: { nome: "asc" },
     include: { numeros: { where: { ativo: true }, take: 1 } },
   });

@@ -16,12 +16,12 @@ export default async function PaginaProspeccao({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const { ver } = await searchParams;
 
-  if (ver === "perdidos") return <Perdidos />;
+  if (ver === "perdidos") return <Perdidos agenciaId={sessao.agenciaId} />;
 
-  const { lista, paraHoje, perdidos } = await listarProspects();
+  const { lista, paraHoje, perdidos } = await listarProspects(sessao.agenciaId);
   const hoje = hojeComoDataPura();
 
   return (
@@ -125,9 +125,9 @@ export default async function PaginaProspeccao({
 }
 
 /** Perdidos, com o motivo: é daqui que sai o ajuste de oferta e de abordagem. */
-async function Perdidos() {
+async function Perdidos({ agenciaId }: { agenciaId: string }) {
   const perdidos = await prisma.cliente.findMany({
-    where: { ativo: true, ciclo: "PERDIDO" },
+    where: { agenciaId, ativo: true, ciclo: "PERDIDO" },
     orderBy: { criadoEm: "desc" },
     select: { id: true, nome: true, nicho: true, motivoPerda: true },
   });

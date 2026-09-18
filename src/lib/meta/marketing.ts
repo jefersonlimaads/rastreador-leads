@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "../prisma";
+import { decifrar } from "../cripto";
 
 /**
  * Entrada de gasto pela API de Marketing do Meta.
@@ -32,7 +33,8 @@ function dataISO(d: Date) {
 export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) {
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
   if (!cliente) return { erro: "Cliente não encontrado" };
-  if (!cliente.contaAnunciosId || !cliente.marketingToken) {
+  const token = decifrar(cliente.marketingToken);
+  if (!cliente.contaAnunciosId || !token) {
     return { erro: "Cliente sem conta de anúncios ou token da API de Marketing" };
   }
 
@@ -46,7 +48,7 @@ export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) 
     time_increment: "1",
     time_range: JSON.stringify({ since: dataISO(de), until: dataISO(ate) }),
     limit: "500",
-    access_token: cliente.marketingToken,
+    access_token: token,
   });
 
   const conta = cliente.contaAnunciosId.startsWith("act_")

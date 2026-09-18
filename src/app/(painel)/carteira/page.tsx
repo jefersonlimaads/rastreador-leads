@@ -12,11 +12,11 @@ import { LinkConfirmacao } from "./link-confirmacao";
  * cliente por vez.
  */
 export default async function PaginaCarteira({ searchParams }: PageProps<"/carteira">) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const filtros = await searchParams;
   const dias = Number(filtros.dias ?? 7) || 7;
 
-  const linhas = await visaoGeral(dias);
+  const linhas = await visaoGeral(sessao.agenciaId, dias);
 
   const totais = linhas.reduce(
     (acc, l) => ({

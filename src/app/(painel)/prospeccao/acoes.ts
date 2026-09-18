@@ -4,13 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin } from "@/lib/auth";
+import { exigirAdmin, clienteDaAgencia, type Sessao } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { excluirProspect, marcarPerdido, reativarProspect, registrarInteracao } from "@/lib/prospeccao";
 import { aoMudarEtapa } from "@/lib/automacoes";
 import type { CicloCliente, TipoInteracao } from "@prisma/client";
 
 export type EstadoProspeccao = { erro?: string; ok?: string };
+
+/** Toda ação daqui recebe um id de prospect: ele tem que ser desta agência. */
+async function prospectDaAgencia(formData: FormData, sessao: Sessao) {
+  const id = String(formData.get("clienteId") ?? "");
+  return (await clienteDaAgencia(id, sessao.agenciaId)) ? id : null;
+}
 
 function revalidar(id?: string) {
   revalidatePath("/prospeccao");
@@ -27,7 +33,7 @@ export async function acaoNovoProspect(
   _estado: EstadoProspeccao,
   formData: FormData,
 ): Promise<EstadoProspeccao> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const nome = String(formData.get("nome") ?? "").trim();
   if (nome.length < 2) return { erro: "Escreva o nome do prospect." };
@@ -35,6 +41,7 @@ export async function acaoNovoProspect(
   const telefone = String(formData.get("contatoTelefone") ?? "").trim();
   const criado = await prisma.cliente.create({
     data: {
+      agenciaId: sessao.agenciaId,
       nome,
       ciclo: "PROSPECCAO",
       nicho: String(formData.get("nicho") ?? "").trim() || null,
@@ -68,10 +75,11 @@ export async function acaoSalvarProspect(
   _estado: EstadoProspeccao,
   formData: FormData,
 ): Promise<EstadoProspeccao> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const dados = Dados.safeParse(Object.fromEntries(formData));
   if (!dados.success) return { erro: "Confira os campos." };
   const d = dados.data;
+  if (!(await prospectDaAgencia(formData, sessao))) return { erro: "Prospect não encontrado." };
 
   await prisma.cliente.update({
     where: { id: d.clienteId },
@@ -96,9 +104,10 @@ export async function acaoRegistrarInteracao(
   _estado: EstadoProspeccao,
   formData: FormData,
 ): Promise<EstadoProspeccao> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
-  const clienteId = String(formData.get("clienteId") ?? "");
+  const clienteId = await prospectDaAgencia(formData, sessao);
+  if (!clienteId) return { erro: "Prospect não encontrado." };
   const descricao = String(formData.get("descricao") ?? "").trim();
   if (descricao.length < 3) return { erro: "Anote o que foi dito, mesmo que curto." };
 
@@ -130,8 +139,9 @@ export async function acaoMarcarPerdido(
   _estado: EstadoProspeccao,
   formData: FormData,
 ): Promise<EstadoProspeccao> {
-  await exigirAdmin();
-  const clienteId = String(formData.get("clienteId") ?? "");
+  const sessao = await exigirAdmin();
+  const clienteId = await prospectDaAgencia(formData, sessao);
+  if (!clienteId) return { erro: "Prospect não encontrado." };
   const r = await marcarPerdido(clienteId, String(formData.get("motivo") ?? ""));
   if (r.erro) return { erro: r.erro };
   revalidar(clienteId);
@@ -139,8 +149,9 @@ export async function acaoMarcarPerdido(
 }
 
 export async function acaoReativar(formData: FormData): Promise<void> {
-  await exigirAdmin();
-  const clienteId = String(formData.get("clienteId") ?? "");
+  const sessao = await exigirAdmin();
+  const clienteId = await prospectDaAgencia(formData, sessao);
+  if (!clienteId) return;
   await reativarProspect(clienteId);
   revalidar(clienteId);
 }
@@ -149,8 +160,10 @@ export async function acaoExcluirProspect(
   _estado: EstadoProspeccao,
   formData: FormData,
 ): Promise<EstadoProspeccao> {
-  await exigirAdmin();
-  const r = await excluirProspect(String(formData.get("clienteId") ?? ""));
+  const sessao = await exigirAdmin();
+  const clienteId = await prospectDaAgencia(formData, sessao);
+  if (!clienteId) return { erro: "Prospect não encontrado." };
+  const r = await excluirProspect(clienteId);
   if (r.erro) return { erro: r.erro };
   revalidar();
   redirect("/prospeccao");

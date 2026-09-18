@@ -51,13 +51,14 @@ export function inicioDaSemana(dia: Date) {
   return new Date(dia.getTime() - recuo * DIA_MS);
 }
 
-async function tarefasNoIntervalo(de: Date, ate: Date, fuso: string) {
+async function tarefasNoIntervalo(agenciaId: string, de: Date, ate: Date, fuso: string) {
   // de/ate são datas puras; o intervalo em instantes cobre o dia inteiro local.
   const inicioInstante = instanteLocal(de.getUTCFullYear(), de.getUTCMonth() + 1, de.getUTCDate(), 0, 0, fuso);
   const fimInstante = instanteLocal(ate.getUTCFullYear(), ate.getUTCMonth() + 1, ate.getUTCDate() + 1, 0, 0, fuso);
 
   return prisma.tarefa.findMany({
     where: {
+      agenciaId,
       OR: [
         { inicio: { gte: inicioInstante, lt: fimInstante } },
         { inicio: null, prazo: { gte: de, lte: ate } },
@@ -120,18 +121,18 @@ function montarDias(
   return [...porDia.values()];
 }
 
-export async function agendaDaSemana(dia: Date, fuso = FUSO_PADRAO) {
+export async function agendaDaSemana(agenciaId: string, dia: Date, fuso = FUSO_PADRAO) {
   const segunda = inicioDaSemana(dia);
   const dias = Array.from({ length: 7 }, (_, i) => new Date(segunda.getTime() + i * DIA_MS));
-  const tarefas = await tarefasNoIntervalo(dias[0], dias[6], fuso);
+  const tarefas = await tarefasNoIntervalo(agenciaId, dias[0], dias[6], fuso);
   return { dias: montarDias(dias, tarefas, fuso), segunda };
 }
 
 /** Mês em seis semanas completas, como qualquer calendário de parede. */
-export async function agendaDoMes(dia: Date, fuso = FUSO_PADRAO) {
+export async function agendaDoMes(agenciaId: string, dia: Date, fuso = FUSO_PADRAO) {
   const primeiro = new Date(Date.UTC(dia.getUTCFullYear(), dia.getUTCMonth(), 1));
   const comeco = inicioDaSemana(primeiro);
   const dias = Array.from({ length: 42 }, (_, i) => new Date(comeco.getTime() + i * DIA_MS));
-  const tarefas = await tarefasNoIntervalo(dias[0], dias[41], fuso);
+  const tarefas = await tarefasNoIntervalo(agenciaId, dias[0], dias[41], fuso);
   return { dias: montarDias(dias, tarefas, fuso, primeiro.getUTCMonth()), primeiro };
 }

@@ -111,7 +111,7 @@ function tarefasDaEtapa(etapa: CicloCliente, nome: string, reuniaoEm: Date | nul
 export async function aoMudarEtapa(clienteId: string) {
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
-    select: { nome: true, ciclo: true, reuniaoEm: true },
+    select: { nome: true, ciclo: true, reuniaoEm: true, agenciaId: true },
   });
   if (!cliente) return;
 
@@ -148,6 +148,7 @@ export async function aoMudarEtapa(clienteId: string) {
 
     await prisma.tarefa.create({
       data: {
+        agenciaId: cliente.agenciaId,
         clienteId,
         automatica: true,
         chave: nova.chave,

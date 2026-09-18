@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirSessao, exigirAdmin, hashSenha, conferirSenha } from "@/lib/auth";
+import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
+import { cifrar } from "@/lib/cripto";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
 
@@ -18,7 +19,7 @@ export async function acaoCriarCliente(
   _estado: EstadoAjustes,
   formData: FormData,
 ): Promise<EstadoAjustes> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const dados = NovoCliente.safeParse({
     nome: String(formData.get("nome") ?? "").trim(),
@@ -32,6 +33,7 @@ export async function acaoCriarCliente(
 
   const cliente = await prisma.cliente.create({
     data: {
+      agenciaId: sessao.agenciaId,
       nome: dados.data.nome,
       contaAnunciosId: dados.data.contaAnunciosId || null,
       numeros: { create: { numero, rotulo: "Principal" } },
@@ -72,11 +74,18 @@ export async function acaoCriarUsuario(
     if (dados.data.clienteId !== sessao.clienteId) return { erro: "Cliente inválido." };
   }
 
+  // Usuário de cliente precisa ser de um cliente desta agência.
+  if (dados.data.papel !== "ADMIN" && dados.data.clienteId) {
+    const cliente = await clienteDaAgencia(dados.data.clienteId, sessao.agenciaId);
+    if (!cliente) return { erro: "Cliente inválido." };
+  }
+
   const existe = await prisma.usuario.findUnique({ where: { email: dados.data.email } });
   if (existe) return { erro: "Já existe usuário com esse e-mail." };
 
   await prisma.usuario.create({
     data: {
+      agenciaId: sessao.agenciaId,
       nome: dados.data.nome,
       email: dados.data.email,
       senhaHash: await hashSenha(dados.data.senha),
@@ -141,6 +150,7 @@ export async function acaoTrocarFunil(
   if (sessao.papel === "GESTOR" && clienteId !== sessao.clienteId) {
     return { erro: "Cliente inválido." };
   }
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
 
   await prisma.cliente.update({ where: { id: clienteId }, data: { funil } });
   revalidatePath("/ajustes");
@@ -160,7 +170,7 @@ export async function acaoSalvarCredenciais(
   _estado: EstadoAjustes,
   formData: FormData,
 ): Promise<EstadoAjustes> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const dados = Credenciais.safeParse({
     clienteId: String(formData.get("clienteId") ?? ""),
@@ -170,14 +180,18 @@ export async function acaoSalvarCredenciais(
     contaAnunciosId: String(formData.get("contaAnunciosId") ?? "").trim(),
   });
   if (!dados.success) return { erro: "Dados inválidos." };
+  if (!(await clienteDaAgencia(dados.data.clienteId, sessao.agenciaId))) {
+    return { erro: "Cliente inválido." };
+  }
 
   // Campo em branco mantém o que já estava: o formulário nunca mostra o token.
   await prisma.cliente.update({
     where: { id: dados.data.clienteId },
     data: {
       pixelId: dados.data.pixelId || undefined,
-      capiToken: dados.data.capiToken || undefined,
-      marketingToken: dados.data.marketingToken || undefined,
+      // Tokens entram no banco já cifrados. O pixel e a conta não são segredo.
+      capiToken: dados.data.capiToken ? cifrar(dados.data.capiToken) : undefined,
+      marketingToken: dados.data.marketingToken ? cifrar(dados.data.marketingToken) : undefined,
       contaAnunciosId: dados.data.contaAnunciosId || undefined,
     },
   });

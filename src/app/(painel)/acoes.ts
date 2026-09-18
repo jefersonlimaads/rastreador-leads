@@ -24,7 +24,11 @@ import type { StatusLead } from "@prisma/client";
  * contra a sessão. É isso que garante que um cliente não mexa no lead de outro.
  */
 async function leadPermitido(leadId: string, sessao: Sessao) {
-  const lead = await prisma.lead.findUnique({ where: { id: leadId } });
+  // Antes o administrador passava direto: com uma agência só, via todos os
+  // leads por definição. Com várias, o lead precisa ser da agência dele.
+  const lead = await prisma.lead.findFirst({
+    where: { id: leadId, cliente: { agenciaId: sessao.agenciaId } },
+  });
   if (!lead) throw new Error("Lead não encontrado");
   if (sessao.papel !== "ADMIN" && lead.clienteId !== sessao.clienteId) {
     throw new Error("Sem acesso a este lead");
@@ -268,7 +272,7 @@ export async function acaoTrocarCliente(formData: FormData) {
 
   const clienteId = String(formData.get("clienteId") ?? "");
   const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, ativo: true },
+    where: { id: clienteId, agenciaId: sessao.agenciaId, ativo: true },
     select: { id: true },
   });
   if (!cliente) return;

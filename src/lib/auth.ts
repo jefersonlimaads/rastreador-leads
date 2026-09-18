@@ -19,7 +19,11 @@ export type Sessao = {
   usuarioId: string;
   nome: string;
   papel: Papel;
+  /** A fronteira do SaaS: toda consulta do painel parte daqui. */
+  agenciaId: string;
+  agenciaNome: string;
   clienteId: string | null;
+  plataforma: boolean;
 };
 
 export async function hashSenha(senha: string) {
@@ -65,14 +69,21 @@ export async function sessaoAtual(): Promise<Sessao | null> {
   try {
     const { payload } = await jwtVerify(token, segredo());
     const usuarioId = payload.usuarioId as string;
-    const usuario = await prisma.usuario.findUnique({ where: { id: usuarioId } });
-    if (!usuario || !usuario.ativo) return null;
+    const usuario = await prisma.usuario.findUnique({
+      where: { id: usuarioId },
+      include: { agencia: { select: { nome: true, ativa: true } } },
+    });
+    // Agência desativada derruba todos os usuários dela na hora.
+    if (!usuario || !usuario.ativo || !usuario.agencia.ativa) return null;
 
     return {
       usuarioId: usuario.id,
       nome: usuario.nome,
       papel: usuario.papel,
+      agenciaId: usuario.agenciaId,
+      agenciaNome: usuario.agencia.nome,
       clienteId: usuario.clienteId,
+      plataforma: usuario.plataforma,
     };
   } catch {
     return null;
@@ -92,6 +103,34 @@ export async function exigirAdmin(): Promise<Sessao> {
   return sessao;
 }
 
+/** Só o dono da plataforma: criar agências, convidar o primeiro administrador. */
+export async function exigirPlataforma(): Promise<Sessao> {
+  const sessao = await exigirSessao();
+  if (!sessao.plataforma) redirect("/negocio");
+  return sessao;
+}
+
+/**
+ * A pergunta que toda ação com id na mão precisa fazer: esse cliente é da
+ * agência de quem está pedindo? Sem ela, bastaria trocar o id na requisição
+ * para mexer no cliente de outra agência.
+ */
+export async function clienteDaAgencia(clienteId: string, agenciaId: string) {
+  if (!clienteId) return null;
+  return prisma.cliente.findFirst({ where: { id: clienteId, agenciaId } });
+}
+
+/** Versão que interrompe: para ação que não tem o que fazer sem o cliente. */
+export async function exigirClienteDaAgencia(clienteId: string, sessao: Sessao) {
+  const cliente = await clienteDaAgencia(clienteId, sessao.agenciaId);
+  if (!cliente) throw new Error("Cliente não encontrado nesta agência");
+  // Equipe do cliente só alcança o próprio cliente, mesmo dentro da agência.
+  if (sessao.papel !== "ADMIN" && cliente.id !== sessao.clienteId) {
+    throw new Error("Sem acesso a este cliente");
+  }
+  return cliente;
+}
+
 export const COOKIE_CLIENTE = "jl_cliente";
 
 /**
@@ -101,19 +140,20 @@ export const COOKIE_CLIENTE = "jl_cliente";
  */
 export async function clienteEmFoco(sessao: Sessao, pedido?: string | null): Promise<string | null> {
   if (sessao.papel === "ADMIN") {
-    if (pedido) return pedido;
-
-    const escolhido = (await cookies()).get(COOKIE_CLIENTE)?.value;
-    if (escolhido) {
+    // Pedido pela URL ou pelo cookie só vale se o cliente for desta agência.
+    // Antes aceitava qualquer id: inofensivo com uma agência, vazamento com duas.
+    const candidatos = [pedido, (await cookies()).get(COOKIE_CLIENTE)?.value];
+    for (const id of candidatos) {
+      if (!id) continue;
       const existe = await prisma.cliente.findFirst({
-        where: { id: escolhido, ativo: true },
+        where: { id, agenciaId: sessao.agenciaId, ativo: true },
         select: { id: true },
       });
       if (existe) return existe.id;
     }
 
     const primeiro = await prisma.cliente.findFirst({
-      where: { ativo: true },
+      where: { agenciaId: sessao.agenciaId, ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true },
     });

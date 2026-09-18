@@ -20,6 +20,11 @@ export default async function LayoutPainel({ children }: LayoutProps<"/">) {
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3">
           <Cabecalho ehAdmin={sessao.papel === "ADMIN"} nomeDoCliente={nomeEmFoco} />
           <div className="flex items-center gap-3 text-sm text-suave">
+            {sessao.plataforma && (
+              <Link href="/plataforma" className="rounded-lg px-2 py-1 hover:bg-fundo">
+                Plataforma
+              </Link>
+            )}
             <span className="hidden sm:inline">{sessao.nome}</span>
             <form action={sair}>
               <button type="submit" className="rounded-lg px-2 py-1 hover:bg-fundo">

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirSessao } from "@/lib/auth";
+import { exigirSessao, clienteDaAgencia } from "@/lib/auth";
 import { dataPuraDe } from "@/lib/datas";
 
 export type EstadoTarefa = { erro?: string; ok?: string };
@@ -33,9 +33,13 @@ export async function acaoCriarTarefa(
   });
   if (!dados.success) return { erro: "Escreva o que precisa ser feito." };
 
-  // Atendente e gestor só criam tarefa do próprio cliente.
+  // Atendente e gestor só criam tarefa do próprio cliente; ninguém cria em
+  // cliente de outra agência.
   const clienteId = dados.data.clienteId || null;
   if (sessao.papel !== "ADMIN" && clienteId !== sessao.clienteId) {
+    return { erro: "Sem acesso a esse cliente." };
+  }
+  if (clienteId && !(await clienteDaAgencia(clienteId, sessao.agenciaId))) {
     return { erro: "Sem acesso a esse cliente." };
   }
 
@@ -45,6 +49,7 @@ export async function acaoCriarTarefa(
 
   await prisma.tarefa.create({
     data: {
+      agenciaId: sessao.agenciaId,
       titulo: dados.data.titulo,
       descricao: dados.data.descricao || null,
       // Com horário, o dia da tarefa é o dia desse horário em São Paulo.
@@ -71,7 +76,7 @@ export async function acaoAlternarTarefa(formData: FormData): Promise<void> {
   const sessao = await exigirSessao();
   const id = String(formData.get("tarefaId") ?? "");
 
-  const tarefa = await prisma.tarefa.findUnique({ where: { id } });
+  const tarefa = await prisma.tarefa.findFirst({ where: { id, agenciaId: sessao.agenciaId } });
   if (!tarefa) return;
   if (sessao.papel !== "ADMIN" && tarefa.clienteId !== sessao.clienteId) return;
 
@@ -91,7 +96,7 @@ export async function acaoApagarTarefa(formData: FormData): Promise<void> {
   const sessao = await exigirSessao();
   const id = String(formData.get("tarefaId") ?? "");
 
-  const tarefa = await prisma.tarefa.findUnique({ where: { id } });
+  const tarefa = await prisma.tarefa.findFirst({ where: { id, agenciaId: sessao.agenciaId } });
   if (!tarefa) return;
   if (sessao.papel !== "ADMIN" && tarefa.clienteId !== sessao.clienteId) return;
 

@@ -19,8 +19,8 @@ const COLUNAS: { chave: Situacao | "encerradas"; titulo: string; ajuda: string }
 ];
 
 export default async function PaginaPropostas() {
-  await exigirAdmin();
-  const propostas = await listarPropostas();
+  const sessao = await exigirAdmin();
+  const propostas = await listarPropostas(sessao.agenciaId);
   const hoje = hojeComoDataPura();
 
   const colunaDe = (s: Situacao) => (s === "recusada" || s === "expirada" ? "encerradas" : s);

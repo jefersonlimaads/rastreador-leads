@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin } from "@/lib/auth";
+import { exigirAdmin, clienteDaAgencia } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { competenciaDe, gerarFaturasDoMes } from "@/lib/financeiro";
 import { aoMudarEtapa } from "@/lib/automacoes";
@@ -51,11 +51,12 @@ export async function acaoSalvarComercial(
   _estado: EstadoNegocio,
   formData: FormData,
 ): Promise<EstadoNegocio> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const dados = Comercial.safeParse(Object.fromEntries(formData));
   if (!dados.success) return { erro: "Confira os campos." };
   const d = dados.data;
+  if (!(await clienteDaAgencia(d.clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
 
   const fee = d.feeMensal ? dinheiro(d.feeMensal) : null;
   if (d.feeMensal && fee === null) return { erro: "Valor do fee inválido." };
@@ -91,8 +92,8 @@ export async function acaoSalvarComercial(
 
 /** Gera a fatura do mês para todos os ativos. A rotina diária faz o mesmo. */
 export async function acaoGerarFaturas(): Promise<void> {
-  await exigirAdmin();
-  await gerarFaturasDoMes();
+  const sessao = await exigirAdmin();
+  await gerarFaturasDoMes(undefined, sessao.agenciaId);
   revalidatePath("/negocio");
 }
 
@@ -101,9 +102,10 @@ export async function acaoCriarFatura(
   _estado: EstadoNegocio,
   formData: FormData,
 ): Promise<EstadoNegocio> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const clienteId = String(formData.get("clienteId") ?? "");
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
   const valor = dinheiro(String(formData.get("valor") ?? ""));
   const vencimento = String(formData.get("vencimento") ?? "");
   const observacao = String(formData.get("observacao") ?? "").trim();
@@ -137,10 +139,12 @@ export async function acaoCriarFatura(
 }
 
 export async function acaoMarcarPaga(formData: FormData): Promise<void> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const faturaId = String(formData.get("faturaId") ?? "");
 
-  const fatura = await prisma.fatura.findUnique({ where: { id: faturaId } });
+  const fatura = await prisma.fatura.findFirst({
+    where: { id: faturaId, cliente: { agenciaId: sessao.agenciaId } },
+  });
   if (!fatura) return;
 
   // Clicar de novo desmarca: erro de toque no celular não vira trabalho.

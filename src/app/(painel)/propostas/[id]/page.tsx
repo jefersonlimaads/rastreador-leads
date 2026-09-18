@@ -9,17 +9,17 @@ import { EnviarProposta } from "./enviar";
 import { Acompanhamento, ExcluirProposta } from "./acompanhamento";
 
 export default async function PaginaProposta({ params }: { params: Promise<{ id: string }> }) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const { id } = await params;
 
-  const proposta = await prisma.proposta.findUnique({
-    where: { id },
+  const proposta = await prisma.proposta.findFirst({
+    where: { id, cliente: { agenciaId: sessao.agenciaId } },
     include: { cliente: { select: { nome: true, contatoTelefone: true, contatoNome: true } } },
   });
   if (!proposta) notFound();
 
   const clientes = await prisma.cliente.findMany({
-    where: { ativo: true },
+    where: { agenciaId: sessao.agenciaId, ativo: true },
     orderBy: { nome: "asc" },
     select: { id: true, nome: true },
   });

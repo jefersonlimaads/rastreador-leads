@@ -47,7 +47,7 @@ export default async function PaginaTarefas({
   const clientes =
     sessao.papel === "ADMIN"
       ? await prisma.cliente.findMany({
-          where: { ativo: true },
+          where: { agenciaId: sessao.agenciaId, ativo: true },
           orderBy: { nome: "asc" },
           select: { id: true, nome: true },
         })
@@ -57,7 +57,7 @@ export default async function PaginaTarefas({
   const filtroCliente =
     escopo === "jlads" ? null : escopo === "tudo" ? undefined : escopo;
 
-  const { atrasadas, hoje, proximas, semPrazo, feitas } = await listarTarefas({
+  const { atrasadas, hoje, proximas, semPrazo, feitas } = await listarTarefas(sessao.agenciaId, {
     clienteId: sessao.papel === "ADMIN" ? filtroCliente : sessao.clienteId,
     incluirFeitas: true,
   });
@@ -67,7 +67,7 @@ export default async function PaginaTarefas({
   const alternador = <AlternarModo modo={modo} data={chaveDoDia(dataRef)} />;
 
   if (modo === "semana") {
-    const { dias, segunda } = await agendaDaSemana(dataRef);
+    const { dias, segunda } = await agendaDaSemana(sessao.agenciaId, dataRef);
     const domingo = somarDias(segunda, 6);
     const titulo =
       segunda.getUTCMonth() === domingo.getUTCMonth()
@@ -89,7 +89,7 @@ export default async function PaginaTarefas({
   }
 
   if (modo === "mes") {
-    const { dias, primeiro } = await agendaDoMes(dataRef);
+    const { dias, primeiro } = await agendaDoMes(sessao.agenciaId, dataRef);
     return (
       <>
         {alternador}

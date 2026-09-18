@@ -85,8 +85,9 @@ export const ROTULO_SITUACAO: Record<string, string> = {
   expirada: "Expirada",
 };
 
-export async function listarPropostas() {
+export async function listarPropostas(agenciaId: string) {
   const propostas = await prisma.proposta.findMany({
+    where: { cliente: { agenciaId } },
     orderBy: { criadoEm: "desc" },
     include: { cliente: { select: { nome: true, ciclo: true } } },
     take: 200,
@@ -115,8 +116,13 @@ export async function propostaPublica(token: string) {
   if (!token || token.length < 32) return null;
   return prisma.proposta.findUnique({
     where: { token },
-    include: { cliente: { select: { nome: true, contatoNome: true } } },
+    include: { cliente: { select: { nome: true, contatoNome: true, agenciaId: true } } },
   });
+}
+
+/** Proposta só é alcançada pela agência dona do prospect dela. */
+export async function propostaDaAgencia(propostaId: string, agenciaId: string) {
+  return prisma.proposta.findFirst({ where: { id: propostaId, cliente: { agenciaId } } });
 }
 
 /** Registra que o lead abriu. Quem está logado no painel não conta. */
@@ -161,6 +167,7 @@ export async function aceitarProposta(token: string, nome: string) {
 
     await tx.tarefa.create({
       data: {
+        agenciaId: p.cliente.agenciaId,
         clienteId: p.clienteId,
         titulo: "Onboarding: pedir acessos",
         descricao:
@@ -172,6 +179,7 @@ export async function aceitarProposta(token: string, nome: string) {
     if (p.setup && Number(p.setup) > 0) {
       await tx.tarefa.create({
         data: {
+          agenciaId: p.cliente.agenciaId,
           clienteId: p.clienteId,
           titulo: `Cobrar implantação de R$ ${Number(p.setup).toFixed(2)}`,
           descricao: "Lançar como cobrança avulsa no Negócio.",

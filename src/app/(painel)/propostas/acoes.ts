@@ -4,13 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { exigirAdmin } from "@/lib/auth";
+import { exigirAdmin, clienteDaAgencia } from "@/lib/auth";
 import {
   alternarNegociacao,
   escopoDoTexto,
   excluirProposta,
   gerarToken,
   marcarEnviada,
+  propostaDaAgencia,
 } from "@/lib/propostas";
 
 export type EstadoProposta = { erro?: string; ok?: string };
@@ -43,19 +44,24 @@ export async function acaoSalvarProposta(
   _estado: EstadoProposta,
   formData: FormData,
 ): Promise<EstadoProposta> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
 
   const dados = Dados.safeParse(Object.fromEntries(formData));
   if (!dados.success) return { erro: "Preencha título, escopo e validade." };
   const d = dados.data;
 
   let clienteId = d.clienteId || null;
+  if (clienteId && !(await clienteDaAgencia(clienteId, sessao.agenciaId))) {
+    return { erro: "Cliente inválido." };
+  }
   if (!clienteId) {
     const nome = d.novoProspect?.trim();
     if (!nome) return { erro: "Escolha para quem é a proposta, ou digite o nome do prospect." };
     // Já nasce com proposta a caminho: vai direto para reunião marcada, sem
     // gerar a tarefa de abordar quem você já abordou.
-    const novo = await prisma.cliente.create({ data: { nome, ciclo: "REUNIAO_MARCADA" } });
+    const novo = await prisma.cliente.create({
+      data: { agenciaId: sessao.agenciaId, nome, ciclo: "REUNIAO_MARCADA" },
+    });
     clienteId = novo.id;
   }
 
@@ -80,7 +86,7 @@ export async function acaoSalvarProposta(
 
   let id = d.propostaId;
   if (id) {
-    const atual = await prisma.proposta.findUnique({ where: { id } });
+    const atual = await propostaDaAgencia(id, sessao.agenciaId);
     if (!atual) return { erro: "Proposta não encontrada." };
     // Proposta respondida é registro do que foi combinado: não se reescreve.
     if (atual.status === "ACEITA" || atual.status === "RECUSADA") {
@@ -101,7 +107,8 @@ export async function acaoSalvarProposta(
 
 /** Marca como enviada e devolve o link para mandar ao lead. */
 export async function acaoEnviarProposta(propostaId: string): Promise<string> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
+  if (!(await propostaDaAgencia(propostaId, sessao.agenciaId))) throw new Error("Proposta não encontrada");
   const proposta = await marcarEnviada(propostaId);
   if (!proposta) throw new Error("Proposta não encontrada");
 
@@ -118,8 +125,9 @@ function revalidarPropostas(id?: string) {
 }
 
 export async function acaoAlternarNegociacao(formData: FormData): Promise<void> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const id = String(formData.get("propostaId") ?? "");
+  if (!(await propostaDaAgencia(id, sessao.agenciaId))) return;
   await alternarNegociacao(id);
   revalidarPropostas(id);
 }
@@ -129,8 +137,9 @@ export async function acaoSalvarAcompanhamento(
   _estado: EstadoProposta,
   formData: FormData,
 ): Promise<EstadoProposta> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const id = String(formData.get("propostaId") ?? "");
+  if (!(await propostaDaAgencia(id, sessao.agenciaId))) return { erro: "Proposta não encontrada." };
   const proximo = String(formData.get("proximoContato") ?? "");
   const notas = String(formData.get("notas") ?? "").trim().slice(0, 4000);
 
@@ -150,8 +159,9 @@ export async function acaoExcluirProposta(
   _estado: EstadoProposta,
   formData: FormData,
 ): Promise<EstadoProposta> {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const id = String(formData.get("propostaId") ?? "");
+  if (!(await propostaDaAgencia(id, sessao.agenciaId))) return { erro: "Proposta não encontrada." };
 
   const r = await excluirProposta(id);
   if (r.erro) return { erro: r.erro };

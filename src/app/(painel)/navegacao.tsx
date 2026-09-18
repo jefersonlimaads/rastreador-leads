@@ -34,7 +34,7 @@ type ItemNav = { href: string; rotulo: string; sóGestor?: boolean };
 
 /** Rotas que pertencem ao ambiente da jl.ads. */
 export function ambienteDaRota(caminho: string): "jlads" | "cliente" {
-  const daCasa = ["/negocio", "/prospeccao", "/propostas", "/tarefas", "/carteira"];
+  const daCasa = ["/negocio", "/prospeccao", "/propostas", "/tarefas", "/carteira", "/plataforma"];
   return daCasa.some((r) => caminho === r || caminho.startsWith(r + "/")) ? "jlads" : "cliente";
 }
 

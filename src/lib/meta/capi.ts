@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "../prisma";
 import { hashSha256 } from "../telefone";
+import { decifrar } from "../cripto";
 import type { TipoEnvioCapi } from "@prisma/client";
 
 /**
@@ -97,7 +98,8 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
     },
   });
 
-  const { pixelId, capiToken } = lead.cliente;
+  const pixelId = lead.cliente.pixelId;
+  const capiToken = decifrar(lead.cliente.capiToken);
   if (!pixelId || !capiToken) {
     // Cliente ainda sem credenciais: fica registrado para envio quando houver.
     await prisma.envioCapi.update({
@@ -164,7 +166,8 @@ export async function reenviarFalhas(clienteId: string, limite = 50) {
 
   let enviados = 0;
   for (const envio of pendentes) {
-    const { pixelId, capiToken } = envio.cliente;
+    const pixelId = envio.cliente.pixelId;
+    const capiToken = decifrar(envio.cliente.capiToken);
     if (!pixelId || !capiToken) continue;
     await prisma.envioCapi.update({
       where: { id: envio.id },

@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { inicioDoDia, fimDoDia, FUSO_PADRAO, formatarHora } from "./datas";
+import { FUSO_PADRAO, formatarHora, hojeComoDataPura } from "./datas";
 
 /**
  * Tarefas da operação. Sem cliente, é trabalho da jl.ads; com cliente, é
@@ -28,8 +28,8 @@ type Filtro = {
   incluirFeitas?: boolean;
 };
 
-export async function listarTarefas(filtro: Filtro = {}, fuso = FUSO_PADRAO) {
-  const where: Record<string, unknown> = {};
+export async function listarTarefas(agenciaId: string, filtro: Filtro = {}, fuso = FUSO_PADRAO) {
+  const where: Record<string, unknown> = { agenciaId };
   if (filtro.clienteId !== undefined) where.clienteId = filtro.clienteId;
   if (!filtro.incluirFeitas) where.status = "ABERTA";
 
@@ -52,24 +52,27 @@ export async function listarTarefas(filtro: Filtro = {}, fuso = FUSO_PADRAO) {
     automatica: t.automatica,
   }));
 
-  const inicio = inicioDoDia(new Date(), fuso);
-  const fim = fimDoDia(new Date(), fuso);
+  // Prazo é data pura (meia-noite UTC do dia). Compará-lo com o início do dia
+  // em São Paulo, que é um instante três horas depois, jogava toda tarefa de
+  // hoje em "atrasadas". Data pura se compara com data pura.
+  const hoje = hojeComoDataPura(fuso).getTime();
 
   return {
-    atrasadas: lista.filter((t) => t.status === "ABERTA" && t.prazo && t.prazo < inicio),
-    hoje: lista.filter(
-      (t) => t.status === "ABERTA" && t.prazo && t.prazo >= inicio && t.prazo <= fim,
-    ),
-    proximas: lista.filter((t) => t.status === "ABERTA" && t.prazo && t.prazo > fim),
+    atrasadas: lista.filter((t) => t.status === "ABERTA" && t.prazo && t.prazo.getTime() < hoje),
+    hoje: lista.filter((t) => t.status === "ABERTA" && t.prazo && t.prazo.getTime() === hoje),
+    proximas: lista.filter((t) => t.status === "ABERTA" && t.prazo && t.prazo.getTime() > hoje),
     semPrazo: lista.filter((t) => t.status === "ABERTA" && !t.prazo),
     feitas: lista.filter((t) => t.status === "FEITA"),
   };
 }
 
 /** Contagem para os avisos do painel: o que está atrasado ou vence hoje. */
-export async function tarefasUrgentes(clienteId?: string | null, fuso = FUSO_PADRAO) {
-  const fim = fimDoDia(new Date(), fuso);
-  const where: Record<string, unknown> = { status: "ABERTA", prazo: { lte: fim } };
+export async function tarefasUrgentes(agenciaId: string, clienteId?: string | null, fuso = FUSO_PADRAO) {
+  const where: Record<string, unknown> = {
+    agenciaId,
+    status: "ABERTA",
+    prazo: { lte: hojeComoDataPura(fuso) },
+  };
   if (clienteId !== undefined) where.clienteId = clienteId;
 
   return prisma.tarefa.count({ where });

@@ -13,6 +13,7 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
   const clientes =
     sessao.papel === "ADMIN"
       ? await prisma.cliente.findMany({
+          where: { agenciaId: sessao.agenciaId },
           include: { numeros: true, _count: { select: { leads: true, cliques: true } } },
           orderBy: { nome: "asc" },
         })
@@ -22,7 +23,10 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
         });
 
   const usuarios = await prisma.usuario.findMany({
-    where: sessao.papel === "ADMIN" ? {} : { clienteId: sessao.clienteId },
+    where:
+      sessao.papel === "ADMIN"
+        ? { agenciaId: sessao.agenciaId }
+        : { agenciaId: sessao.agenciaId, clienteId: sessao.clienteId },
     orderBy: { nome: "asc" },
     select: { id: true, nome: true, email: true, papel: true, ativo: true, clienteId: true },
   });

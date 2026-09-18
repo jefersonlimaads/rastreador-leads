@@ -7,11 +7,11 @@ export default async function PaginaNovaProposta({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await exigirAdmin();
+  const sessao = await exigirAdmin();
   const { cliente } = await searchParams;
 
   const clientes = await prisma.cliente.findMany({
-    where: { ativo: true },
+    where: { agenciaId: sessao.agenciaId, ativo: true },
     orderBy: [{ ciclo: "asc" }, { nome: "asc" }],
     select: { id: true, nome: true },
   });
