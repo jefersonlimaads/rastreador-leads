@@ -48,6 +48,9 @@ O administrador vê um seletor de cliente no topo do painel. A escolha fica num
 cookie e vale em todas as telas. Gestor e atendente ficam presos ao próprio
 cliente, e isso é conferido no servidor a cada consulta.
 
+Depois de aplicar migration, reinicie o `npm run dev`: o servidor mantém em
+memória o cliente do Prisma anterior e passa a acusar campo inexistente.
+
 ## Testes
 
 ```bash
@@ -104,12 +107,15 @@ depender de nomenclatura manual:
 | `public/jl.js` | Script da landing page |
 | `src/app/api/clique` | Recebe o clique (CORS liberado, sem preflight) |
 | `src/app/api/cron/sincronizar` | Rotina diária: gasto, reenvio de eventos, cliques sem contato |
-| `src/app/(painel)` | Telas Hoje, Pipeline, Leads, Anúncios e Ajustes |
+| `src/app/(painel)` | Telas Carteira, Negócio, Hoje, Pipeline, Leads, Anúncios e Ajustes |
 | `src/lib/atribuicao.ts` | Regras 1 a 5 e 12: casar lead com clique, retorno, reabertura |
 | `src/lib/metricas.ts` | CPL, CAC e ROAS |
 | `src/lib/meta/capi.ts` | API de Conversões, com auditoria em `envios_capi` |
 | `src/lib/meta/marketing.ts` | Gasto por anúncio e por dia |
-| `src/lib/regras.ts` | Os números das regras (janelas, prazos) num lugar só |
+| `src/lib/regras.ts` | Os números das regras (janelas, prazos) e os rótulos |
+| `src/lib/financeiro.ts` | Fee, faturas e receita recorrente da jl.ads |
+| `src/lib/confirmacao.ts` | Confirmação em lote pelo cliente, via link sem senha |
+| `src/app/confirmar/[token]` | Página que o cliente abre para responder |
 | `src/lib/retencao.ts` | Descarte por retenção: lead sem interação há 24 meses, clique sem contato há 12 |
 | `prisma/schema.prisma` | Modelo de dados, com `clienteId` em todas as tabelas |
 

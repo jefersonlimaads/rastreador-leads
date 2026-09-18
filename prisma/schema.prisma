@@ -35,6 +35,27 @@ enum Origem {
  * SIMPLES  — atende e fecha, sem etapa no meio. Clínica, psicóloga, salão.
  * COMPLETO — passa por proposta e negociação. Filmmaker, obra, consultoria.
  */
+/*
+ * Ciclo de vida do cliente na jl.ads. É a mesma empresa do começo ao fim: o
+ * prospect que vira cliente não é recadastrado, muda de etapa. Assim não
+ * existem dois cadastros da mesma empresa, que é onde esse tipo de sistema
+ * costuma apodrecer.
+ */
+enum CicloCliente {
+  PROSPECCAO
+  PROPOSTA_ENVIADA
+  NEGOCIANDO
+  ATIVO
+  PAUSADO
+  ENCERRADO
+}
+
+enum StatusFatura {
+  ABERTA
+  PAGA
+  CANCELADA
+}
+
 enum TipoFunil {
   SIMPLES
   COMPLETO
@@ -82,6 +103,21 @@ model Cliente {
   ativo           Boolean   @default(true)
   funil           TipoFunil @default(COMPLETO)
 
+  /*
+   * Lado comercial: dados da jl.ads sobre esse cliente, não do cliente. Só o
+   * administrador enxerga. Gestor e atendente seguem vendo leads e campanhas.
+   */
+  ciclo          CicloCliente @default(ATIVO)
+  feeMensal      Decimal?     @db.Decimal(12, 2)
+  diaVencimento  Int? // 1 a 28, para existir em todo mês
+  inicioContrato DateTime?
+  documento      String? // CNPJ ou CPF
+  contatoNome    String?
+  contatoEmail   String?
+  contatoTelefone String?
+  linkPagamento  String? // link fixo de cobrança, enquanto não houver provedor
+  observacoes    String?
+
   // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
   pixelId        String?
   capiToken      String?
@@ -100,6 +136,30 @@ model Cliente {
   eventos    Evento[]
   gastos     Gasto[]
   enviosCapi EnvioCapi[]
+  faturas    Fatura[]
+}
+
+/*
+ * Cobrança mensal de um cliente. Uma por mês de competência, gerada pela rotina
+ * diária no primeiro dia do mês para quem está ativo e tem fee.
+ */
+model Fatura {
+  id          String       @id @default(cuid())
+  clienteId   String
+  competencia DateTime     @db.Date // primeiro dia do mês cobrado
+  valor       Decimal      @db.Decimal(12, 2)
+  vencimento  DateTime     @db.Date
+  status      StatusFatura @default(ABERTA)
+  pagoEm      DateTime?
+  linkPagamento String?
+  observacao  String?
+  criadoEm    DateTime     @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@unique([clienteId, competencia])
+  @@index([clienteId, vencimento])
+  @@index([status, vencimento])
 }
 
 model NumeroWhatsapp {

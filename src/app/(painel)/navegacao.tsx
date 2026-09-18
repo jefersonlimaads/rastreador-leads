@@ -6,6 +6,7 @@ import type { Papel } from "@prisma/client";
 
 const ITENS: { href: string; rotulo: string; sóGestor?: boolean; sóAdmin?: boolean }[] = [
   { href: "/carteira", rotulo: "Carteira", sóAdmin: true },
+  { href: "/negocio", rotulo: "Negócio", sóAdmin: true },
   { href: "/hoje", rotulo: "Hoje" },
   { href: "/pipeline", rotulo: "Pipeline" },
   { href: "/leads", rotulo: "Leads" },
@@ -27,7 +28,7 @@ export function Navegacao({ papel }: { papel: Papel }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 py-3 text-center text-sm ${
+              className={`flex-1 py-3 text-center text-[13px] ${
                 ativo ? "font-semibold text-marca-texto" : "text-suave"
               }`}
             >

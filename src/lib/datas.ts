@@ -50,6 +50,30 @@ export function formatarData(data: Date, fuso: string = FUSO_PADRAO): string {
   }).format(data);
 }
 
+/**
+ * Data pura, sem hora: vencimento, competência, início de contrato.
+ *
+ * O banco guarda esses campos como data e devolve meia-noite em UTC. Formatar
+ * isso no fuso de São Paulo joga o dia para trás — vencimento dia 10 aparecia
+ * como 09. Aqui a data é lida como ela foi escrita.
+ */
+export function formatarDataPura(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(data);
+}
+
+export function formatarMesPuro(data: Date): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(data);
+}
+
 /** Meia-noite do dia daquele instante, no fuso, devolvida como instante real. */
 export function inicioDoDia(data: Date, fuso: string = FUSO_PADRAO): Date {
   const dia = partesNoFuso(data, fuso).slice(0, 10);

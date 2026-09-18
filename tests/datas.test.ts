@@ -4,7 +4,15 @@
  * 18h aparecia como 21h no painel.
  */
 import { describe, expect, it } from "vitest";
-import { formatarData, formatarDataHora, inicioDoDia, fimDoDia, periodoPadrao } from "../src/lib/datas";
+import {
+  formatarData,
+  formatarDataHora,
+  formatarDataPura,
+  formatarMesPuro,
+  inicioDoDia,
+  fimDoDia,
+  periodoPadrao,
+} from "../src/lib/datas";
 
 const SP = "America/Sao_Paulo";
 
@@ -30,5 +38,15 @@ describe("datas no fuso do cliente", () => {
     expect(dias).toBe(7);
     // Começa à meia-noite de São Paulo, que em UTC são 3h.
     expect(de.toISOString().slice(11)).toBe("03:00:00.000Z");
+  });
+});
+
+describe("datas puras: vencimento e competência", () => {
+  it("mostra o dia como foi escrito, sem recuar pelo fuso", () => {
+    // O banco devolve data pura como meia-noite UTC. Formatar em São Paulo
+    // mostrava 09 para um vencimento dia 10.
+    const vencimento = new Date("2026-09-10T00:00:00.000Z");
+    expect(formatarDataPura(vencimento)).toBe("10/09/2026");
+    expect(formatarMesPuro(new Date("2026-09-01T00:00:00.000Z"))).toBe("setembro de 2026");
   });
 });

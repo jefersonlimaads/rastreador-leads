@@ -1,0 +1,168 @@
+import "server-only";
+import { prisma } from "./prisma";
+import { inicioDoDia, FUSO_PADRAO } from "./datas";
+import { CICLOS_EM_PROSPECCAO } from "./regras";
+
+/**
+ * Lado comercial da jl.ads: quanto entra por mês, quem pagou e quem atrasou.
+ *
+ * Fatura é por competência, não por data de pagamento: a de outubro é a de
+ * outubro mesmo que o cliente pague em novembro. É assim que se enxerga receita
+ * recorrente sem confundir com fluxo de caixa.
+ */
+
+// Rótulos e listas ficam em regras.ts porque a tela do cliente é componente de
+// navegador e não pode importar módulo marcado como só-servidor.
+export {
+  CICLOS_EM_CARTEIRA,
+  CICLOS_EM_PROSPECCAO,
+  ROTULO_CICLO,
+  ROTULO_FATURA,
+} from "./regras";
+
+/** Primeiro dia do mês, que é como a competência é guardada. */
+export function competenciaDe(data = new Date()): Date {
+  return new Date(Date.UTC(data.getUTCFullYear(), data.getUTCMonth(), 1));
+}
+
+function vencimentoDe(competencia: Date, dia: number): Date {
+  const seguro = Math.min(Math.max(dia, 1), 28);
+  return new Date(Date.UTC(competencia.getUTCFullYear(), competencia.getUTCMonth(), seguro));
+}
+
+/**
+ * Cria a fatura do mês para cada cliente ativo com fee. Roda na rotina diária:
+ * é idempotente, porque competência é única por cliente.
+ */
+export async function gerarFaturasDoMes(competencia = competenciaDe()) {
+  const clientes = await prisma.cliente.findMany({
+    where: { ciclo: "ATIVO", feeMensal: { not: null } },
+    select: { id: true, feeMensal: true, diaVencimento: true, linkPagamento: true },
+  });
+
+  let criadas = 0;
+  for (const cliente of clientes) {
+    const existe = await prisma.fatura.findUnique({
+      where: { clienteId_competencia: { clienteId: cliente.id, competencia } },
+    });
+    if (existe) continue;
+
+    await prisma.fatura.create({
+      data: {
+        clienteId: cliente.id,
+        competencia,
+        valor: cliente.feeMensal!,
+        vencimento: vencimentoDe(competencia, cliente.diaVencimento ?? 10),
+        linkPagamento: cliente.linkPagamento,
+      },
+    });
+    criadas++;
+  }
+
+  return { criadas, competencia: competencia.toISOString().slice(0, 7) };
+}
+
+export type ResumoFinanceiro = {
+  receitaRecorrente: number;
+  faturadoNoMes: number;
+  recebidoNoMes: number;
+  emAberto: number;
+  atrasado: number;
+  atrasadas: number;
+  clientesAtivos: number;
+  emProspeccao: number;
+};
+
+export async function resumoFinanceiro(fuso = FUSO_PADRAO): Promise<ResumoFinanceiro> {
+  const competencia = competenciaDe();
+  const hoje = inicioDoDia(new Date(), fuso);
+
+  const [clientes, doMes, abertas] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { ativo: true },
+      select: { ciclo: true, feeMensal: true },
+    }),
+    prisma.fatura.findMany({
+      where: { competencia },
+      select: { valor: true, status: true },
+    }),
+    prisma.fatura.findMany({
+      where: { status: "ABERTA" },
+      select: { valor: true, vencimento: true },
+    }),
+  ]);
+
+  const soma = (lista: { valor: unknown }[]) =>
+    lista.reduce((t, f) => t + Number(f.valor), 0);
+
+  const vencidas = abertas.filter((f) => f.vencimento < hoje);
+
+  return {
+    receitaRecorrente: clientes
+      .filter((c) => c.ciclo === "ATIVO")
+      .reduce((t, c) => t + Number(c.feeMensal ?? 0), 0),
+    faturadoNoMes: soma(doMes.filter((f) => f.status !== "CANCELADA")),
+    recebidoNoMes: soma(doMes.filter((f) => f.status === "PAGA")),
+    emAberto: soma(abertas),
+    atrasado: soma(vencidas),
+    atrasadas: vencidas.length,
+    clientesAtivos: clientes.filter((c) => c.ciclo === "ATIVO").length,
+    emProspeccao: clientes.filter((c) =>
+      (CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo),
+    ).length,
+  };
+}
+
+/** Lista de clientes com a situação financeira de cada um. */
+export async function carteiraComercial(fuso = FUSO_PADRAO) {
+  const hoje = inicioDoDia(new Date(), fuso);
+  const competencia = competenciaDe();
+
+  const clientes = await prisma.cliente.findMany({
+    where: { ativo: true },
+    orderBy: [{ ciclo: "asc" }, { nome: "asc" }],
+    include: {
+      faturas: { orderBy: { competencia: "desc" }, take: 3 },
+      _count: { select: { leads: true } },
+    },
+  });
+
+  return clientes.map((c) => {
+    const doMes = c.faturas.find(
+      (f) => f.competencia.getTime() === competencia.getTime() && f.status !== "CANCELADA",
+    );
+    const vencidas = c.faturas.filter((f) => f.status === "ABERTA" && f.vencimento < hoje);
+
+    return {
+      id: c.id,
+      nome: c.nome,
+      ciclo: c.ciclo,
+      feeMensal: c.feeMensal ? Number(c.feeMensal) : null,
+      diaVencimento: c.diaVencimento,
+      contatoNome: c.contatoNome,
+      leads: c._count.leads,
+      faturaDoMes: doMes
+        ? {
+            id: doMes.id,
+            valor: Number(doMes.valor),
+            status: doMes.status,
+            vencimento: doMes.vencimento,
+            atrasada: doMes.status === "ABERTA" && doMes.vencimento < hoje,
+            linkPagamento: doMes.linkPagamento,
+          }
+        : null,
+      atrasadas: vencidas.length,
+    };
+  });
+}
+
+export async function detalheComercial(clienteId: string) {
+  return prisma.cliente.findUnique({
+    where: { id: clienteId },
+    include: {
+      faturas: { orderBy: { competencia: "desc" }, take: 24 },
+      numeros: true,
+      _count: { select: { leads: true, cliques: true } },
+    },
+  });
+}

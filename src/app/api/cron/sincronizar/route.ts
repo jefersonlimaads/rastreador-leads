@@ -4,6 +4,7 @@ import { sincronizarGastos } from "@/lib/meta/marketing";
 import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
 import { aplicarRetencao } from "@/lib/retencao";
+import { gerarFaturasDoMes } from "@/lib/financeiro";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ erro: "não autorizado" }, { status: 401 });
   }
 
+  // Faturas do mês: idempotente, então rodar todo dia não duplica nada.
+  const faturas = await gerarFaturasDoMes();
+
   const clientes = await prisma.cliente.findMany({ where: { ativo: true } });
   const resultado = [];
 
@@ -42,5 +46,5 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ rodadoEm: new Date().toISOString(), resultado });
+  return NextResponse.json({ rodadoEm: new Date().toISOString(), faturas, resultado });
 }

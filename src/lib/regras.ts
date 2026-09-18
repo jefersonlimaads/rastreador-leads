@@ -91,3 +91,21 @@ export const ROTULO_EVENTO: Record<string, string> = {
   NOTA: "Nota",
   RETORNO: "Retorno do mesmo telefone",
 };
+
+export const CICLOS_EM_CARTEIRA = ["ATIVO", "PAUSADO"] as const;
+export const CICLOS_EM_PROSPECCAO = ["PROSPECCAO", "PROPOSTA_ENVIADA", "NEGOCIANDO"] as const;
+
+export const ROTULO_CICLO: Record<string, string> = {
+  PROSPECCAO: "Prospecção",
+  PROPOSTA_ENVIADA: "Proposta enviada",
+  NEGOCIANDO: "Negociando",
+  ATIVO: "Ativo",
+  PAUSADO: "Pausado",
+  ENCERRADO: "Encerrado",
+};
+
+export const ROTULO_FATURA: Record<string, string> = {
+  ABERTA: "Em aberto",
+  PAGA: "Paga",
+  CANCELADA: "Cancelada",
+};
