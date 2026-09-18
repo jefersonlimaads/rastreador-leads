@@ -53,6 +53,7 @@ enum CicloCliente {
 enum StatusProposta {
   RASCUNHO
   ENVIADA
+  NEGOCIANDO
   ACEITA
   RECUSADA
 }
@@ -207,6 +208,10 @@ model Proposta {
   respondidaEm  DateTime?
   aceitaPor     String? // nome digitado por quem aceitou
   motivoRecusa  String?
+
+  // Acompanhamento depois do envio: quando retomar e o que já foi conversado.
+  proximoContato DateTime? @db.Date
+  notas          String?
 
   criadoEm     DateTime @default(now())
   atualizadoEm DateTime @updatedAt

@@ -44,15 +44,29 @@ export function escopoParaTexto(itens: ItemEscopo[]): string {
   return itens.map((i) => (i.detalhe ? `${i.titulo}: ${i.detalhe}` : i.titulo)).join("\n");
 }
 
+export type Situacao =
+  | "rascunho"
+  | "aguardando"
+  | "visualizada"
+  | "negociando"
+  | "aceita"
+  | "recusada"
+  | "expirada";
+
+/** Situações em que o lead ainda pode aceitar ou recusar pelo link. */
+export const ABERTAS: Situacao[] = ["aguardando", "visualizada", "negociando"];
+
 /** Situação que a pessoa enxerga, combinando status, validade e abertura. */
 export function situacao(p: {
   status: string;
   validade: Date;
   visualizadaEm: Date | null;
-}): "rascunho" | "aguardando" | "visualizada" | "aceita" | "recusada" | "expirada" {
+}): Situacao {
   if (p.status === "RASCUNHO") return "rascunho";
   if (p.status === "ACEITA") return "aceita";
   if (p.status === "RECUSADA") return "recusada";
+  // Em negociação a conversa está viva: a validade impressa não encerra nada.
+  if (p.status === "NEGOCIANDO") return "negociando";
   // Validade é data pura: vale até o fim daquele dia.
   const fimDaValidade = new Date(p.validade.getTime() + 24 * 60 * 60 * 1000);
   if (fimDaValidade < new Date()) return "expirada";
@@ -63,6 +77,7 @@ export const ROTULO_SITUACAO: Record<string, string> = {
   rascunho: "Rascunho",
   aguardando: "Enviada, não aberta",
   visualizada: "Aberta, sem resposta",
+  negociando: "Negociando",
   aceita: "Aceita",
   recusada: "Recusada",
   expirada: "Expirada",
@@ -127,7 +142,7 @@ export async function aceitarProposta(token: string, nome: string) {
 
   const agora = situacao(p);
   if (agora === "aceita") return { ok: true };
-  if (agora !== "aguardando" && agora !== "visualizada") {
+  if (!ABERTAS.includes(agora)) {
     return { erro: "Essa proposta não está mais aberta para aceite." };
   }
 
@@ -170,20 +185,69 @@ export async function aceitarProposta(token: string, nome: string) {
   return { ok: true };
 }
 
+/**
+ * Recusa exige motivo. "Não" sem porquê não ensina nada: o motivo é o que diz
+ * se o problema foi preço, momento ou escopo, e é isso que muda a próxima.
+ */
+export const MOTIVO_MINIMO = 10;
+
 export async function recusarProposta(token: string, motivo: string) {
   const p = await propostaPublica(token);
   if (!p) return { erro: "Proposta não encontrada." };
 
+  const texto = motivo.trim();
+  if (texto.length < MOTIVO_MINIMO) {
+    return { erro: "Conta pra gente o motivo em uma frase. Isso ajuda muito." };
+  }
+
   const agora = situacao(p);
-  if (agora !== "aguardando" && agora !== "visualizada") {
+  if (!ABERTAS.includes(agora)) {
     return { erro: "Essa proposta não está mais aberta." };
   }
 
   await prisma.proposta.update({
     where: { id: p.id },
-    data: { status: "RECUSADA", respondidaEm: new Date(), motivoRecusa: motivo || null },
+    data: { status: "RECUSADA", respondidaEm: new Date(), motivoRecusa: texto },
   });
 
+  return { ok: true };
+}
+
+/** Coloca ou tira de negociação, e leva o ciclo do prospect junto. */
+export async function alternarNegociacao(propostaId: string) {
+  const p = await prisma.proposta.findUnique({ where: { id: propostaId } });
+  if (!p) return null;
+  if (p.status !== "ENVIADA" && p.status !== "NEGOCIANDO") return null;
+
+  const indo = p.status === "ENVIADA";
+  await prisma.proposta.update({
+    where: { id: propostaId },
+    data: { status: indo ? "NEGOCIANDO" : "ENVIADA" },
+  });
+
+  await prisma.cliente.updateMany({
+    where: {
+      id: p.clienteId,
+      ciclo: indo ? { in: ["PROSPECCAO", "PROPOSTA_ENVIADA"] } : "NEGOCIANDO",
+    },
+    data: { ciclo: indo ? "NEGOCIANDO" : "PROPOSTA_ENVIADA" },
+  });
+
+  return true;
+}
+
+/**
+ * Excluir. Proposta aceita não se exclui: ela é o registro do que foi fechado e
+ * o fee do cliente veio dela. As demais saem de vez — rascunho abandonado,
+ * enviada por engano, recusada que não interessa mais guardar.
+ */
+export async function excluirProposta(propostaId: string) {
+  const p = await prisma.proposta.findUnique({ where: { id: propostaId } });
+  if (!p) return { erro: "Proposta não encontrada." };
+  if (p.status === "ACEITA") {
+    return { erro: "Proposta aceita é o registro do contrato e não pode ser excluída." };
+  }
+  await prisma.proposta.delete({ where: { id: propostaId } });
   return { ok: true };
 }
 

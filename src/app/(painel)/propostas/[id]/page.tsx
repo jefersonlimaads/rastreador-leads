@@ -6,6 +6,7 @@ import { formatarDataHora } from "@/lib/datas";
 import { Selo } from "../../componentes";
 import { FormularioProposta } from "../formulario";
 import { EnviarProposta } from "./enviar";
+import { Acompanhamento, ExcluirProposta } from "./acompanhamento";
 
 export default async function PaginaProposta({ params }: { params: Promise<{ id: string }> }) {
   await exigirAdmin();
@@ -33,7 +34,17 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
           <h1 className="truncate text-xl font-semibold tracking-tight">{proposta.cliente.nome}</h1>
           <p className="mt-0.5 truncate text-sm text-suave">{proposta.titulo}</p>
         </div>
-        <Selo tom={agora === "aceita" ? "ok" : agora === "recusada" || agora === "expirada" ? "alerta" : "neutro"}>
+        <Selo
+          tom={
+            agora === "aceita"
+              ? "ok"
+              : agora === "recusada" || agora === "expirada"
+                ? "alerta"
+                : agora === "negociando"
+                  ? "marca"
+                  : "neutro"
+          }
+        >
           {ROTULO_SITUACAO[agora]}
         </Selo>
       </div>
@@ -68,6 +79,15 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
         contato={proposta.cliente.contatoNome}
       />
 
+      {proposta.status !== "RASCUNHO" && !respondida && (
+        <Acompanhamento
+          propostaId={proposta.id}
+          status={proposta.status}
+          proximoContato={proposta.proximoContato?.toISOString().slice(0, 10) ?? ""}
+          notas={proposta.notas ?? ""}
+        />
+      )}
+
       {respondida ? (
         <p className="mt-6 rounded-2xl border border-dashed border-borda px-4 py-6 text-center text-sm text-suave">
           Proposta respondida fica como registro do que foi combinado e não se edita. Para
@@ -89,6 +109,8 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
           }}
         />
       )}
+
+      <ExcluirProposta propostaId={proposta.id} aceita={proposta.status === "ACEITA"} />
     </>
   );
 }

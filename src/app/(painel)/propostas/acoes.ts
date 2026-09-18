@@ -5,7 +5,13 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirAdmin } from "@/lib/auth";
-import { escopoDoTexto, gerarToken, marcarEnviada } from "@/lib/propostas";
+import {
+  alternarNegociacao,
+  escopoDoTexto,
+  excluirProposta,
+  gerarToken,
+  marcarEnviada,
+} from "@/lib/propostas";
 
 export type EstadoProposta = { erro?: string; ok?: string };
 
@@ -101,4 +107,53 @@ export async function acaoEnviarProposta(propostaId: string): Promise<string> {
   revalidatePath(`/propostas/${propostaId}`);
   revalidatePath("/negocio");
   return `${process.env.APP_URL ?? ""}/proposta/${proposta.token}`;
+}
+
+function revalidarPropostas(id?: string) {
+  revalidatePath("/propostas");
+  revalidatePath("/negocio");
+  if (id) revalidatePath(`/propostas/${id}`);
+}
+
+export async function acaoAlternarNegociacao(formData: FormData): Promise<void> {
+  await exigirAdmin();
+  const id = String(formData.get("propostaId") ?? "");
+  await alternarNegociacao(id);
+  revalidarPropostas(id);
+}
+
+/** Próximo contato e notas: o que faz a proposta não esfriar depois do envio. */
+export async function acaoSalvarAcompanhamento(
+  _estado: EstadoProposta,
+  formData: FormData,
+): Promise<EstadoProposta> {
+  await exigirAdmin();
+  const id = String(formData.get("propostaId") ?? "");
+  const proximo = String(formData.get("proximoContato") ?? "");
+  const notas = String(formData.get("notas") ?? "").trim().slice(0, 4000);
+
+  await prisma.proposta.update({
+    where: { id },
+    data: {
+      proximoContato: proximo ? new Date(proximo + "T00:00:00Z") : null,
+      notas: notas || null,
+    },
+  });
+
+  revalidarPropostas(id);
+  return { ok: "Acompanhamento salvo." };
+}
+
+export async function acaoExcluirProposta(
+  _estado: EstadoProposta,
+  formData: FormData,
+): Promise<EstadoProposta> {
+  await exigirAdmin();
+  const id = String(formData.get("propostaId") ?? "");
+
+  const r = await excluirProposta(id);
+  if (r.erro) return { erro: r.erro };
+
+  revalidarPropostas();
+  redirect("/propostas");
 }

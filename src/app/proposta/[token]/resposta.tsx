@@ -9,8 +9,8 @@ const campo =
 
 /**
  * O fim da proposta. Aceitar pede o nome, que é a assinatura mais simples que
- * ainda deixa claro quem disse sim. Recusar pede o motivo sem exigir: resposta
- * negativa sem justificativa vale mais do que silêncio.
+ * ainda deixa claro quem disse sim. Recusar exige o motivo: é o que diz se o
+ * problema foi preço, momento ou escopo, e é isso que muda a próxima proposta.
  */
 export function Resposta({
   token,
@@ -119,8 +119,19 @@ export function Resposta({
         <form action={recusar} className="mt-4 flex flex-col gap-3">
           <input type="hidden" name="token" value={token} />
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm text-suave">O que pesou? (opcional)</span>
-            <textarea name="motivo" rows={3} className={campo} placeholder="Preço, momento, escopo..." />
+            <span className="text-sm text-suave">O que pesou na decisão?</span>
+            <textarea
+              name="motivo"
+              rows={3}
+              required
+              minLength={10}
+              autoFocus
+              className={campo}
+              placeholder="Preço acima do que eu esperava, não é o momento, faltou algo no escopo..."
+            />
+            <span className="text-xs text-suave">
+              Uma frase basta. É o que me ajuda a fazer uma proposta melhor da próxima vez.
+            </span>
           </label>
           {recusa.erro && (
             <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{recusa.erro}</p>
