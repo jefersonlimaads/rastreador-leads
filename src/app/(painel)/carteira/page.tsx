@@ -21,11 +21,12 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
     (acc, l) => ({
       leadsHoje: acc.leadsHoje + l.leadsHoje,
       leads: acc.leads + l.leadsPeriodo,
+      fechados: acc.fechados + l.fechadosPeriodo,
       gasto: acc.gasto + l.gasto,
       receita: acc.receita + l.receita,
       pendencias: acc.pendencias + l.semResposta + l.followUp,
     }),
-    { leadsHoje: 0, leads: 0, gasto: 0, receita: 0, pendencias: 0 },
+    { leadsHoje: 0, leads: 0, fechados: 0, gasto: 0, receita: 0, pendencias: 0 },
   );
 
   return (
@@ -50,9 +51,11 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
         ))}
       </div>
 
-      <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Indicador titulo="Leads hoje" valor={String(totais.leadsHoje)} />
         <Indicador titulo={`Leads em ${dias}d`} valor={String(totais.leads)} />
+        <Indicador titulo="Fechados" valor={String(totais.fechados)} />
+        <Indicador titulo="Receita" valor={moeda(totais.receita)} />
         <Indicador titulo="Gasto" valor={moeda(totais.gasto)} />
         <Indicador
           titulo="Precisam de você"
@@ -70,26 +73,24 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
               <div className="min-w-0">
                 <h2 className="truncate font-medium">{l.nome}</h2>
                 <p className="mt-0.5 text-sm text-suave">
-                  {l.leadsHoje} {l.leadsHoje === 1 ? "lead hoje" : "leads hoje"} · {l.leadsPeriodo}{" "}
-                  em {dias} dias · {l.fechadosPeriodo} fechados
+                  {l.leadsHoje} {l.leadsHoje === 1 ? "lead hoje" : "leads hoje"}
                 </p>
               </div>
               <AbrirCliente clienteId={l.id} />
             </div>
 
+            {/* O que o cliente compra vem primeiro: lead, venda e dinheiro.
+                Custo e eficiência ficam na linha de baixo. */}
             <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-suave">Gasto</dt>
-                <dd className="mt-0.5 font-medium">{moeda(l.gasto)}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-suave">CPL</dt>
-                <dd className="mt-0.5 font-medium">{l.cpl != null ? moeda(l.cpl) : "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-xs uppercase tracking-wide text-suave">CAC</dt>
-                <dd className="mt-0.5 font-medium">{l.cac != null ? moeda(l.cac) : "—"}</dd>
-              </div>
+              <Celula rotulo={`Leads em ${dias}d`} valor={String(l.leadsPeriodo)} />
+              <Celula rotulo="Fechados" valor={String(l.fechadosPeriodo)} destaque={l.fechadosPeriodo > 0} />
+              <Celula rotulo="Receita" valor={moeda(l.receita)} destaque={l.receita > 0} />
+            </dl>
+
+            <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
+              <Celula rotulo="Gasto" valor={moeda(l.gasto)} />
+              <Celula rotulo="CPL" valor={l.cpl != null ? moeda(l.cpl) : "—"} />
+              <Celula rotulo="CAC" valor={l.cac != null ? moeda(l.cac) : "—"} />
             </dl>
 
             <div className="mt-3 flex flex-wrap gap-2">
@@ -114,6 +115,23 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
         ))}
       </section>
     </>
+  );
+}
+
+function Celula({
+  rotulo,
+  valor,
+  destaque,
+}: {
+  rotulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-suave">{rotulo}</dt>
+      <dd className={`mt-0.5 font-medium ${destaque ? "text-ok" : ""}`}>{valor}</dd>
+    </div>
   );
 }
 
