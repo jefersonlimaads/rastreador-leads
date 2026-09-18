@@ -50,6 +50,11 @@ enum CicloCliente {
   ENCERRADO
 }
 
+enum StatusTarefa {
+  ABERTA
+  FEITA
+}
+
 enum StatusFatura {
   ABERTA
   PAGA
@@ -137,12 +142,36 @@ model Cliente {
   gastos     Gasto[]
   enviosCapi EnvioCapi[]
   faturas    Fatura[]
+  tarefas    Tarefa[]
 }
 
 /*
  * Cobrança mensal de um cliente. Uma por mês de competência, gerada pela rotina
  * diária no primeiro dia do mês para quem está ativo e tem fee.
  */
+/*
+ * Tarefa da operação. clienteId nulo = tarefa da jl.ads, sem dono externo:
+ * proposta a escrever, conteúdo a gravar, cobrança a fazer. Com clienteId, é
+ * trabalho daquele cliente e aparece dentro do ambiente dele.
+ */
+model Tarefa {
+  id        String       @id @default(cuid())
+  clienteId String?
+  titulo    String
+  descricao String?
+  prazo     DateTime?    @db.Date
+  status    StatusTarefa @default(ABERTA)
+  criadoEm  DateTime     @default(now())
+  feitoEm   DateTime?
+
+  criadoPorId String?
+  cliente     Cliente? @relation(fields: [clienteId], references: [id])
+  criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
+
+  @@index([status, prazo])
+  @@index([clienteId, status])
+}
+
 model Fatura {
   id          String       @id @default(cuid())
   clienteId   String
@@ -188,6 +217,7 @@ model Usuario {
   cliente          Cliente? @relation(fields: [clienteId], references: [id])
   leadsResponsavel Lead[]   @relation("responsavel")
   eventos          Evento[]
+  tarefas          Tarefa[]
 
   @@index([clienteId])
 }

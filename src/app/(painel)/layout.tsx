@@ -3,32 +3,23 @@ import { prisma } from "@/lib/prisma";
 import { clienteEmFoco, exigirSessao } from "@/lib/auth";
 import { sair } from "../login/actions";
 import { Navegacao } from "./navegacao";
-import { SeletorCliente } from "./seletor-cliente";
+import { Cabecalho } from "./cabecalho";
 
 export default async function LayoutPainel({ children }: LayoutProps<"/">) {
   const sessao = await exigirSessao();
 
-  // O seletor é só do admin: os demais papéis nem carregam a lista de clientes.
-  const clientes =
-    sessao.papel === "ADMIN"
-      ? await prisma.cliente.findMany({
-          where: { ativo: true },
-          orderBy: { nome: "asc" },
-          select: { id: true, nome: true },
-        })
-      : [];
-  const emFoco = sessao.papel === "ADMIN" ? await clienteEmFoco(sessao) : null;
+  const emFoco = await clienteEmFoco(sessao);
+  const nomeEmFoco = emFoco
+    ? ((await prisma.cliente.findUnique({ where: { id: emFoco }, select: { nome: true } }))?.nome ??
+      null)
+    : null;
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-10 border-b border-borda bg-superficie/95 backdrop-blur">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between px-4 py-3">
-          {/* O ponto é o único elemento colorido do logo, como manda o guia. */}
-          <Link href="/hoje" className="font-titulo text-lg font-bold tracking-tight">
-            jl<span className="text-marca-texto">.</span>ads
-          </Link>
+          <Cabecalho ehAdmin={sessao.papel === "ADMIN"} nomeDoCliente={nomeEmFoco} />
           <div className="flex items-center gap-3 text-sm text-suave">
-            <SeletorCliente clientes={clientes} atual={emFoco} />
             <span className="hidden sm:inline">{sessao.nome}</span>
             <form action={sair}>
               <button type="submit" className="rounded-lg px-2 py-1 hover:bg-fundo">
