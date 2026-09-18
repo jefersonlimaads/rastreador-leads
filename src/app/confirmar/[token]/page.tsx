@@ -51,6 +51,8 @@ export default async function PaginaConfirmar({
                 cliqueId={c.id}
                 codigo={c.codigo}
                 interesse={c.interesse}
+                nome={c.nomeVisitante}
+                telefone={c.telefoneVisitante ? formatarTelefone(c.telefoneVisitante) : null}
                 quando={formatarDataHora(c.criadoEm, cliente.fuso)}
               />
             ))}
@@ -70,8 +72,15 @@ export default async function PaginaConfirmar({
                 key={l.id}
                 token={token}
                 leadId={l.id}
-                titulo={l.nome || l.clique?.interesse || "Conversa sem assunto anotado"}
-                telefone={l.telefone ? formatarTelefone(l.telefone) : null}
+                titulo={l.nome || l.clique?.nomeVisitante || l.clique?.interesse || "Conversa sem nome"}
+                telefone={
+                  l.telefone
+                    ? formatarTelefone(l.telefone)
+                    : l.clique?.telefoneVisitante
+                      ? formatarTelefone(l.clique.telefoneVisitante)
+                      : null
+                }
+                interesse={l.clique?.interesse ?? null}
                 codigo={l.clique?.codigo ?? null}
                 quando={formatarDataHora(l.criadoEm, cliente.fuso)}
               />

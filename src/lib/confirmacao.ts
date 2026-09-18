@@ -64,7 +64,17 @@ export async function pendencias(clienteId: string) {
   const leads = await prisma.lead.findMany({
     where: { clienteId, arquivadoEm: null, status: { in: [...STATUS_ABERTOS] } },
     orderBy: { criadoEm: "asc" },
-    include: { clique: { select: { codigo: true, adId: true, interesse: true } } },
+    include: {
+      clique: {
+        select: {
+          codigo: true,
+          adId: true,
+          interesse: true,
+          nomeVisitante: true,
+          telefoneVisitante: true,
+        },
+      },
+    },
     take: 60,
   });
 
@@ -93,8 +103,8 @@ export async function confirmarConversa(
       data: {
         clienteId,
         cliqueId: clique.id,
-        telefone: telefone || null,
-        nome: nome || null,
+        telefone: telefone || clique.telefoneVisitante || null,
+        nome: nome || clique.nomeVisitante || null,
         origem: "MANUAL",
         status: "NOVO",
         atribuicao: "EXATA",

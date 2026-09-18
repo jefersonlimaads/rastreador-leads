@@ -104,6 +104,8 @@
     fbc: montarFbc(param("fbclid")),
     url: window.location.href,
     interesse: null,
+    nomeVisitante: null,
+    telefoneVisitante: null,
   };
 
   /*
@@ -119,6 +121,37 @@
 
   function limpar(texto) {
     return (texto || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+
+  /*
+   * Nome e telefone que a pessoa digitou na própria landing page.
+   *
+   * Procura primeiro o que o instalador marcou (data-jl-nome, data-jl-telefone)
+   * e, se não houver marcação, adivinha pelo name, id ou placeholder do campo —
+   * é o que a maioria das páginas usa. Nada é enviado antes do clique no botão
+   * de WhatsApp: quem não clica não vira registro.
+   */
+  function valorDoCampo(marcado, padrao, tipo) {
+    var campo = document.querySelector("[" + marcado + "]");
+    if (campo && campo.value) return limpar(campo.value);
+
+    var candidatos = document.querySelectorAll("input" + (tipo ? "[type='" + tipo + "']" : ""));
+    for (var i = 0; i < candidatos.length; i++) {
+      var c = candidatos[i];
+      var pistas = ((c.name || "") + " " + (c.id || "") + " " + (c.placeholder || "")).toLowerCase();
+      if (padrao.test(pistas) && c.value) return limpar(c.value);
+    }
+    return null;
+  }
+
+  function nomeDoVisitante() {
+    return valorDoCampo("data-jl-nome", /\bnome\b|\bname\b|seu nome/, null);
+  }
+
+  function telefoneDoVisitante() {
+    var porTipo = valorDoCampo("data-jl-telefone", /telefone|celular|whats|fone|phone|tel\b/, "tel");
+    if (porTipo) return porTipo;
+    return valorDoCampo("data-jl-telefone", /telefone|celular|whats|fone|phone|tel\b/, null);
   }
 
   function interesseDoCampo() {
@@ -209,6 +242,8 @@
     if (jaRegistrado) return;
     jaRegistrado = true;
     dados.interesse = descobrirInteresse(evento && evento.currentTarget);
+    dados.nomeVisitante = nomeDoVisitante();
+    dados.telefoneVisitante = telefoneDoVisitante();
     registrar();
   }
 
@@ -243,6 +278,9 @@
     codigo: codigo,
     interesse: function () {
       return dados.interesse;
+    },
+    identificacao: function () {
+      return { nome: nomeDoVisitante(), telefone: telefoneDoVisitante() };
     },
     codigoNovo: codigoNovo,
     mensagem: mensagem,

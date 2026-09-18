@@ -31,12 +31,16 @@ export function ItemClique({
   cliqueId,
   codigo,
   interesse,
+  nome,
+  telefone,
   quando,
 }: {
   token: string;
   cliqueId: string;
   codigo: string;
   interesse: string | null;
+  nome: string | null;
+  telefone: string | null;
   quando: string;
 }) {
   const [confirmado, confirmar, confirmando] = useActionState(acaoConfirmarConversa, vazio);
@@ -49,7 +53,8 @@ export function ItemClique({
     return (
       <article className={`${cartao} opacity-60`}>
         <p className="text-sm">
-          {interesse ?? `Código ${codigo}`} · {confirmado.ok ? "virou conversa" : "sem contato"}
+          {nome ?? interesse ?? `Código ${codigo}`} ·{" "}
+          {confirmado.ok ? "virou conversa" : "sem contato"}
         </p>
       </article>
     );
@@ -59,9 +64,11 @@ export function ItemClique({
     <article className={cartao}>
       {/* O que a pessoa procurava vem primeiro: é assim que quem atende
           reconhece de quem se trata. O código serve para conferir na conversa. */}
-      <p className="font-medium">{interesse ?? "Assunto não identificado"}</p>
+      <p className="font-medium">{nome ?? interesse ?? "Sem identificação"}</p>
       <p className="mt-0.5 text-sm text-suave">
-        Clicou em {quando} · código {codigo}
+        {[nome ? interesse : null, telefone, `clicou ${quando}`, `código ${codigo}`]
+          .filter(Boolean)
+          .join(" · ")}
       </p>
 
       {abrirTelefone ? (
@@ -111,7 +118,7 @@ export function ItemClique({
           onClick={() => setAbrirTelefone(true)}
           className="mt-2 text-sm text-marca"
         >
-          Falou comigo e quero anotar quem é
+          {nome ? "Corrigir nome ou telefone" : "Falou comigo e quero anotar quem é"}
         </button>
       )}
 
@@ -132,6 +139,7 @@ export function ItemLead({
   titulo,
   telefone,
   codigo,
+  interesse,
   quando,
 }: {
   token: string;
@@ -139,6 +147,7 @@ export function ItemLead({
   titulo: string;
   telefone: string | null;
   codigo: string | null;
+  interesse: string | null;
   quando: string;
 }) {
   const [estado, responder, enviando] = useActionState(acaoDesfecho, vazio);
@@ -158,7 +167,7 @@ export function ItemLead({
     <article className={cartao}>
       <p className="font-medium">{titulo}</p>
       <p className="mt-0.5 text-sm text-suave">
-        {[telefone, codigo ? `código ${codigo}` : null, `desde ${quando}`]
+        {[interesse, telefone, codigo ? `código ${codigo}` : null, `desde ${quando}`]
           .filter(Boolean)
           .join(" · ")}
       </p>

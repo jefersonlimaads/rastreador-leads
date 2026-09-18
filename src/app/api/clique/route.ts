@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizarCodigo } from "@/lib/codigo";
+import { normalizarTelefone } from "@/lib/telefone";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -31,6 +32,8 @@ const Entrada = z.object({
   fbp: texto,
   fbc: texto,
   interesse: z.string().trim().max(80).nullish(),
+  nomeVisitante: z.string().trim().max(120).nullish(),
+  telefoneVisitante: z.string().trim().max(40).nullish(),
   url: z.string().trim().max(2000).nullish(),
 });
 
@@ -89,6 +92,10 @@ export async function POST(request: NextRequest) {
         ip,
         userAgent: request.headers.get("user-agent"),
         interesse: d.interesse ?? null,
+        nomeVisitante: d.nomeVisitante ?? null,
+        telefoneVisitante: d.telefoneVisitante
+          ? (normalizarTelefone(d.telefoneVisitante) ?? d.telefoneVisitante)
+          : null,
         url: d.url ?? null,
       },
     });

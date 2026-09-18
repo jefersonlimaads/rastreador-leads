@@ -141,6 +141,14 @@ model Clique {
    */
   interesse String?
 
+  /*
+   * Nome e telefone que a própria pessoa preencheu na landing page, quando a
+   * página tem formulário antes do botão de WhatsApp. É o que permite a quem
+   * atende reconhecer dez pedidos do mesmo serviço no mesmo dia.
+   */
+  nomeVisitante     String?
+  telefoneVisitante String?
+
   status   StatusClique @default(PENDENTE)
   criadoEm DateTime     @default(now())
 
