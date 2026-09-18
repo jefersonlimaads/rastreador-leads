@@ -29,7 +29,9 @@ async function abertas() {
 
 beforeEach(async () => {
   await limpar();
-  await prisma.cliente.create({ data: { id: ID, nome: "Ótica Visão", ciclo: "PROSPECCAO" } });
+  await prisma.cliente.create({
+    data: { id: ID, agenciaId: "agencia-jlads", nome: "Ótica Visão", ciclo: "PROSPECCAO" },
+  });
 });
 
 afterAll(async () => {
@@ -113,7 +115,9 @@ describe("tarefas automáticas", () => {
 
   it("virar cliente encerra as tarefas de prospecção, mas não as suas", async () => {
     await aoMudarEtapa(ID);
-    await prisma.tarefa.create({ data: { clienteId: ID, titulo: "Minha tarefa manual" } });
+    await prisma.tarefa.create({
+      data: { agenciaId: "agencia-jlads", clienteId: ID, titulo: "Minha tarefa manual" },
+    });
 
     await prisma.cliente.update({ where: { id: ID }, data: { ciclo: "ATIVO" } });
     await aoMudarEtapa(ID);

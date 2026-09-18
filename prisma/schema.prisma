@@ -139,9 +139,9 @@ model Agencia {
 
 model Cliente {
   id              String  @id @default(cuid())
-  // O default só cobre a janela de deploy: código antigo ainda no ar criando
-  // cliente sem agência. O código novo sempre informa, e o default sai depois.
-  agenciaId       String  @default("agencia-jlads")
+  // Sem valor padrão de propósito: registro sem agência não pode existir, e
+  // um padrão jogaria em silêncio o dado de uma agência dentro de outra.
+  agenciaId       String
   nome            String
   contaAnunciosId String?
   fuso            String    @default("America/Sao_Paulo")
@@ -227,7 +227,7 @@ model Interacao {
  */
 model Tarefa {
   id        String       @id @default(cuid())
-  agenciaId String       @default("agencia-jlads") // mesmo motivo do Cliente
+  agenciaId String
   clienteId String?
   titulo    String
   descricao String?
@@ -329,7 +329,7 @@ model NumeroWhatsapp {
 
 model Usuario {
   id        String  @id @default(cuid())
-  agenciaId String  @default("agencia-jlads") // mesmo motivo do Cliente
+  agenciaId String
   clienteId String? // nulo = equipe da agência, vê todos os clientes dela
   // Dono da plataforma: cria agências. Não tem nada a ver com o papel dentro
   // de uma agência, e não dá acesso aos dados de outras agências pelo painel.

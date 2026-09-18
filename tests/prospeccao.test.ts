@@ -27,7 +27,9 @@ async function limpar() {
 
 beforeEach(async () => {
   await limpar();
-  await prisma.cliente.create({ data: { id: ID, nome: "Prospect do funil", ciclo: "PROSPECCAO" } });
+  await prisma.cliente.create({
+    data: { id: ID, agenciaId: "agencia-jlads", nome: "Prospect do funil", ciclo: "PROSPECCAO" },
+  });
 });
 
 afterAll(async () => {

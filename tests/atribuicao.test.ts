@@ -43,13 +43,14 @@ beforeEach(async () => {
   await prisma.cliente.upsert({
     where: { id: CLIENTE },
     update: {},
-    create: { id: CLIENTE, nome: "Cliente de teste automático" },
+    create: { id: CLIENTE, agenciaId: "agencia-jlads", nome: "Cliente de teste automático" },
   });
   await prisma.usuario.upsert({
     where: { id: USUARIO },
     update: {},
     create: {
       id: USUARIO,
+      agenciaId: "agencia-jlads",
       nome: "Teste",
       email: "teste-auto@jl.ads",
       senhaHash: "x",

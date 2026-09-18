@@ -22,11 +22,18 @@ function codigo() {
 async function main() {
   const senhaHash = await bcrypt.hash("jlads2026", 10);
 
+  const agencia = await prisma.agencia.upsert({
+    where: { id: "agencia-jlads" },
+    update: {},
+    create: { id: "agencia-jlads", nome: "jl.ads", slug: "jlads" },
+  });
+
   const cliente = await prisma.cliente.upsert({
     where: { id: "cliente-demo" },
     update: {},
     create: {
       id: "cliente-demo",
+      agenciaId: agencia.id,
       nome: "Cliente Demo",
       contaAnunciosId: "act_000000000000000",
       fuso: "America/Sao_Paulo",
@@ -42,10 +49,12 @@ async function main() {
     where: { email: "admin@jl.ads" },
     update: { senhaHash },
     create: {
+      agenciaId: agencia.id,
       nome: "Jeferson Lima",
       email: "admin@jl.ads",
       senhaHash,
       papel: "ADMIN",
+      plataforma: true,
       clienteId: null,
     },
   });
@@ -54,6 +63,7 @@ async function main() {
     where: { email: "atendente@clientedemo.com" },
     update: { senhaHash },
     create: {
+      agenciaId: agencia.id,
       nome: "Atendente Demo",
       email: "atendente@clientedemo.com",
       senhaHash,

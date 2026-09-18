@@ -74,7 +74,15 @@ async function criarAdmin() {
   const usuario = await prisma.usuario.upsert({
     where: { email },
     update: { senhaHash, papel: "ADMIN", ativo: true, clienteId: null },
-    create: { nome: "Administrador JL Ads", email, senhaHash, papel: "ADMIN", clienteId: null },
+    create: {
+      agenciaId: "agencia-jlads",
+      nome: "Administrador JL Ads",
+      email,
+      senhaHash,
+      papel: "ADMIN",
+      plataforma: true,
+      clienteId: null,
+    },
   });
 
   await prisma.$disconnect();

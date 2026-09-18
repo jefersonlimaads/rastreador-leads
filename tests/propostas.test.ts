@@ -50,7 +50,9 @@ async function novaProposta() {
 
 beforeEach(async () => {
   await limpar();
-  await prisma.cliente.create({ data: { id: CLIENTE, nome: "Prospect teste", ciclo: "PROSPECCAO" } });
+  await prisma.cliente.create({
+    data: { id: CLIENTE, agenciaId: "agencia-jlads", nome: "Prospect teste", ciclo: "PROSPECCAO" },
+  });
 });
 
 afterAll(async () => {
