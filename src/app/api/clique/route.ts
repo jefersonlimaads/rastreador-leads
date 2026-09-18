@@ -30,6 +30,7 @@ const Entrada = z.object({
   fbclid: texto,
   fbp: texto,
   fbc: texto,
+  interesse: z.string().trim().max(80).nullish(),
   url: z.string().trim().max(2000).nullish(),
 });
 
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
         fbc: d.fbc ?? null,
         ip,
         userAgent: request.headers.get("user-agent"),
+        interesse: d.interesse ?? null,
         url: d.url ?? null,
       },
     });

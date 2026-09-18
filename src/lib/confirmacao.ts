@@ -64,7 +64,7 @@ export async function pendencias(clienteId: string) {
   const leads = await prisma.lead.findMany({
     where: { clienteId, arquivadoEm: null, status: { in: [...STATUS_ABERTOS] } },
     orderBy: { criadoEm: "asc" },
-    include: { clique: { select: { codigo: true, adId: true } } },
+    include: { clique: { select: { codigo: true, adId: true, interesse: true } } },
     take: 60,
   });
 
@@ -77,7 +77,12 @@ export async function totalPendencias(clienteId: string) {
 }
 
 /** O clique virou conversa: nasce o lead, com atribuição exata pelo código. */
-export async function confirmarConversa(clienteId: string, cliqueId: string, telefone?: string) {
+export async function confirmarConversa(
+  clienteId: string,
+  cliqueId: string,
+  telefone?: string,
+  nome?: string,
+) {
   const clique = await prisma.clique.findFirst({
     where: { id: cliqueId, clienteId, lead: null },
   });
@@ -89,6 +94,7 @@ export async function confirmarConversa(clienteId: string, cliqueId: string, tel
         clienteId,
         cliqueId: clique.id,
         telefone: telefone || null,
+        nome: nome || null,
         origem: "MANUAL",
         status: "NOVO",
         atribuicao: "EXATA",

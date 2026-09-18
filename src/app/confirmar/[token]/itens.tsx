@@ -30,11 +30,13 @@ export function ItemClique({
   token,
   cliqueId,
   codigo,
+  interesse,
   quando,
 }: {
   token: string;
   cliqueId: string;
   codigo: string;
+  interesse: string | null;
   quando: string;
 }) {
   const [confirmado, confirmar, confirmando] = useActionState(acaoConfirmarConversa, vazio);
@@ -47,7 +49,7 @@ export function ItemClique({
     return (
       <article className={`${cartao} opacity-60`}>
         <p className="text-sm">
-          Código <strong>{codigo}</strong> · {confirmado.ok ? "virou conversa" : "sem contato"}
+          {interesse ?? `Código ${codigo}`} · {confirmado.ok ? "virou conversa" : "sem contato"}
         </p>
       </article>
     );
@@ -55,13 +57,18 @@ export function ItemClique({
 
   return (
     <article className={cartao}>
-      <p className="font-medium">Código {codigo}</p>
-      <p className="mt-0.5 text-sm text-suave">Clicou em {quando}</p>
+      {/* O que a pessoa procurava vem primeiro: é assim que quem atende
+          reconhece de quem se trata. O código serve para conferir na conversa. */}
+      <p className="font-medium">{interesse ?? "Assunto não identificado"}</p>
+      <p className="mt-0.5 text-sm text-suave">
+        Clicou em {quando} · código {codigo}
+      </p>
 
       {abrirTelefone ? (
         <form action={confirmar} className="mt-3 flex flex-col gap-2">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="cliqueId" value={cliqueId} />
+          <input name="nome" placeholder="Nome de quem falou (opcional)" className={campo} />
           <input
             name="telefone"
             type="tel"
@@ -104,7 +111,7 @@ export function ItemClique({
           onClick={() => setAbrirTelefone(true)}
           className="mt-2 text-sm text-marca"
         >
-          Falou comigo e quero anotar o telefone
+          Falou comigo e quero anotar quem é
         </button>
       )}
 
@@ -123,11 +130,15 @@ export function ItemLead({
   token,
   leadId,
   titulo,
+  telefone,
+  codigo,
   quando,
 }: {
   token: string;
   leadId: string;
   titulo: string;
+  telefone: string | null;
+  codigo: string | null;
   quando: string;
 }) {
   const [estado, responder, enviando] = useActionState(acaoDesfecho, vazio);
@@ -146,7 +157,11 @@ export function ItemLead({
   return (
     <article className={cartao}>
       <p className="font-medium">{titulo}</p>
-      <p className="mt-0.5 text-sm text-suave">Começou em {quando}</p>
+      <p className="mt-0.5 text-sm text-suave">
+        {[telefone, codigo ? `código ${codigo}` : null, `desde ${quando}`]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
 
       {escolha === "" && (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">

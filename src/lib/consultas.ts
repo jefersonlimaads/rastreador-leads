@@ -5,7 +5,7 @@ import type { LeadCartao } from "@/app/(painel)/componentes";
 import type { Prisma } from "@prisma/client";
 
 const INCLUIR = {
-  clique: { select: { adId: true, utmCampaign: true, utmContent: true } },
+  clique: { select: { adId: true, utmCampaign: true, utmContent: true, interesse: true } },
   eventos: { orderBy: { criadoEm: "desc" }, take: 1, select: { criadoEm: true } },
 } satisfies Prisma.LeadInclude;
 
@@ -20,6 +20,7 @@ function paraCartao(lead: LeadComRelacoes): LeadCartao {
     atribuicao: lead.atribuicao,
     criadoEm: lead.criadoEm,
     ultimoEventoEm: lead.eventos[0]?.criadoEm ?? null,
+    interesse: lead.clique?.interesse ?? null,
     anuncio: lead.clique?.utmContent ?? lead.clique?.adId ?? null,
     valorVenda: lead.valorVenda ? Number(lead.valorVenda) : null,
   };

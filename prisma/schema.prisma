@@ -134,6 +134,13 @@ model Clique {
   userAgent String?
   url       String?
 
+  /*
+   * O que a pessoa escolheu na landing page: o serviço do botão que ela clicou,
+   * a opção marcada num formulário, ou o texto do próprio botão. É por aqui que
+   * quem atende reconhece de quem se trata, em vez de decorar telefone.
+   */
+  interesse String?
+
   status   StatusClique @default(PENDENTE)
   criadoEm DateTime     @default(now())
 

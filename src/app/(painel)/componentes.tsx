@@ -40,6 +40,7 @@ export type LeadCartao = {
   id: string;
   nome: string | null;
   telefone: string | null;
+  interesse: string | null;
   status: string;
   atribuicao: string;
   criadoEm: Date;
@@ -66,11 +67,19 @@ export function CartaoLead({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link href={`/leads/${lead.id}`} className="block truncate font-medium">
-            {lead.nome || (lead.telefone ? formatarTelefone(lead.telefone) : "Lead sem telefone")}
+            {lead.nome ||
+              (lead.telefone ? formatarTelefone(lead.telefone) : null) ||
+              lead.interesse ||
+              "Lead sem identificação"}
           </Link>
           <p className="mt-0.5 text-sm text-suave">
-            {lead.nome && lead.telefone ? formatarTelefone(lead.telefone) + " · " : ""}
-            {tempoRelativo(lead.criadoEm)}
+            {[
+              lead.nome && lead.telefone ? formatarTelefone(lead.telefone) : null,
+              lead.nome || lead.telefone ? lead.interesse : null,
+              tempoRelativo(lead.criadoEm),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </p>
         </div>
         {destaque && <Selo tom="alerta">{destaque}</Selo>}

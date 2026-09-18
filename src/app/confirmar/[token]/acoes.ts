@@ -44,7 +44,8 @@ export async function acaoConfirmarConversa(
   const telefoneBruto = String(formData.get("telefone") ?? "").trim();
   const telefone = telefoneBruto ? (normalizarTelefone(telefoneBruto) ?? undefined) : undefined;
 
-  const lead = await confirmarConversa(cliente.id, cliqueId, telefone);
+  const nome = String(formData.get("nome") ?? "").trim().slice(0, 120) || undefined;
+  const lead = await confirmarConversa(cliente.id, cliqueId, telefone, nome);
   if (!lead) return { erro: "Esse item já foi respondido." };
 
   // O evento de lead para o Meta sai na confirmação, que é quando sabemos que a

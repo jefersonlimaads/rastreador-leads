@@ -103,10 +103,66 @@
     fbp: lerCookie("_fbp"),
     fbc: montarFbc(param("fbclid")),
     url: window.location.href,
+    interesse: null,
   };
 
+  /*
+   * O que a pessoa escolheu, para quem atende reconhecer de quem se trata.
+   * Ordem de procura, da mais confiável para a menos:
+   *   1. data-jl-servico no próprio botão clicado
+   *   2. campo marcado com data-jl-interesse (select, radio ou input)
+   *   3. parâmetro servico ou interesse na URL
+   *   4. o texto do botão, quando ele diz algo além de "Falar no WhatsApp"
+   *   5. o data-servico do script, que vale para a página inteira
+   */
+  var GENERICOS = /^(falar|fale|chamar|clique|clicar|enviar|whatsapp|whats|contato|saiba mais|quero)/i;
+
+  function limpar(texto) {
+    return (texto || "").replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+
+  function interesseDoCampo() {
+    var campos = document.querySelectorAll("[data-jl-interesse]");
+    for (var i = 0; i < campos.length; i++) {
+      var campo = campos[i];
+      if (campo.tagName === "SELECT") {
+        var op = campo.options[campo.selectedIndex];
+        if (op && op.value) return limpar(op.textContent);
+      } else if (campo.type === "radio" || campo.type === "checkbox") {
+        if (campo.checked) {
+          var rotulo = campo.closest("label");
+          return limpar(rotulo ? rotulo.textContent : campo.value);
+        }
+      } else if (campo.value) {
+        return limpar(campo.value);
+      }
+    }
+    return null;
+  }
+
+  function descobrirInteresse(alvo) {
+    if (alvo) {
+      var proprio = alvo.getAttribute("data-jl-servico");
+      if (proprio) return limpar(proprio);
+    }
+
+    var doCampo = interesseDoCampo();
+    if (doCampo) return doCampo;
+
+    var daUrl = param("servico") || param("interesse");
+    if (daUrl) return limpar(daUrl);
+
+    if (alvo) {
+      var texto = limpar(alvo.textContent);
+      if (texto && !GENERICOS.test(texto)) return texto;
+    }
+
+    return SERVICO !== "os serviços" ? SERVICO : null;
+  }
+
   function mensagem() {
-    return "Olá, vim pelo site e quero saber sobre " + SERVICO + ". [" + codigo + "]";
+    var assunto = dados.interesse || SERVICO;
+    return "Olá, vim pelo site e quero saber sobre " + assunto + ". [" + codigo + "]";
   }
 
   function montarLink(href) {
@@ -149,9 +205,10 @@
 
   var jaRegistrado = false;
 
-  function aoClicar() {
+  function aoClicar(evento) {
     if (jaRegistrado) return;
     jaRegistrado = true;
+    dados.interesse = descobrirInteresse(evento && evento.currentTarget);
     registrar();
   }
 
@@ -160,6 +217,9 @@
     for (var i = 0; i < alvos.length; i++) {
       var alvo = alvos[i];
       if (alvo.tagName === "A") {
+        // O texto do botão entra na mensagem: cada botão da página pode falar
+        // de um serviço diferente.
+        dados.interesse = descobrirInteresse(alvo);
         alvo.href = montarLink(alvo.getAttribute("href"));
       }
       alvo.addEventListener("click", aoClicar, { passive: true });
@@ -181,6 +241,9 @@
 
   window.jlAds = {
     codigo: codigo,
+    interesse: function () {
+      return dados.interesse;
+    },
     codigoNovo: codigoNovo,
     mensagem: mensagem,
     link: function () {
