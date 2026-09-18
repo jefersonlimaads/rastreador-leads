@@ -35,6 +35,39 @@ export const ETAPAS = [
 /** As que o cliente escolhe quando diz que o lead ainda está sendo tratado. */
 export const ETAPAS_EM_ANDAMENTO = ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIANDO"] as const;
 
+/**
+ * Que etapas do meio cada tipo de funil usa.
+ *
+ * Clínica e psicóloga atendem e fecham: mostrar "proposta enviada" para elas é
+ * ruído na tela de quem responde. Filmmaker, obra e consultoria passam pelas
+ * três. Os dois são recortes da mesma lista, então a Carteira continua
+ * comparando clientes entre si.
+ */
+export const ETAPAS_DO_FUNIL = {
+  SIMPLES: ["EM_ATENDIMENTO"],
+  COMPLETO: ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIANDO"],
+} as const;
+
+export const ROTULO_FUNIL: Record<string, string> = {
+  SIMPLES: "Simples — atende e fecha",
+  COMPLETO: "Completo — com proposta e negociação",
+};
+
+/** Colunas do pipeline de um cliente: as do funil dele, mais as que têm lead. */
+export function etapasVisiveis(funil: string, comLeads: string[] = []): string[] {
+  const doFunil = ETAPAS_DO_FUNIL[funil as keyof typeof ETAPAS_DO_FUNIL] ?? ETAPAS_DO_FUNIL.COMPLETO;
+  return ETAPAS.filter(
+    (e) =>
+      e === "NOVO" ||
+      e === "FECHADO" ||
+      e === "PERDIDO" ||
+      (doFunil as readonly string[]).includes(e) ||
+      // Etapa fora do funil atual que ainda tem lead: some da escolha, mas
+      // continua visível, senão o lead desapareceria do pipeline.
+      comLeads.includes(e),
+  );
+}
+
 export const ROTULO_STATUS: Record<string, string> = {
   NOVO: "Novo",
   EM_ATENDIMENTO: "Em atendimento",

@@ -2,20 +2,20 @@
 
 import { useActionState, useState } from "react";
 import { acaoMudarStatus, type EstadoStatus } from "../../acoes";
-import { ETAPAS, ROTULO_STATUS } from "@/lib/regras";
-
-const STATUS = ETAPAS;
+import { ROTULO_STATUS } from "@/lib/regras";
 
 const estadoInicial: EstadoStatus = {};
 
 export function PainelStatus({
   leadId,
+  etapas,
   status,
   podeFechar,
   valorAtual,
   motivoAtual,
 }: {
   leadId: string;
+  etapas: string[];
   status: string;
   podeFechar: boolean;
   valorAtual: number | null;
@@ -30,7 +30,7 @@ export function PainelStatus({
       <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Status</h2>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {STATUS.map((s) => {
+        {etapas.map((s) => {
           const ativo = escolhido === s;
           const bloqueado = s === "FECHADO" && !podeFechar;
           return (

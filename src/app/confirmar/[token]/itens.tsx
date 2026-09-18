@@ -7,7 +7,7 @@ import {
   acaoDesfecho,
   type EstadoConfirmacao,
 } from "./acoes";
-import { ETAPAS_EM_ANDAMENTO, ROTULO_STATUS } from "@/lib/regras";
+import { ROTULO_STATUS } from "@/lib/regras";
 
 const vazio: EstadoConfirmacao = {};
 
@@ -142,6 +142,7 @@ export function ItemLead({
   codigo,
   interesse,
   etapaAtual,
+  etapas,
   quando,
 }: {
   token: string;
@@ -151,6 +152,7 @@ export function ItemLead({
   codigo: string | null;
   interesse: string | null;
   etapaAtual: string;
+  etapas: string[];
   quando: string;
 }) {
   const [estado, responder, enviando] = useActionState(acaoDesfecho, vazio);
@@ -198,13 +200,24 @@ export function ItemLead({
               Não fechou
             </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setEscolha("ANDAMENTO")}
-            className={`${botaoSecundario} w-full`}
-          >
-            Ainda estou tratando
-          </button>
+          {etapas.length === 1 ? (
+            <form action={responder}>
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="leadId" value={leadId} />
+              <input type="hidden" name="status" value={etapas[0]} />
+              <button type="submit" disabled={enviando} className={`${botaoSecundario} w-full`}>
+                Ainda estou atendendo
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setEscolha("ANDAMENTO")}
+              className={`${botaoSecundario} w-full`}
+            >
+              Ainda estou tratando
+            </button>
+          )}
         </div>
       )}
 
@@ -212,7 +225,7 @@ export function ItemLead({
       {escolha === "ANDAMENTO" && (
         <div className="mt-4 flex flex-col gap-2">
           <p className="text-sm text-suave">Em que ponto está?</p>
-          {ETAPAS_EM_ANDAMENTO.map((etapa) => (
+          {etapas.map((etapa) => (
             <form key={etapa} action={responder}>
               <input type="hidden" name="token" value={token} />
               <input type="hidden" name="leadId" value={leadId} />

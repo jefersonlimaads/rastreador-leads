@@ -1,16 +1,23 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { pipeline } from "@/lib/consultas";
-import { ETAPAS, ROTULO_STATUS } from "@/lib/regras";
+import { etapasVisiveis, ROTULO_STATUS } from "@/lib/regras";
+import { prisma } from "@/lib/prisma";
 import { formatarTelefone } from "@/lib/telefone";
 import { Selo, moeda, tempoRelativo } from "../componentes";
-
-const ORDEM = ETAPAS;
 
 export default async function PaginaPipeline({ searchParams }: PageProps<"/pipeline">) {
   const { cliente } = await searchParams;
   const { sessao, clienteId } = await exigirCliente(typeof cliente === "string" ? cliente : null);
   const colunas = await pipeline(clienteId);
+  const dadosCliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    select: { funil: true },
+  });
+  const comLeads = Object.entries(colunas)
+    .filter(([, leads]) => leads.length > 0)
+    .map(([etapa]) => etapa);
+  const ORDEM = etapasVisiveis(dadosCliente?.funil ?? "COMPLETO", comLeads);
   const mostrarValor = podeVerDinheiro(sessao.papel);
 
   return (

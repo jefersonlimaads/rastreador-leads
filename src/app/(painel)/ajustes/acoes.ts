@@ -127,6 +127,27 @@ export async function acaoTrocarSenha(
   return { ok: "Senha trocada." };
 }
 
+/** O funil do cliente muda o que ele vê na tela de confirmação e no pipeline. */
+export async function acaoTrocarFunil(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirSessao();
+  if (sessao.papel === "ATENDENTE") return { erro: "Sem permissão." };
+
+  const clienteId = String(formData.get("clienteId") ?? "");
+  const funil = String(formData.get("funil") ?? "");
+  if (funil !== "SIMPLES" && funil !== "COMPLETO") return { erro: "Funil inválido." };
+  if (sessao.papel === "GESTOR" && clienteId !== sessao.clienteId) {
+    return { erro: "Cliente inválido." };
+  }
+
+  await prisma.cliente.update({ where: { id: clienteId }, data: { funil } });
+  revalidatePath("/ajustes");
+  revalidatePath("/pipeline");
+  return { ok: "Funil atualizado." };
+}
+
 const Credenciais = z.object({
   clienteId: z.string().min(1),
   pixelId: z.string().max(64).optional(),

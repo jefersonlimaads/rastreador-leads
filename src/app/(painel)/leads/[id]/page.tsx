@@ -4,6 +4,7 @@ import { detalheLead } from "@/lib/consultas";
 import { formatarTelefone, linkWhatsapp } from "@/lib/telefone";
 import { ROTULO_ATRIBUICAO, ROTULO_EVENTO, ROTULO_STATUS } from "@/lib/regras";
 import { formatarDataHora } from "@/lib/datas";
+import { etapasVisiveis } from "@/lib/regras";
 import { Selo, moeda, tempoRelativo } from "../../componentes";
 import { PainelStatus } from "./status";
 import { acaoAdicionarNota, acaoRegistrarContato } from "../../acoes";
@@ -81,6 +82,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
 
       <PainelStatus
         leadId={lead.id}
+        etapas={etapasVisiveis(lead.cliente.funil, [lead.status])}
         status={lead.status}
         podeFechar={mostrarDinheiro}
         valorAtual={lead.valorVenda ? Number(lead.valorVenda) : null}

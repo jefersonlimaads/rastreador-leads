@@ -5,9 +5,11 @@ import {
   acaoCriarCliente,
   acaoCriarUsuario,
   acaoSalvarCredenciais,
+  acaoTrocarFunil,
   acaoTrocarSenha,
   type EstadoAjustes,
 } from "./acoes";
+import { ROTULO_FUNIL } from "@/lib/regras";
 import type { Papel } from "@prisma/client";
 
 const vazio: EstadoAjustes = {};
@@ -29,16 +31,19 @@ function Aviso({ estado }: { estado: EstadoAjustes }) {
 export function FormulariosAjustes({
   papel,
   clienteEmFoco,
+  funilAtual,
   clientes,
 }: {
   papel: Papel;
   clienteEmFoco: { id: string; nome: string } | null;
+  funilAtual: string;
   clientes: { id: string; nome: string }[];
 }) {
   const [estadoCliente, criarCliente, criandoCliente] = useActionState(acaoCriarCliente, vazio);
   const [estadoUsuario, criarUsuario, criandoUsuario] = useActionState(acaoCriarUsuario, vazio);
   const [estadoCred, salvarCred, salvandoCred] = useActionState(acaoSalvarCredenciais, vazio);
   const [estadoSenha, trocarSenha, trocandoSenha] = useActionState(acaoTrocarSenha, vazio);
+  const [estadoFunil, trocarFunil, trocandoFunil] = useActionState(acaoTrocarFunil, vazio);
 
   return (
     <>
@@ -92,6 +97,36 @@ export function FormulariosAjustes({
             <Aviso estado={estadoCred} />
             <button type="submit" disabled={salvandoCred} className={botao}>
               {salvandoCred ? "Salvando..." : "Salvar credenciais"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {papel !== "ATENDENTE" && clienteEmFoco && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Funil de {clienteEmFoco.nome}
+          </h2>
+          <form
+            action={trocarFunil}
+            className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
+          >
+            <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
+            <select name="funil" defaultValue={funilAtual} className={campo}>
+              {Object.entries(ROTULO_FUNIL).map(([valor, rotulo]) => (
+                <option key={valor} value={valor}>
+                  {rotulo}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-suave">
+              Muda as etapas que o cliente vê na tela de confirmação e as colunas do pipeline.
+              Clínica e psicóloga costumam usar o simples; filmmaker, obra e consultoria, o
+              completo.
+            </p>
+            <Aviso estado={estadoFunil} />
+            <button type="submit" disabled={trocandoFunil} className={botao}>
+              {trocandoFunil ? "Salvando..." : "Salvar funil"}
             </button>
           </form>
         </section>

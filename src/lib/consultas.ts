@@ -129,7 +129,7 @@ export async function detalheLead(clienteId: string, leadId: string) {
   return prisma.lead.findFirst({
     where: { id: leadId, clienteId },
     include: {
-      cliente: { select: { fuso: true, nome: true } },
+      cliente: { select: { fuso: true, nome: true, funil: true } },
       clique: true,
       responsavel: { select: { nome: true } },
       leadAnterior: { select: { id: true, criadoEm: true, status: true } },

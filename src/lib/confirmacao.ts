@@ -29,7 +29,7 @@ export async function clientePorToken(token: string) {
   if (!token || token.length < 32) return null;
   return prisma.cliente.findFirst({
     where: { tokenConfirmacao: token, ativo: true },
-    select: { id: true, nome: true, fuso: true },
+    select: { id: true, nome: true, fuso: true, funil: true },
   });
 }
 

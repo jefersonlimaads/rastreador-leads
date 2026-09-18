@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { clientePorToken, pendencias } from "@/lib/confirmacao";
 import { formatarDataHora } from "@/lib/datas";
 import { formatarTelefone } from "@/lib/telefone";
+import { ETAPAS_DO_FUNIL } from "@/lib/regras";
 import { ItemClique, ItemLead } from "./itens";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,7 @@ export default async function PaginaConfirmar({
                 }
                 interesse={l.clique?.interesse ?? null}
                 etapaAtual={l.status}
+                etapas={[...ETAPAS_DO_FUNIL[cliente.funil]]}
                 codigo={l.clique?.codigo ?? null}
                 quando={formatarDataHora(l.criadoEm, cliente.fuso)}
               />

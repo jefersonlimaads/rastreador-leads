@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao, clienteEmFoco } from "@/lib/auth";
 import { formatarTelefone } from "@/lib/telefone";
 import { Selo } from "../componentes";
+import { ROTULO_FUNIL } from "@/lib/regras";
 import { FormulariosAjustes } from "./formularios";
 
 export default async function PaginaAjustes({ searchParams }: PageProps<"/ajustes">) {
@@ -57,6 +58,7 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
                 <Selo tom={c.contaAnunciosId ? "ok" : "alerta"}>
                   {c.contaAnunciosId ?? "sem conta de anúncios"}
                 </Selo>
+                <Selo>{ROTULO_FUNIL[c.funil]}</Selo>
               </div>
 
               <details className="mt-3">
@@ -81,6 +83,7 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
       <FormulariosAjustes
         papel={sessao.papel}
         clienteEmFoco={emFoco ? { id: emFoco.id, nome: emFoco.nome } : null}
+        funilAtual={emFoco?.funil ?? "COMPLETO"}
         clientes={clientes.map((c) => ({ id: c.id, nome: c.nome }))}
       />
 

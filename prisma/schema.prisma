@@ -28,6 +28,19 @@ enum Origem {
 }
 
 /*
+ * Modelo de funil do cliente. Não é etapa livre de propósito: com etapas
+ * inventadas por cliente, a Carteira não conseguiria comparar nada entre eles.
+ * São recortes da mesma lista ordenada.
+ *
+ * SIMPLES  — atende e fecha, sem etapa no meio. Clínica, psicóloga, salão.
+ * COMPLETO — passa por proposta e negociação. Filmmaker, obra, consultoria.
+ */
+enum TipoFunil {
+  SIMPLES
+  COMPLETO
+}
+
+/*
  * Etapas do funil. Escolhidas para servir a nichos diferentes — reforma,
  * advocacia, estética, serviço técnico — sem virar configuração por cliente,
  * que complicaria o painel e as métricas.
@@ -65,8 +78,9 @@ model Cliente {
   id              String  @id @default(cuid())
   nome            String
   contaAnunciosId String?
-  fuso            String  @default("America/Sao_Paulo")
-  ativo           Boolean @default(true)
+  fuso            String    @default("America/Sao_Paulo")
+  ativo           Boolean   @default(true)
+  funil           TipoFunil @default(COMPLETO)
 
   // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
   pixelId        String?
