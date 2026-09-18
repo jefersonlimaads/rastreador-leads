@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import {
   acaoExcluirProspect,
@@ -63,8 +64,8 @@ export function RegistrarContato({
       : "";
 
   return (
-    <form
-      action={registrar}
+    <Formulario
+      acao={registrar}
       key={estado.ok ? Date.now() : "registro"}
       className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
     >
@@ -179,7 +180,7 @@ export function RegistrarContato({
       >
         {registrando ? "Registrando..." : "Registrar"}
       </button>
-    </form>
+    </Formulario>
   );
 }
 
@@ -208,7 +209,7 @@ export function FichaProspect({
       <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wide text-suave">
         Ficha do prospect
       </summary>
-      <form action={salvar} className="mt-4 flex flex-col gap-3">
+      <Formulario acao={salvar} className="mt-4 flex flex-col gap-3">
         <input type="hidden" name="clienteId" value={prospect.id} />
         <input name="nome" defaultValue={prospect.nome} required placeholder="Nome" className={campo} />
         <div className="grid grid-cols-2 gap-3">
@@ -246,7 +247,7 @@ export function FichaProspect({
         >
           {salvando ? "Salvando..." : "Salvar ficha"}
         </button>
-      </form>
+      </Formulario>
     </details>
   );
 }
@@ -275,7 +276,7 @@ export function SaidaDoFunil({
           </button>
         </form>
       ) : modo === "perder" ? (
-        <form action={perder} className="flex flex-col gap-2 rounded-2xl border border-borda bg-superficie p-4">
+        <Formulario acao={perder} className="flex flex-col gap-2 rounded-2xl border border-borda bg-superficie p-4">
           <input type="hidden" name="clienteId" value={clienteId} />
           <label className="flex flex-col gap-1.5">
             <span className="text-sm text-suave">Por que não seguiu?</span>
@@ -298,7 +299,7 @@ export function SaidaDoFunil({
               Cancelar
             </button>
           </div>
-        </form>
+        </Formulario>
       ) : (
         <button type="button" onClick={() => setModo("perder")} className="rounded-xl px-4 py-2.5 text-sm text-suave">
           Marcar como perdido
@@ -307,7 +308,7 @@ export function SaidaDoFunil({
 
       {podeExcluir &&
         (modo === "excluir" ? (
-          <form action={excluir} className="flex flex-col gap-2 rounded-2xl border border-alerta bg-alerta-suave p-4">
+          <Formulario acao={excluir} className="flex flex-col gap-2 rounded-2xl border border-alerta bg-alerta-suave p-4">
             <input type="hidden" name="clienteId" value={clienteId} />
             <p className="text-sm text-alerta">
               Excluir apaga o prospect, o histórico de contatos e as propostas não aceitas. Não dá
@@ -322,7 +323,7 @@ export function SaidaDoFunil({
                 Cancelar
               </button>
             </div>
-          </form>
+          </Formulario>
         ) : (
           <button type="button" onClick={() => setModo("excluir")} className="rounded-xl px-4 py-2.5 text-sm text-alerta">
             Excluir prospect

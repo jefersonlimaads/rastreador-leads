@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState } from "react";
 import { acaoSalvarProposta, type EstadoProposta } from "./acoes";
 
@@ -41,7 +42,7 @@ export function FormularioProposta({
   const nova = !valores.propostaId;
 
   return (
-    <form action={salvar} className="mt-5 flex flex-col gap-4">
+    <Formulario acao={salvar} className="mt-5 flex flex-col gap-4">
       {valores.propostaId && <input type="hidden" name="propostaId" value={valores.propostaId} />}
 
       <label className="flex flex-col gap-1.5">
@@ -137,6 +138,6 @@ export function FormularioProposta({
       >
         {salvando ? "Salvando..." : nova ? "Criar proposta" : "Salvar alterações"}
       </button>
-    </form>
+    </Formulario>
   );
 }

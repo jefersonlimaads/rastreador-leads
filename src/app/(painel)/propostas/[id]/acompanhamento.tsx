@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import {
   acaoAlternarNegociacao,
@@ -56,7 +57,7 @@ export function Acompanhamento({
         </form>
       )}
 
-      <form action={salvar} className="mt-4 flex flex-col gap-3">
+      <Formulario acao={salvar} className="mt-4 flex flex-col gap-3">
         <input type="hidden" name="propostaId" value={propostaId} />
         <label className="flex flex-col gap-1.5">
           <span className="text-sm text-suave">Próximo contato</span>
@@ -82,7 +83,7 @@ export function Acompanhamento({
         >
           {salvando ? "Salvando..." : "Salvar acompanhamento"}
         </button>
-      </form>
+      </Formulario>
     </section>
   );
 }
@@ -111,7 +112,7 @@ export function ExcluirProposta({ propostaId, aceita }: { propostaId: string; ac
           Excluir proposta
         </button>
       ) : (
-        <form action={excluir} className="flex flex-col gap-2 rounded-2xl border border-alerta bg-alerta-suave p-4">
+        <Formulario acao={excluir} className="flex flex-col gap-2 rounded-2xl border border-alerta bg-alerta-suave p-4">
           <input type="hidden" name="propostaId" value={propostaId} />
           <p className="text-sm text-alerta">
             Excluir apaga a proposta de vez, e o link que o lead recebeu para de funcionar. Não
@@ -134,7 +135,7 @@ export function ExcluirProposta({ propostaId, aceita }: { propostaId: string; ac
               Cancelar
             </button>
           </div>
-        </form>
+        </Formulario>
       )}
     </div>
   );

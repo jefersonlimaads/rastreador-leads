@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import { acaoNovoProspect, type EstadoProspeccao } from "./acoes";
 
@@ -25,7 +26,7 @@ export function NovoProspect({ origens }: { origens: string[] }) {
   }
 
   return (
-    <form action={criar} className="mt-4 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <Formulario acao={criar} className="mt-4 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
       <input name="nome" required autoFocus placeholder="Nome da empresa ou da pessoa" className={campo} />
       <div className="grid grid-cols-2 gap-3">
         <input name="nicho" placeholder="Nicho (clínica, filmmaker...)" className={campo} />
@@ -54,6 +55,6 @@ export function NovoProspect({ origens }: { origens: string[] }) {
           Fechar
         </button>
       </div>
-    </form>
+    </Formulario>
   );
 }

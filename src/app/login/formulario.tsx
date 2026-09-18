@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState } from "react";
 import { entrar, type EstadoLogin } from "./actions";
 
@@ -9,7 +10,7 @@ export function FormularioLogin() {
   const [estado, acao, enviando] = useActionState(entrar, estadoInicial);
 
   return (
-    <form action={acao} className="flex flex-col gap-4">
+    <Formulario acao={acao} className="flex flex-col gap-4">
       <label className="flex flex-col gap-1.5">
         <span className="text-sm text-suave">E-mail</span>
         <input
@@ -43,6 +44,6 @@ export function FormularioLogin() {
       >
         {enviando ? "Entrando..." : "Entrar"}
       </button>
-    </form>
+    </Formulario>
   );
 }

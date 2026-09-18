@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario, useLimparAoConcluir } from "@/app/formulario";
 import { useActionState } from "react";
 import { acaoCriarAgencia, type EstadoPlataforma } from "./acoes";
 
@@ -9,9 +10,10 @@ const campo =
 
 export function NovaAgencia() {
   const [estado, criar, criando] = useActionState(acaoCriarAgencia, vazio);
+  const chave = useLimparAoConcluir(estado);
 
   return (
-    <form action={criar} className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <Formulario key={chave} acao={criar} className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
       <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Nova agência</h2>
       <input name="nome" required placeholder="Nome da agência" className={campo} />
       <div className="grid gap-3 sm:grid-cols-2">
@@ -45,6 +47,6 @@ export function NovaAgencia() {
       >
         {criando ? "Criando..." : "Criar agência"}
       </button>
-    </form>
+    </Formulario>
   );
 }

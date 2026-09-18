@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario, useLimparAoConcluir } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import { acaoCriarFatura, acaoSalvarComercial, type EstadoNegocio } from "../acoes";
 import { ROTULO_CICLO } from "@/lib/regras";
@@ -41,7 +42,7 @@ export function FormularioComercial({
   const [estado, salvar, salvando] = useActionState(acaoSalvarComercial, vazio);
 
   return (
-    <form action={salvar} className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <Formulario acao={salvar} className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
       <input type="hidden" name="clienteId" value={cliente.id} />
 
       <label className="flex flex-col gap-1.5">
@@ -131,13 +132,14 @@ export function FormularioComercial({
       <button type="submit" disabled={salvando} className={botao}>
         {salvando ? "Salvando..." : "Salvar dados do cliente"}
       </button>
-    </form>
+    </Formulario>
   );
 }
 
 /** Cobrança fora do fee: projeto, setup, extra do mês. */
 export function FormularioFatura({ clienteId }: { clienteId: string }) {
   const [estado, criar, criando] = useActionState(acaoCriarFatura, vazio);
+  const chave = useLimparAoConcluir(estado);
   const [aberto, setAberto] = useState(false);
 
   if (!aberto) {
@@ -149,7 +151,7 @@ export function FormularioFatura({ clienteId }: { clienteId: string }) {
   }
 
   return (
-    <form action={criar} className="mt-3 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <Formulario key={chave} acao={criar} className="mt-3 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
       <input type="hidden" name="clienteId" value={clienteId} />
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1.5">
@@ -175,6 +177,6 @@ export function FormularioFatura({ clienteId }: { clienteId: string }) {
           Cancelar
         </button>
       </div>
-    </form>
+    </Formulario>
   );
 }

@@ -38,7 +38,15 @@ export default async function PaginaNegocio() {
             {resumo.emProspeccao > 0 ? ` · ${resumo.emProspeccao} em prospecção` : ""}
           </p>
         </div>
-        <BotaoGerarFaturas />
+        <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+          <Link
+            href="/negocio/novo"
+            className="rounded-xl bg-marca px-3 py-2 text-center text-sm font-medium text-sobre-marca"
+          >
+            Novo cliente
+          </Link>
+          <BotaoGerarFaturas />
+        </div>
       </div>
 
       <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -58,7 +66,12 @@ export default async function PaginaNegocio() {
           Clientes
         </h2>
         <div className="flex flex-col gap-3">
-          {emCarteira.length === 0 && <Vazio>Nenhum cliente ativo ainda.</Vazio>}
+          {emCarteira.length === 0 && (
+            <Vazio>
+              Nenhum cliente ativo ainda. Se você já tem clientes, cadastre em &quot;Novo
+              cliente&quot;; se está começando, eles chegam pela Prospecção.
+            </Vazio>
+          )}
           {emCarteira.map((c) => (
             <article key={c.id} className="rounded-2xl border border-borda bg-superficie p-4">
               <div className="flex items-start justify-between gap-3">

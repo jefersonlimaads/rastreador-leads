@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import { acaoMudarStatus, type EstadoStatus } from "../../acoes";
 import { ROTULO_STATUS } from "@/lib/regras";
@@ -25,7 +26,7 @@ export function PainelStatus({
   const [escolhido, setEscolhido] = useState(status);
 
   return (
-    <form action={acao} className="mt-5 rounded-2xl border border-borda bg-superficie p-4">
+    <Formulario acao={acao} className="mt-5 rounded-2xl border border-borda bg-superficie p-4">
       <input type="hidden" name="leadId" value={leadId} />
       <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Status</h2>
 
@@ -91,6 +92,6 @@ export function PainelStatus({
           {enviando ? "Salvando..." : `Mudar para ${ROTULO_STATUS[escolhido]}`}
         </button>
       ) : null}
-    </form>
+    </Formulario>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
+import { Formulario, useLimparAoConcluir } from "@/app/formulario";
 import { useActionState } from "react";
 import {
-  acaoCriarCliente,
   acaoCriarUsuario,
   acaoSalvarCredenciais,
   acaoTrocarFunil,
@@ -39,32 +39,25 @@ export function FormulariosAjustes({
   funilAtual: string;
   clientes: { id: string; nome: string }[];
 }) {
-  const [estadoCliente, criarCliente, criandoCliente] = useActionState(acaoCriarCliente, vazio);
   const [estadoUsuario, criarUsuario, criandoUsuario] = useActionState(acaoCriarUsuario, vazio);
   const [estadoCred, salvarCred, salvandoCred] = useActionState(acaoSalvarCredenciais, vazio);
   const [estadoSenha, trocarSenha, trocandoSenha] = useActionState(acaoTrocarSenha, vazio);
   const [estadoFunil, trocarFunil, trocandoFunil] = useActionState(acaoTrocarFunil, vazio);
+  // Senha e token não podem ficar na tela depois de salvos.
+  const chaveSenha = useLimparAoConcluir(estadoSenha);
+  const chaveUsuario = useLimparAoConcluir(estadoUsuario);
+  const chaveCred = useLimparAoConcluir(estadoCred);
 
   return (
     <>
       {papel === "ADMIN" && (
-        <section className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
-            Novo cliente
-          </h2>
-          <form
-            action={criarCliente}
-            className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
-          >
-            <input name="nome" placeholder="Nome do cliente" required className={campo} />
-            <input name="numero" placeholder="WhatsApp com DDD" required className={campo} />
-            <input name="contaAnunciosId" placeholder="act_000000000000000" className={campo} />
-            <Aviso estado={estadoCliente} />
-            <button type="submit" disabled={criandoCliente} className={botao}>
-              {criandoCliente ? "Criando..." : "Criar cliente"}
-            </button>
-          </form>
-        </section>
+        <p className="mt-6 rounded-2xl border border-dashed border-borda px-4 py-4 text-sm text-suave">
+          Cliente novo se cadastra em{" "}
+          <a href="/negocio/novo" className="text-marca-texto underline">
+            Negócio → Novo cliente
+          </a>
+          , com fee, vencimento e contrato.
+        </p>
       )}
 
       {papel === "ADMIN" && clienteEmFoco && (
@@ -72,8 +65,9 @@ export function FormulariosAjustes({
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
             Credenciais do Meta — {clienteEmFoco.nome}
           </h2>
-          <form
-            action={salvarCred}
+          <Formulario
+            key={chaveCred}
+            acao={salvarCred}
             className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
           >
             <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
@@ -98,7 +92,7 @@ export function FormulariosAjustes({
             <button type="submit" disabled={salvandoCred} className={botao}>
               {salvandoCred ? "Salvando..." : "Salvar credenciais"}
             </button>
-          </form>
+          </Formulario>
         </section>
       )}
 
@@ -107,8 +101,8 @@ export function FormulariosAjustes({
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
             Funil de {clienteEmFoco.nome}
           </h2>
-          <form
-            action={trocarFunil}
+          <Formulario
+            acao={trocarFunil}
             className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
           >
             <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
@@ -128,7 +122,7 @@ export function FormulariosAjustes({
             <button type="submit" disabled={trocandoFunil} className={botao}>
               {trocandoFunil ? "Salvando..." : "Salvar funil"}
             </button>
-          </form>
+          </Formulario>
         </section>
       )}
 
@@ -136,8 +130,9 @@ export function FormulariosAjustes({
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
           Minha senha
         </h2>
-        <form
-          action={trocarSenha}
+        <Formulario
+          key={chaveSenha}
+          acao={trocarSenha}
           className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
         >
           <input
@@ -168,7 +163,7 @@ export function FormulariosAjustes({
           <button type="submit" disabled={trocandoSenha} className={botao}>
             {trocandoSenha ? "Trocando..." : "Trocar senha"}
           </button>
-        </form>
+        </Formulario>
       </section>
 
       {papel !== "ATENDENTE" && (
@@ -176,8 +171,9 @@ export function FormulariosAjustes({
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
             Novo usuário
           </h2>
-          <form
-            action={criarUsuario}
+          <Formulario
+            key={chaveUsuario}
+            acao={criarUsuario}
             className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
           >
             <input name="nome" placeholder="Nome" required className={campo} />
@@ -210,7 +206,7 @@ export function FormulariosAjustes({
             <button type="submit" disabled={criandoUsuario} className={botao}>
               {criandoUsuario ? "Criando..." : "Criar usuário"}
             </button>
-          </form>
+          </Formulario>
         </section>
       )}
     </>

@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import {
   acaoConfirmarConversa,
@@ -73,7 +74,7 @@ export function ItemClique({
       </p>
 
       {abrirTelefone ? (
-        <form action={confirmar} className="mt-3 flex flex-col gap-2">
+        <Formulario acao={confirmar} className="mt-3 flex flex-col gap-2">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="cliqueId" value={cliqueId} />
           <input name="nome" placeholder="Nome de quem falou (opcional)" className={campo} />
@@ -93,23 +94,23 @@ export function ItemClique({
             </button>
           </div>
           <Resposta estado={confirmado} />
-        </form>
+        </Formulario>
       ) : (
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <form action={confirmar} className="flex-1">
+          <Formulario acao={confirmar} className="flex-1">
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="cliqueId" value={cliqueId} />
             <button type="submit" disabled={confirmando} className={`${botaoPrimario} w-full`}>
               {confirmando ? "Salvando..." : "Falou comigo"}
             </button>
-          </form>
-          <form action={descartar} className="flex-1">
+          </Formulario>
+          <Formulario acao={descartar} className="flex-1">
             <input type="hidden" name="token" value={token} />
             <input type="hidden" name="cliqueId" value={cliqueId} />
             <button type="submit" disabled={descartando} className={`${botaoSecundario} w-full`}>
               {descartando ? "Salvando..." : "Não falou"}
             </button>
-          </form>
+          </Formulario>
         </div>
       )}
 
@@ -201,14 +202,14 @@ export function ItemLead({
             </button>
           </div>
           {etapas.length === 1 ? (
-            <form action={responder}>
+            <Formulario acao={responder}>
               <input type="hidden" name="token" value={token} />
               <input type="hidden" name="leadId" value={leadId} />
               <input type="hidden" name="status" value={etapas[0]} />
               <button type="submit" disabled={enviando} className={`${botaoSecundario} w-full`}>
                 Ainda estou atendendo
               </button>
-            </form>
+            </Formulario>
           ) : (
             <button
               type="button"
@@ -226,7 +227,7 @@ export function ItemLead({
         <div className="mt-4 flex flex-col gap-2">
           <p className="text-sm text-suave">Em que ponto está?</p>
           {etapas.map((etapa) => (
-            <form key={etapa} action={responder}>
+            <Formulario key={etapa} acao={responder}>
               <input type="hidden" name="token" value={token} />
               <input type="hidden" name="leadId" value={leadId} />
               <input type="hidden" name="status" value={etapa} />
@@ -238,7 +239,7 @@ export function ItemLead({
                 {ROTULO_STATUS[etapa]}
                 {etapa === etapaAtual ? " · atual" : ""}
               </button>
-            </form>
+            </Formulario>
           ))}
           <button type="button" onClick={() => setEscolha("")} className="mt-1 text-sm text-marca-texto">
             Voltar
@@ -248,7 +249,7 @@ export function ItemLead({
       )}
 
       {(escolha === "FECHADO" || escolha === "PERDIDO") && (
-        <form action={responder} className="mt-4 flex flex-col gap-2">
+        <Formulario acao={responder} className="mt-4 flex flex-col gap-2">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="leadId" value={leadId} />
           <input type="hidden" name="status" value={escolha} />
@@ -286,7 +287,7 @@ export function ItemLead({
           </div>
 
           <Resposta estado={estado} />
-        </form>
+        </Formulario>
       )}
 
       {escolha === "" && <Resposta estado={estado} />}

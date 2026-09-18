@@ -7,6 +7,7 @@ import { exigirAdmin, clienteDaAgencia } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { competenciaDe, gerarFaturasDoMes } from "@/lib/financeiro";
 import { aoMudarEtapa } from "@/lib/automacoes";
+import { redirect } from "next/navigation";
 
 /**
  * Tudo aqui é dado da jl.ads sobre o cliente — fee, vencimento, contrato — e
@@ -158,4 +159,71 @@ export async function acaoMarcarPaga(formData: FormData): Promise<void> {
 
   revalidatePath("/negocio");
   revalidatePath(`/negocio/${fatura.clienteId}`);
+}
+
+const NovoClienteAtivo = z.object({
+  nome: z.string().min(2).max(120),
+  documento: z.string().max(20).optional(),
+  numeroAtendimento: z.string().max(40).optional(),
+  contatoNome: z.string().max(120).optional(),
+  contatoTelefone: z.string().max(40).optional(),
+  contatoEmail: z.string().max(160).optional(),
+  feeMensal: z.string().optional(),
+  diaVencimento: z.string().optional(),
+  inicioContrato: z.string().optional(),
+  funil: z.enum(["SIMPLES", "COMPLETO"]),
+  contaAnunciosId: z.string().max(40).optional(),
+});
+
+/**
+ * Cliente que já existe antes do painel: entra direto como ativo, sem passar
+ * pelo funil de prospecção. É o caso de toda agência que começa a usar o
+ * sistema com a carteira que já tem.
+ */
+export async function acaoNovoClienteAtivo(
+  _estado: EstadoNegocio,
+  formData: FormData,
+): Promise<EstadoNegocio> {
+  const sessao = await exigirAdmin();
+
+  const dados = NovoClienteAtivo.safeParse(Object.fromEntries(formData));
+  if (!dados.success) return { erro: "Confira o nome do cliente e os campos preenchidos." };
+  const d = dados.data;
+
+  const fee = d.feeMensal ? dinheiro(d.feeMensal) : null;
+  if (d.feeMensal && (fee === null || fee < 0)) return { erro: "Valor do fee inválido." };
+
+  const dia = d.diaVencimento ? Number(d.diaVencimento) : null;
+  if (dia !== null && (Number.isNaN(dia) || dia < 1 || dia > 28)) {
+    return { erro: "O dia de vencimento vai de 1 a 28." };
+  }
+  if (fee && !dia) return { erro: "Com fee definido, informe o dia de vencimento." };
+
+  // O número de atendimento é onde chegam os leads; o contato é quem decide e
+  // paga. Costumam ser pessoas diferentes, por isso são campos diferentes.
+  const atendimento = d.numeroAtendimento ? normalizarTelefone(d.numeroAtendimento) : null;
+  if (d.numeroAtendimento && !atendimento) return { erro: "WhatsApp de atendimento inválido." };
+
+  const cliente = await prisma.cliente.create({
+    data: {
+      agenciaId: sessao.agenciaId,
+      nome: d.nome.trim(),
+      ciclo: "ATIVO",
+      funil: d.funil,
+      documento: d.documento?.trim() || null,
+      contatoNome: d.contatoNome?.trim() || null,
+      contatoTelefone: d.contatoTelefone ? normalizarTelefone(d.contatoTelefone) : null,
+      contatoEmail: d.contatoEmail?.trim().toLowerCase() || null,
+      feeMensal: fee,
+      diaVencimento: dia,
+      // Data pura: guardada em UTC para o dia não andar para trás.
+      inicioContrato: d.inicioContrato ? new Date(d.inicioContrato + "T00:00:00Z") : null,
+      contaAnunciosId: d.contaAnunciosId?.trim() || null,
+      ...(atendimento ? { numeros: { create: { numero: atendimento, rotulo: "Atendimento" } } } : {}),
+    },
+  });
+
+  revalidatePath("/negocio");
+  revalidatePath("/carteira");
+  redirect(`/negocio/${cliente.id}`);
 }

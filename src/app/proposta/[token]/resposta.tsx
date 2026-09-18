@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import { acaoAceitar, acaoRecusar, type EstadoResposta } from "./acoes";
 
@@ -86,7 +87,7 @@ export function Resposta({
       )}
 
       {modo === "aceitar" && (
-        <form action={aceitar} className="mt-4 flex flex-col gap-3">
+        <Formulario acao={aceitar} className="mt-4 flex flex-col gap-3">
           <input type="hidden" name="token" value={token} />
           <label className="flex flex-col gap-1.5">
             <span className="text-sm text-suave">Seu nome completo, para registrar o aceite</span>
@@ -112,11 +113,11 @@ export function Resposta({
           <button type="button" onClick={() => setModo("")} className="text-sm text-suave">
             Voltar
           </button>
-        </form>
+        </Formulario>
       )}
 
       {modo === "recusar" && (
-        <form action={recusar} className="mt-4 flex flex-col gap-3">
+        <Formulario acao={recusar} className="mt-4 flex flex-col gap-3">
           <input type="hidden" name="token" value={token} />
           <label className="flex flex-col gap-1.5">
             <span className="text-sm text-suave">O que pesou na decisão?</span>
@@ -146,7 +147,7 @@ export function Resposta({
           <button type="button" onClick={() => setModo("")} className="text-sm text-suave">
             Voltar
           </button>
-        </form>
+        </Formulario>
       )}
     </div>
   );

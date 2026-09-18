@@ -1,5 +1,6 @@
 "use client";
 
+import { Formulario } from "@/app/formulario";
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { acaoCadastrarLead, acaoPreverAtribuicao, type EstadoCadastro } from "../../acoes";
 
@@ -63,7 +64,7 @@ export function FormularioCadastro({
       : "—";
 
   return (
-    <form action={acao} className="flex flex-col gap-4">
+    <Formulario acao={acao} className="flex flex-col gap-4">
       <input type="hidden" name="clienteId" value={clienteId} />
       <input type="hidden" name="cliqueId" value={cliqueEscolhido} />
 
@@ -192,6 +193,6 @@ export function FormularioCadastro({
       >
         {enviando ? "Salvando..." : "Salvar lead"}
       </button>
-    </form>
+    </Formulario>
   );
 }

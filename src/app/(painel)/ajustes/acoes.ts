@@ -9,41 +9,6 @@ import { cifrar } from "@/lib/cripto";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
 
-const NovoCliente = z.object({
-  nome: z.string().min(2).max(120),
-  numero: z.string().min(8),
-  contaAnunciosId: z.string().max(64).optional(),
-});
-
-export async function acaoCriarCliente(
-  _estado: EstadoAjustes,
-  formData: FormData,
-): Promise<EstadoAjustes> {
-  const sessao = await exigirAdmin();
-
-  const dados = NovoCliente.safeParse({
-    nome: String(formData.get("nome") ?? "").trim(),
-    numero: String(formData.get("numero") ?? ""),
-    contaAnunciosId: String(formData.get("contaAnunciosId") ?? "").trim(),
-  });
-  if (!dados.success) return { erro: "Confira o nome e o número do WhatsApp." };
-
-  const numero = normalizarTelefone(dados.data.numero);
-  if (!numero) return { erro: "Número de WhatsApp inválido." };
-
-  const cliente = await prisma.cliente.create({
-    data: {
-      agenciaId: sessao.agenciaId,
-      nome: dados.data.nome,
-      contaAnunciosId: dados.data.contaAnunciosId || null,
-      numeros: { create: { numero, rotulo: "Principal" } },
-    },
-  });
-
-  revalidatePath("/ajustes");
-  return { ok: `Cliente ${cliente.nome} criado. Instale o script com o id ${cliente.id}.` };
-}
-
 const NovoUsuario = z.object({
   nome: z.string().min(2).max(120),
   email: z.string().email(),
