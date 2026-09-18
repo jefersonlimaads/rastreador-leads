@@ -41,7 +41,7 @@ export default async function PaginaPipeline({ searchParams }: PageProps<"/pipel
                     className="rounded-xl border border-borda px-3 py-2.5"
                   >
                     <p className="truncate text-sm font-medium">
-                      {lead.nome || formatarTelefone(lead.telefone)}
+                      {lead.nome || (lead.telefone ? formatarTelefone(lead.telefone) : "Sem telefone")}
                     </p>
                     <p className="mt-0.5 text-xs text-suave">{tempoRelativo(lead.criadoEm)}</p>
                     <div className="mt-2 flex flex-wrap gap-1">

@@ -15,6 +15,7 @@ import {
 import { cadastrarLead, sugerirClique } from "@/lib/atribuicao";
 import { normalizarTelefone } from "@/lib/telefone";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
+import { garantirToken } from "@/lib/confirmacao";
 import type { StatusLead } from "@prisma/client";
 
 /**
@@ -244,6 +245,19 @@ export async function acaoRegistrarContato(formData: FormData) {
   });
 
   revalidarPainel(lead.id);
+}
+
+/** Link de confirmação do cliente, criado na primeira vez que alguém pede. */
+export async function acaoLinkConfirmacao(clienteId: string) {
+  const sessao = await exigirSessao();
+  const permitido = await clienteEmFoco(sessao, clienteId);
+  if (!permitido || (sessao.papel !== "ADMIN" && permitido !== sessao.clienteId)) {
+    throw new Error("Sem acesso a este cliente");
+  }
+
+  const token = await garantirToken(permitido);
+  const base = process.env.APP_URL ?? "";
+  return `${base}/confirmar/${token}`;
 }
 
 /** Seletor de cliente do administrador. Grava a escolha num cookie. */

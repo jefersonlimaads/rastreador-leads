@@ -39,7 +39,7 @@ export function moeda(valor: number | null | undefined): string {
 export type LeadCartao = {
   id: string;
   nome: string | null;
-  telefone: string;
+  telefone: string | null;
   status: string;
   atribuicao: string;
   criadoEm: Date;
@@ -66,10 +66,10 @@ export function CartaoLead({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <Link href={`/leads/${lead.id}`} className="block truncate font-medium">
-            {lead.nome || formatarTelefone(lead.telefone)}
+            {lead.nome || (lead.telefone ? formatarTelefone(lead.telefone) : "Lead sem telefone")}
           </Link>
           <p className="mt-0.5 text-sm text-suave">
-            {lead.nome ? formatarTelefone(lead.telefone) + " · " : ""}
+            {lead.nome && lead.telefone ? formatarTelefone(lead.telefone) + " · " : ""}
             {tempoRelativo(lead.criadoEm)}
           </p>
         </div>
@@ -88,14 +88,18 @@ export function CartaoLead({
       </div>
 
       <div className="mt-4 flex gap-2">
-        <a
-          href={linkWhatsapp(lead.telefone)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex-1 rounded-xl bg-marca px-3 py-2.5 text-center text-sm font-medium text-white"
-        >
-          Abrir conversa
-        </a>
+        {/* Sem telefone não há conversa para abrir: o lead veio da confirmação
+            em lote, onde o cliente não precisa digitar nada. */}
+        {lead.telefone && (
+          <a
+            href={linkWhatsapp(lead.telefone)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-xl bg-marca px-3 py-2.5 text-center text-sm font-medium text-white"
+          >
+            Abrir conversa
+          </a>
+        )}
         <form action={acaoRegistrarContato} className="flex-1">
           <input type="hidden" name="leadId" value={lead.id} />
           <button

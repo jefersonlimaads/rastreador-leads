@@ -67,6 +67,10 @@ model Cliente {
   capiToken      String?
   marketingToken String?
 
+  // Link de confirmação que o cliente abre sem senha. Trocar o token derruba o
+  // link antigo, que é o que se faz quando alguém sai da equipe dele.
+  tokenConfirmacao String? @unique
+
   criadoEm DateTime @default(now())
 
   numeros    NumeroWhatsapp[]
@@ -147,7 +151,10 @@ model Lead {
   cliqueId       String? @unique
   leadAnteriorId String? // oportunidade nova de um telefone que já foi lead
 
-  telefone String // E.164 só com dígitos
+  // Opcional: a confirmação em lote pelo cliente não exige digitar telefone.
+  // Sem ele o lead conta em CPL, CAC e ROAS, mas fica fora da fila de follow-up
+  // com botão de abrir conversa.
+  telefone String?
   nome     String?
 
   origem     Origem     @default(MANUAL)

@@ -1,0 +1,215 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import {
+  acaoConfirmarConversa,
+  acaoDescartar,
+  acaoDesfecho,
+  type EstadoConfirmacao,
+} from "./acoes";
+
+const vazio: EstadoConfirmacao = {};
+
+const cartao = "rounded-2xl border border-borda bg-superficie p-4";
+const botaoPrimario = "rounded-xl bg-marca px-3 py-2.5 text-sm font-medium text-white disabled:opacity-60";
+const botaoSecundario = "rounded-xl border border-borda px-3 py-2.5 text-sm font-medium disabled:opacity-60";
+const campo = "w-full rounded-xl border border-borda bg-fundo px-3 py-2.5 text-base outline-none focus:border-marca";
+
+function Resposta({ estado }: { estado: EstadoConfirmacao }) {
+  if (estado.erro) {
+    return <p className="mt-3 rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>;
+  }
+  if (estado.ok) {
+    return <p className="mt-3 rounded-lg bg-ok-suave px-3 py-2 text-sm text-ok">{estado.ok}</p>;
+  }
+  return null;
+}
+
+/** Um clique aguardando confirmação: virou conversa, ou não falou comigo. */
+export function ItemClique({
+  token,
+  cliqueId,
+  codigo,
+  quando,
+}: {
+  token: string;
+  cliqueId: string;
+  codigo: string;
+  quando: string;
+}) {
+  const [confirmado, confirmar, confirmando] = useActionState(acaoConfirmarConversa, vazio);
+  const [descartado, descartar, descartando] = useActionState(acaoDescartar, vazio);
+  const [abrirTelefone, setAbrirTelefone] = useState(false);
+
+  const respondido = Boolean(confirmado.ok || descartado.ok);
+
+  if (respondido) {
+    return (
+      <article className={`${cartao} opacity-60`}>
+        <p className="text-sm">
+          Código <strong>{codigo}</strong> · {confirmado.ok ? "virou conversa" : "sem contato"}
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className={cartao}>
+      <p className="font-medium">Código {codigo}</p>
+      <p className="mt-0.5 text-sm text-suave">Clicou em {quando}</p>
+
+      {abrirTelefone ? (
+        <form action={confirmar} className="mt-3 flex flex-col gap-2">
+          <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="cliqueId" value={cliqueId} />
+          <input
+            name="telefone"
+            type="tel"
+            inputMode="tel"
+            placeholder="Telefone (opcional)"
+            className={campo}
+          />
+          <div className="flex gap-2">
+            <button type="submit" disabled={confirmando} className={`${botaoPrimario} flex-1`}>
+              {confirmando ? "Salvando..." : "Confirmar"}
+            </button>
+            <button type="button" onClick={() => setAbrirTelefone(false)} className={botaoSecundario}>
+              Voltar
+            </button>
+          </div>
+          <Resposta estado={confirmado} />
+        </form>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <form action={confirmar} className="flex-1">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="cliqueId" value={cliqueId} />
+            <button type="submit" disabled={confirmando} className={`${botaoPrimario} w-full`}>
+              {confirmando ? "Salvando..." : "Falou comigo"}
+            </button>
+          </form>
+          <form action={descartar} className="flex-1">
+            <input type="hidden" name="token" value={token} />
+            <input type="hidden" name="cliqueId" value={cliqueId} />
+            <button type="submit" disabled={descartando} className={`${botaoSecundario} w-full`}>
+              {descartando ? "Salvando..." : "Não falou"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {!abrirTelefone && (
+        <button
+          type="button"
+          onClick={() => setAbrirTelefone(true)}
+          className="mt-2 text-sm text-marca"
+        >
+          Falou comigo e quero anotar o telefone
+        </button>
+      )}
+
+      {!abrirTelefone && (
+        <>
+          <Resposta estado={confirmado} />
+          <Resposta estado={descartado} />
+        </>
+      )}
+    </article>
+  );
+}
+
+/** Um lead em aberto: fechou com valor, ou perdeu com motivo. */
+export function ItemLead({
+  token,
+  leadId,
+  titulo,
+  quando,
+}: {
+  token: string;
+  leadId: string;
+  titulo: string;
+  quando: string;
+}) {
+  const [estado, responder, enviando] = useActionState(acaoDesfecho, vazio);
+  const [escolha, setEscolha] = useState<"" | "FECHADO" | "PERDIDO">("");
+
+  if (estado.ok) {
+    return (
+      <article className={`${cartao} opacity-60`}>
+        <p className="text-sm">
+          {titulo} · {estado.ok}
+        </p>
+      </article>
+    );
+  }
+
+  return (
+    <article className={cartao}>
+      <p className="font-medium">{titulo}</p>
+      <p className="mt-0.5 text-sm text-suave">Começou em {quando}</p>
+
+      {escolha === "" && (
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setEscolha("FECHADO")}
+            className={`${botaoPrimario} flex-1`}
+          >
+            Virou cliente
+          </button>
+          <button
+            type="button"
+            onClick={() => setEscolha("PERDIDO")}
+            className={`${botaoSecundario} flex-1`}
+          >
+            Não fechou
+          </button>
+        </div>
+      )}
+
+      {escolha !== "" && (
+        <form action={responder} className="mt-4 flex flex-col gap-2">
+          <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="leadId" value={leadId} />
+          <input type="hidden" name="status" value={escolha} />
+
+          {escolha === "FECHADO" ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm text-suave">Valor da venda (R$)</span>
+              <input
+                name="valorVenda"
+                inputMode="decimal"
+                required
+                placeholder="2000,00"
+                className={campo}
+              />
+            </label>
+          ) : (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm text-suave">O que aconteceu?</span>
+              <input
+                name="motivoPerda"
+                required
+                placeholder="Preço, prazo, sumiu..."
+                className={campo}
+              />
+            </label>
+          )}
+
+          <div className="flex gap-2">
+            <button type="submit" disabled={enviando} className={`${botaoPrimario} flex-1`}>
+              {enviando ? "Salvando..." : "Salvar"}
+            </button>
+            <button type="button" onClick={() => setEscolha("")} className={botaoSecundario}>
+              Voltar
+            </button>
+          </div>
+
+          <Resposta estado={estado} />
+        </form>
+      )}
+
+      {escolha === "" && <Resposta estado={estado} />}
+    </article>
+  );
+}

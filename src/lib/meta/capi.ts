@@ -68,7 +68,8 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
         action_source: "website",
         event_source_url: origem ?? undefined,
         user_data: {
-          ph: [await hashSha256(lead.telefone)],
+          // Sem telefone o Meta ainda casa pelo fbc e pelo fbp do clique.
+          ph: lead.telefone ? [await hashSha256(lead.telefone)] : undefined,
           fbc: lead.clique?.fbc ?? undefined,
           fbp: lead.clique?.fbp ?? undefined,
           client_ip_address: lead.clique?.ip ?? undefined,

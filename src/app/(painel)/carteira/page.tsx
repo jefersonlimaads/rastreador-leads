@@ -4,6 +4,7 @@ import { visaoGeral } from "@/lib/visaoGeral";
 import { formatarDataHora } from "@/lib/datas";
 import { moeda, Selo, Vazio } from "../componentes";
 import { AbrirCliente } from "./abrir-cliente";
+import { LinkConfirmacao } from "./link-confirmacao";
 
 /**
  * Carteira: todos os clientes numa tela só, para quem gere tráfego de vários.
@@ -96,13 +97,24 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
             <div className="mt-3 flex flex-wrap gap-2">
               {l.semResposta > 0 && <Selo tom="alerta">{l.semResposta} sem resposta</Selo>}
               {l.followUp > 0 && <Selo tom="alerta">{l.followUp} em follow-up</Selo>}
-              {l.cliquesPendentes > 0 && (
-                <Selo>{l.cliquesPendentes} cliques aguardando mensagem</Selo>
+              {l.pendentesConfirmacao > 0 && (
+                <Selo tom={l.registroAbandonado ? "alerta" : "neutro"}>
+                  {l.pendentesConfirmacao} aguardando confirmação do cliente
+                </Selo>
+              )}
+              {l.registroAbandonado && (
+                <Selo tom="alerta">cliente parou de confirmar</Selo>
               )}
               {l.roas != null && <Selo tom="ok">ROAS {l.roas.toFixed(2)}x</Selo>}
               {!l.temCredenciaisMeta && <Selo tom="alerta">sem credenciais do Meta</Selo>}
               {l.semResposta === 0 && l.followUp === 0 && <Selo tom="ok">fila em dia</Selo>}
             </div>
+
+            <LinkConfirmacao
+              clienteId={l.id}
+              pendencias={l.pendentesConfirmacao}
+              numero={l.numero}
+            />
 
             {l.gasto === 0 && (
               <p className="mt-3 text-xs text-suave">

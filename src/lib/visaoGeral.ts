@@ -23,6 +23,11 @@ export type LinhaCliente = {
   semResposta: number;
   followUp: number;
   cliquesPendentes: number;
+  /** Itens esperando a confirmação do cliente: cliques sem resposta + leads em aberto. */
+  pendentesConfirmacao: number;
+  /** Muito clique sem resposta = ninguém está confirmando do outro lado. */
+  registroAbandonado: boolean;
+  numero: string | null;
   temCredenciaisMeta: boolean;
   gastoSincronizadoEm: Date | null;
 };
@@ -31,6 +36,7 @@ export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
   const clientes = await prisma.cliente.findMany({
     where: { ativo: true },
     orderBy: { nome: "asc" },
+    include: { numeros: { where: { ativo: true }, take: 1 } },
   });
   if (clientes.length === 0) return [];
 
@@ -42,7 +48,9 @@ export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
   // O período mais largo entre todos os fusos, filtrado por cliente depois.
   const { de, ate } = periodoPadrao(dias);
 
-  const [leads, gastos, cliques, ultimasSyncs] = await Promise.all([
+  const seteDias = new Date(agora.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const [leads, gastos, cliques, ultimasSyncs, cliquesRecentes, cliquesRespondidos] = await Promise.all([
     prisma.lead.findMany({
       where: { clienteId: { in: ids }, arquivadoEm: null, criadoEm: { gte: de, lte: ate } },
       select: {
@@ -67,6 +75,20 @@ export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
       by: ["clienteId"],
       where: { clienteId: { in: ids } },
       _max: { atualizadoEm: true },
+    }),
+    prisma.clique.groupBy({
+      by: ["clienteId"],
+      where: { clienteId: { in: ids }, criadoEm: { gte: seteDias } },
+      _count: { _all: true },
+    }),
+    prisma.clique.groupBy({
+      by: ["clienteId"],
+      where: {
+        clienteId: { in: ids },
+        criadoEm: { gte: seteDias },
+        status: { in: ["CASADO", "SEM_CONTATO"] },
+      },
+      _count: { _all: true },
     }),
   ]);
 
@@ -98,6 +120,14 @@ export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
     const gasto = Number(gastos.find((g) => g.clienteId === cliente.id)?._sum.valor ?? 0);
     const leadsPeriodo = meus.length;
 
+    const aguardando = cliques.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
+    const abertos = meus.filter((l) =>
+      (STATUS_ABERTOS as readonly string[]).includes(l.status),
+    ).length;
+
+    const recentes = cliquesRecentes.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
+    const respondidos = cliquesRespondidos.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
+
     return {
       id: cliente.id,
       nome: cliente.nome,
@@ -112,7 +142,10 @@ export async function visaoGeral(dias = 7): Promise<LinhaCliente[]> {
       roas: gasto > 0 ? receita / gasto : null,
       semResposta,
       followUp,
-      cliquesPendentes: cliques.find((c) => c.clienteId === cliente.id)?._count._all ?? 0,
+      cliquesPendentes: aguardando,
+      pendentesConfirmacao: aguardando + abertos,
+      registroAbandonado: recentes >= 5 && respondidos / recentes < 0.3,
+      numero: cliente.numeros[0]?.numero ?? null,
       temCredenciaisMeta: Boolean(cliente.pixelId && cliente.capiToken && cliente.marketingToken),
       gastoSincronizadoEm:
         ultimasSyncs.find((s) => s.clienteId === cliente.id)?._max.atualizadoEm ?? null,
