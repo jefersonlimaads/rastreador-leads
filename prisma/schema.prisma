@@ -194,6 +194,7 @@ model Cliente {
   tarefas    Tarefa[]
   propostas  Proposta[]
   interacoes Interacao[]
+  relatorios Relatorio[]
 
   agencia Agencia @relation(fields: [agenciaId], references: [id])
 
@@ -499,4 +500,26 @@ model EnvioCapi {
 
   @@index([clienteId, criadoEm])
   @@index([leadId])
+}
+
+/*
+ * Relatório de resultados enviado ao cliente. Guarda só o período e o
+ * comentário: os números são recalculados a cada abertura, então gasto que o
+ * Meta revisou depois aparece certo. Apagar o registro derruba o link.
+ */
+model Relatorio {
+  id            String    @id @default(cuid())
+  clienteId     String
+  token         String    @unique
+  de            DateTime  @db.Date
+  ate           DateTime  @db.Date
+  comentario    String?
+  criadoPor     String?
+  criadoEm      DateTime  @default(now())
+  visualizadoEm DateTime?
+  visualizacoes Int       @default(0)
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, criadoEm])
 }

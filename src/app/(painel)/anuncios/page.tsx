@@ -30,7 +30,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const { linhas, total, semAtribuicao } = await metricasPorAnuncio({ clienteId, de, ate, nivel });
+  const { linhas, total, semAtribuicao } = await metricasPorAnuncio({ clienteId, de, ate, nivel, fuso });
 
   const ultimaSync = await prisma.gasto.findFirst({
     where: { clienteId },
@@ -40,7 +40,15 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
 
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">Anúncios</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold tracking-tight">Anúncios</h1>
+        <Link
+          href="/relatorios"
+          className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
+        >
+          Gerar relatório
+        </Link>
+      </div>
       <p className="mt-1 text-sm text-suave">
         {formatarData(de, fuso)} a {formatarData(ate, fuso)}
         {ultimaSync

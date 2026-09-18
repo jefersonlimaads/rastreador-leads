@@ -89,3 +89,39 @@ textarea,
 button {
   font-size: 16px;
 }
+
+/*
+ * Impressão e "salvar como PDF": sempre no tema claro, com as cores de fundo
+ * (a capa grafite, as barras lima) e sem os controles da tela.
+ */
+@media print {
+  :root {
+    --fundo: #ffffff;
+    --superficie: #ffffff;
+    --texto: var(--grafite);
+    --texto-suave: #5c5c57;
+    --borda: #dedbd2;
+    --marca-texto: #5f6b12;
+    --ok: #2c5c25;
+    --alerta: #8f3a12;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .nao-imprimir,
+  header.sticky,
+  nav {
+    display: none !important;
+  }
+  main {
+    padding: 0 !important;
+  }
+  .documento-relatorio {
+    border: 0 !important;
+    border-radius: 0 !important;
+  }
+  @page {
+    margin: 12mm;
+  }
+}

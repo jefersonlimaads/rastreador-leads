@@ -27,6 +27,7 @@ const AMBIENTE_CLIENTE: ItemNav[] = [
   { href: "/pipeline", rotulo: "Pipeline" },
   { href: "/leads", rotulo: "Leads" },
   { href: "/anuncios", rotulo: "Anúncios", sóGestor: true },
+  { href: "/relatorios", rotulo: "Relatório", sóGestor: true },
   { href: "/ajustes", rotulo: "Ajustes" },
 ];
 

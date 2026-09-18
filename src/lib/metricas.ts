@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
+import { dataPuraDe, FUSO_PADRAO } from "./datas";
 
 /**
  * Fórmulas do escopo, num lugar só:
@@ -33,8 +34,9 @@ export async function metricasPorAnuncio(params: {
   de: Date;
   ate: Date;
   nivel?: Nivel;
+  fuso?: string;
 }): Promise<{ linhas: LinhaMetrica[]; total: LinhaMetrica; semAtribuicao: number }> {
-  const { clienteId, de, ate, nivel = "ad" } = params;
+  const { clienteId, de, ate, nivel = "ad", fuso = FUSO_PADRAO } = params;
 
   const leads = await prisma.lead.findMany({
     where: { clienteId, arquivadoEm: null, criadoEm: { gte: de, lte: ate } },
@@ -46,8 +48,10 @@ export async function metricasPorAnuncio(params: {
     },
   });
 
+  // Gasto é por dia de calendário: compara com os dias do período no fuso, não
+  // com os instantes — o fim do período em UTC já cai no dia seguinte.
   const gastos = await prisma.gasto.findMany({
-    where: { clienteId, dia: { gte: de, lte: ate } },
+    where: { clienteId, dia: { gte: dataPuraDe(de, fuso), lte: dataPuraDe(ate, fuso) } },
   });
 
   const chaveDe = (c: {
