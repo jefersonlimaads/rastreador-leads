@@ -35,6 +35,7 @@ export async function GET() {
     AUTH_SECRET: estado(process.env.AUTH_SECRET),
     CRON_SECRET: estado(process.env.CRON_SECRET),
     APP_URL: estado(process.env.APP_URL),
+    CHAVE_CRIPTOGRAFIA: estado(process.env.CHAVE_CRIPTOGRAFIA),
     destino,
     vercelEnv: process.env.VERCEL_ENV ?? "fora da Vercel",
     // Quantas variáveis o processo enxerga no total, para saber se o problema
