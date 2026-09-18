@@ -149,13 +149,3 @@ export async function metricasPorAnuncio(params: {
 
   return { linhas, total: calcular(total), semAtribuicao };
 }
-
-/** Período padrão do painel: últimos 30 dias, fechando hoje. */
-export function periodoPadrao(dias = 30) {
-  const ate = new Date();
-  ate.setHours(23, 59, 59, 999);
-  const de = new Date(ate);
-  de.setDate(de.getDate() - (dias - 1));
-  de.setHours(0, 0, 0, 0);
-  return { de, ate };
-}

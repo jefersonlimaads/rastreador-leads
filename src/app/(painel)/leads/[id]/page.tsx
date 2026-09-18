@@ -3,6 +3,7 @@ import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { detalheLead } from "@/lib/consultas";
 import { formatarTelefone, linkWhatsapp } from "@/lib/telefone";
 import { ROTULO_ATRIBUICAO, ROTULO_EVENTO, ROTULO_STATUS } from "@/lib/regras";
+import { formatarDataHora } from "@/lib/datas";
 import { Selo, moeda, tempoRelativo } from "../../componentes";
 import { PainelStatus } from "./status";
 import { acaoAdicionarNota, acaoRegistrarContato } from "../../acoes";
@@ -16,6 +17,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
   if (!lead) notFound();
 
   const mostrarDinheiro = podeVerDinheiro(sessao.papel);
+  const fuso = lead.cliente.fuso;
 
   return (
     <>
@@ -62,9 +64,9 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
             <dt className="text-suave">Campanha</dt>
             <dd>{lead.clique.campaignId ?? lead.clique.utmCampaign ?? "—"}</dd>
             <dt className="text-suave">Clique em</dt>
-            <dd>{lead.clique.criadoEm.toLocaleString("pt-BR")}</dd>
+            <dd>{formatarDataHora(lead.clique.criadoEm, fuso)}</dd>
             <dt className="text-suave">Mensagem em</dt>
-            <dd>{lead.mensagemEm.toLocaleString("pt-BR")}</dd>
+            <dd>{formatarDataHora(lead.mensagemEm, fuso)}</dd>
           </dl>
         ) : (
           <p className="mt-2 text-sm text-suave">
@@ -114,7 +116,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
               <div className="flex items-baseline justify-between gap-2 text-sm">
                 <span className="font-medium">{ROTULO_EVENTO[evento.tipo] ?? evento.tipo}</span>
                 <span className="shrink-0 text-xs text-suave">
-                  {evento.criadoEm.toLocaleString("pt-BR")}
+                  {formatarDataHora(evento.criadoEm, fuso)}
                 </span>
               </div>
               {evento.descricao && <p className="mt-1 text-sm text-suave">{evento.descricao}</p>}

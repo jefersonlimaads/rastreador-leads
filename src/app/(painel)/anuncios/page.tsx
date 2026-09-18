@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
-import { metricasPorAnuncio, periodoPadrao, type Nivel } from "@/lib/metricas";
+import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
+import { formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { prisma } from "@/lib/prisma";
 import { moeda, Selo, Vazio } from "../componentes";
 
@@ -22,7 +23,12 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
 
   const dias = Number(filtros.dias ?? 30) || 30;
   const nivel = (typeof filtros.nivel === "string" ? filtros.nivel : "ad") as Nivel;
-  const { de, ate } = periodoPadrao(dias);
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    select: { fuso: true },
+  });
+  const fuso = cliente?.fuso;
+  const { de, ate } = periodoPadrao(dias, fuso);
 
   const { linhas, total, semAtribuicao } = await metricasPorAnuncio({ clienteId, de, ate, nivel });
 
@@ -36,9 +42,9 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     <>
       <h1 className="text-xl font-semibold tracking-tight">Anúncios</h1>
       <p className="mt-1 text-sm text-suave">
-        {de.toLocaleDateString("pt-BR")} a {ate.toLocaleDateString("pt-BR")}
+        {formatarData(de, fuso)} a {formatarData(ate, fuso)}
         {ultimaSync
-          ? ` · gasto sincronizado ${ultimaSync.atualizadoEm.toLocaleString("pt-BR")}`
+          ? ` · gasto sincronizado ${formatarDataHora(ultimaSync.atualizadoEm, fuso)}`
           : " · gasto ainda não sincronizado"}
       </p>
 

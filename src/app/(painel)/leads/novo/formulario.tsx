@@ -45,7 +45,11 @@ export function FormularioCadastro({
   useEffect(() => {
     const id = setTimeout(() => {
       iniciarPrevisao(async () => {
-        const resultado = await acaoPreverAtribuicao({ clienteId, mensagem, mensagemEm });
+        const resultado = await acaoPreverAtribuicao({
+          clienteId,
+          mensagem,
+          mensagemEm: mensagemEm ? new Date(mensagemEm).toISOString() : undefined,
+        });
         setPrevisao(resultado);
       });
     }, 400);
@@ -116,8 +120,15 @@ export function FormularioCadastro({
 
       <label className="flex flex-col gap-1.5">
         <span className="text-sm text-suave">Horário da mensagem</span>
+        {/* O campo visível não é enviado: o servidor roda em UTC e leria a hora
+            local como se fosse UTC. Quem converte é o navegador, que conhece o
+            fuso de quem está atendendo. */}
         <input
+          type="hidden"
           name="mensagemEm"
+          value={mensagemEm ? new Date(mensagemEm).toISOString() : ""}
+        />
+        <input
           type="datetime-local"
           value={mensagemEm}
           onChange={(e) => setMensagemEm(e.target.value)}
