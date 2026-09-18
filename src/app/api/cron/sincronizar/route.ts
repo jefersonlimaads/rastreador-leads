@@ -5,6 +5,9 @@ import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
 import { aplicarRetencao } from "@/lib/retencao";
 
+// Roda em São Paulo, junto do banco.
+export const preferredRegion = "gru1";
+
 /**
  * Rotina diária: puxa o gasto dos últimos 7 dias de cada cliente, reenvia os
  * eventos que falharam e encerra os cliques sem contato.

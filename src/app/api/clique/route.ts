@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizarCodigo } from "@/lib/codigo";
 
+// Roda em São Paulo, junto do banco.
+export const preferredRegion = "gru1";
+
 // A landing page do cliente fica em outro domínio: precisa responder CORS.
 const CORS = {
   "Access-Control-Allow-Origin": "*",

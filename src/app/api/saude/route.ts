@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Roda em São Paulo, junto do banco.
+export const preferredRegion = "gru1";
+
 /**
  * Diagnóstico de ambiente. Responde só com o estado de cada variável e o tipo do
  * erro do banco: nunca mostra valor, senha ou string de conexão.

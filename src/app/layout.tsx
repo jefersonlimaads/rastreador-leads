@@ -12,6 +12,13 @@ export const metadata: Metadata = {
   description: "Painel de leads, atribuição por anúncio e custo real por cliente.",
 };
 
+/**
+ * A função roda em São Paulo, junto do banco. Sem isto a Vercel executa em
+ * Washington por padrão, e cada consulta atravessa o continente duas vezes:
+ * eram cerca de 120 ms por consulta, com várias consultas por tela.
+ */
+export const preferredRegion = "gru1";
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
