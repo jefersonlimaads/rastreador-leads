@@ -19,7 +19,7 @@ export default async function PaginaNegocio() {
 
   const [resumo, clientes] = await Promise.all([resumoFinanceiro(), carteiraComercial()]);
   const emCarteira = clientes.filter(
-    (c) => !(CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo),
+    (c) => !(CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo) && c.ciclo !== "PERDIDO",
   );
   const prospects = clientes.filter((c) =>
     (CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo),
@@ -121,23 +121,15 @@ export default async function PaginaNegocio() {
       </section>
 
       {prospects.length > 0 && (
-        <section className="mt-6">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
-            Prospecção
-          </h2>
-          <div className="flex flex-col gap-2">
-            {prospects.map((c) => (
-              <Link
-                key={c.id}
-                href={`/negocio/${c.id}`}
-                className="flex items-center justify-between gap-3 rounded-xl border border-borda bg-superficie px-3 py-2.5"
-              >
-                <span className="truncate text-sm font-medium">{c.nome}</span>
-                <Selo>{ROTULO_CICLO[c.ciclo]}</Selo>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <Link
+          href="/prospeccao"
+          className="mt-6 flex items-center justify-between rounded-2xl border border-borda bg-superficie px-4 py-3"
+        >
+          <span className="text-sm">
+            {prospects.length} {prospects.length === 1 ? "prospect" : "prospects"} em andamento
+          </span>
+          <span className="text-sm text-marca-texto">Prospecção →</span>
+        </Link>
       )}
     </>
   );

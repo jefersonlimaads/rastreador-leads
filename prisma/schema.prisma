@@ -42,12 +42,24 @@ enum Origem {
  * costuma apodrecer.
  */
 enum CicloCliente {
-  PROSPECCAO
+  PROSPECCAO // a abordar
+  ABORDADO
+  RESPONDEU
+  REUNIAO_MARCADA
   PROPOSTA_ENVIADA
   NEGOCIANDO
   ATIVO
   PAUSADO
   ENCERRADO
+  PERDIDO // prospect que disse não; diferente de cliente que saiu
+}
+
+enum TipoInteracao {
+  MENSAGEM
+  LIGACAO
+  REUNIAO
+  EMAIL
+  NOTA
 }
 
 enum StatusProposta {
@@ -131,6 +143,14 @@ model Cliente {
   linkPagamento  String? // link fixo de cobrança, enquanto não houver provedor
   observacoes    String?
 
+  // Prospecção: de onde veio, o que faz, quando retomar e por que foi perdido.
+  nicho          String?
+  origem         String? // indicação, Instagram, abordagem fria, evento
+  instagram      String?
+  site           String?
+  proximoContato DateTime? @db.Date
+  motivoPerda    String?
+
   // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
   pixelId        String?
   capiToken      String?
@@ -152,6 +172,23 @@ model Cliente {
   faturas    Fatura[]
   tarefas    Tarefa[]
   propostas  Proposta[]
+  interacoes Interacao[]
+}
+
+/*
+ * Cada toque num prospect: mensagem, ligação, reunião. É o histórico que
+ * responde "o que eu já falei com essa pessoa?" antes de retomar o contato.
+ */
+model Interacao {
+  id        String        @id @default(cuid())
+  clienteId String
+  tipo      TipoInteracao
+  descricao String
+  criadoEm  DateTime      @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, criadoEm])
 }
 
 /*

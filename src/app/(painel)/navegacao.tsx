@@ -16,6 +16,7 @@ import type { Papel } from "@prisma/client";
  */
 const AMBIENTE_JLADS: ItemNav[] = [
   { href: "/negocio", rotulo: "Negócio" },
+  { href: "/prospeccao", rotulo: "Prospecção" },
   { href: "/propostas", rotulo: "Propostas" },
   { href: "/tarefas", rotulo: "Tarefas" },
   { href: "/carteira", rotulo: "Clientes" },
@@ -33,7 +34,7 @@ type ItemNav = { href: string; rotulo: string; sóGestor?: boolean };
 
 /** Rotas que pertencem ao ambiente da jl.ads. */
 export function ambienteDaRota(caminho: string): "jlads" | "cliente" {
-  const daCasa = ["/negocio", "/propostas", "/tarefas", "/carteira"];
+  const daCasa = ["/negocio", "/prospeccao", "/propostas", "/tarefas", "/carteira"];
   return daCasa.some((r) => caminho === r || caminho.startsWith(r + "/")) ? "jlads" : "cliente";
 }
 
@@ -55,7 +56,7 @@ export function Navegacao({ papel }: { papel: Papel }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 py-3 text-center text-sm ${
+              className={`flex-1 py-3 text-center text-[13px] ${
                 ativo ? "font-semibold text-marca-texto" : "text-suave"
               }`}
             >

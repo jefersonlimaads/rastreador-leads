@@ -141,3 +141,43 @@ describe("propostas", () => {
     expect(await prisma.proposta.findUnique({ where: { id: p.id } })).toBeNull();
   });
 });
+
+describe("etapa do prospect acompanha as propostas", () => {
+  it("excluir a única proposta tira o prospect de proposta enviada", async () => {
+    // Era o bug: a proposta sumia do pipeline e o prospect ficava em
+    // "proposta enviada" sem proposta nenhuma.
+    const p = await novaProposta();
+    await excluirProposta(p.id);
+
+    const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
+    expect(c.ciclo).not.toBe("PROPOSTA_ENVIADA");
+    expect(c.ciclo).toBe("REUNIAO_MARCADA");
+  });
+
+  it("recusa da única proposta marca o prospect como perdido, com o motivo", async () => {
+    const p = await novaProposta();
+    await recusarProposta(p.token, "Fechei com outra agência na semana passada");
+
+    const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
+    expect(c.ciclo).toBe("PERDIDO");
+    expect(c.motivoPerda).toBe("Fechei com outra agência na semana passada");
+  });
+
+  it("com duas propostas, recusar uma não perde o prospect", async () => {
+    await novaProposta();
+    const segunda = await novaProposta();
+    await recusarProposta(segunda.token, "Essa versão ficou cara, prefiro a outra");
+
+    const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
+    expect(c.ciclo).toBe("PROPOSTA_ENVIADA");
+  });
+
+  it("sair da negociação volta para proposta enviada", async () => {
+    const p = await novaProposta();
+    await alternarNegociacao(p.id);
+    await alternarNegociacao(p.id);
+
+    const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
+    expect(c.ciclo).toBe("PROPOSTA_ENVIADA");
+  });
+});

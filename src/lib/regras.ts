@@ -93,16 +93,47 @@ export const ROTULO_EVENTO: Record<string, string> = {
 };
 
 export const CICLOS_EM_CARTEIRA = ["ATIVO", "PAUSADO"] as const;
-export const CICLOS_EM_PROSPECCAO = ["PROSPECCAO", "PROPOSTA_ENVIADA", "NEGOCIANDO"] as const;
+
+/** Funil de prospecção, na ordem. Antes da proposta, você move; depois, a proposta move. */
+export const CICLOS_EM_PROSPECCAO = [
+  "PROSPECCAO",
+  "ABORDADO",
+  "RESPONDEU",
+  "REUNIAO_MARCADA",
+  "PROPOSTA_ENVIADA",
+  "NEGOCIANDO",
+] as const;
+
+/** Etapas que você move à mão. As outras dependem da proposta. */
+export const CICLOS_ANTES_DA_PROPOSTA = [
+  "PROSPECCAO",
+  "ABORDADO",
+  "RESPONDEU",
+  "REUNIAO_MARCADA",
+] as const;
 
 export const ROTULO_CICLO: Record<string, string> = {
-  PROSPECCAO: "Prospecção",
+  PROSPECCAO: "A abordar",
+  ABORDADO: "Abordado",
+  RESPONDEU: "Respondeu",
+  REUNIAO_MARCADA: "Reunião marcada",
   PROPOSTA_ENVIADA: "Proposta enviada",
   NEGOCIANDO: "Negociando",
   ATIVO: "Ativo",
   PAUSADO: "Pausado",
   ENCERRADO: "Encerrado",
+  PERDIDO: "Perdido",
 };
+
+export const ROTULO_INTERACAO: Record<string, string> = {
+  MENSAGEM: "Mensagem",
+  LIGACAO: "Ligação",
+  REUNIAO: "Reunião",
+  EMAIL: "E-mail",
+  NOTA: "Nota",
+};
+
+export const ORIGENS = ["Indicação", "Instagram", "Abordagem fria", "Evento", "Site", "Outro"];
 
 export const ROTULO_FATURA: Record<string, string> = {
   ABERTA: "Em aberto",

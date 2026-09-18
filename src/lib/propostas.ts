@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { gerarToken } from "./confirmacao";
 import { hojeComoDataPura } from "./datas";
+import { sincronizarCiclo } from "./prospeccao";
 
 /**
  * Propostas comerciais da jl.ads.
@@ -105,11 +106,7 @@ export async function marcarEnviada(propostaId: string) {
     },
   });
 
-  await prisma.cliente.updateMany({
-    where: { id: proposta.clienteId, ciclo: "PROSPECCAO" },
-    data: { ciclo: "PROPOSTA_ENVIADA" },
-  });
-
+  await sincronizarCiclo(proposta.clienteId);
   return atualizada;
 }
 
@@ -210,6 +207,13 @@ export async function recusarProposta(token: string, motivo: string) {
     data: { status: "RECUSADA", respondidaEm: new Date(), motivoRecusa: texto },
   });
 
+  // Recusada a única proposta, o prospect vira perdido com o mesmo motivo.
+  await sincronizarCiclo(p.clienteId);
+  await prisma.cliente.updateMany({
+    where: { id: p.clienteId, ciclo: "PERDIDO", motivoPerda: null },
+    data: { motivoPerda: texto },
+  });
+
   return { ok: true };
 }
 
@@ -225,14 +229,7 @@ export async function alternarNegociacao(propostaId: string) {
     data: { status: indo ? "NEGOCIANDO" : "ENVIADA" },
   });
 
-  await prisma.cliente.updateMany({
-    where: {
-      id: p.clienteId,
-      ciclo: indo ? { in: ["PROSPECCAO", "PROPOSTA_ENVIADA"] } : "NEGOCIANDO",
-    },
-    data: { ciclo: indo ? "NEGOCIANDO" : "PROPOSTA_ENVIADA" },
-  });
-
+  await sincronizarCiclo(p.clienteId);
   return true;
 }
 
@@ -248,6 +245,9 @@ export async function excluirProposta(propostaId: string) {
     return { erro: "Proposta aceita é o registro do contrato e não pode ser excluída." };
   }
   await prisma.proposta.delete({ where: { id: propostaId } });
+
+  // Sem isso o prospect ficava em "proposta enviada" sem proposta nenhuma.
+  await sincronizarCiclo(p.clienteId);
   return { ok: true };
 }
 

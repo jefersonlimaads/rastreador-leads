@@ -23,7 +23,18 @@ function dinheiro(bruto: string): number | null {
 
 const Comercial = z.object({
   clienteId: z.string().min(1),
-  ciclo: z.enum(["PROSPECCAO", "PROPOSTA_ENVIADA", "NEGOCIANDO", "ATIVO", "PAUSADO", "ENCERRADO"]),
+  ciclo: z.enum([
+    "PROSPECCAO",
+    "ABORDADO",
+    "RESPONDEU",
+    "REUNIAO_MARCADA",
+    "PROPOSTA_ENVIADA",
+    "NEGOCIANDO",
+    "ATIVO",
+    "PAUSADO",
+    "ENCERRADO",
+    "PERDIDO",
+  ]),
   feeMensal: z.string().optional(),
   diaVencimento: z.string().optional(),
   inicioContrato: z.string().optional(),
