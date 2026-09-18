@@ -50,6 +50,13 @@ enum CicloCliente {
   ENCERRADO
 }
 
+enum StatusProposta {
+  RASCUNHO
+  ENVIADA
+  ACEITA
+  RECUSADA
+}
+
 enum StatusTarefa {
   ABERTA
   FEITA
@@ -143,6 +150,7 @@ model Cliente {
   enviosCapi EnvioCapi[]
   faturas    Fatura[]
   tarefas    Tarefa[]
+  propostas  Proposta[]
 }
 
 /*
@@ -170,6 +178,43 @@ model Tarefa {
 
   @@index([status, prazo])
   @@index([clienteId, status])
+}
+
+/*
+ * Proposta comercial da jl.ads para um prospect. O prospect é um Cliente em
+ * etapa inicial do ciclo: aceitar a proposta o torna ativo, com o fee dela.
+ *
+ * O lead abre pelo link, sem senha, e responde por ali mesmo. "Visualizada" é
+ * derivada de visualizadaEm, não é status: aberta e aceita não se excluem.
+ */
+model Proposta {
+  id        String         @id @default(cuid())
+  clienteId String
+  token     String         @unique
+  status    StatusProposta @default(RASCUNHO)
+
+  titulo      String
+  apresentacao String? // parágrafo de abertura, escrito para esse lead
+  escopo      Json // lista de { titulo, detalhe } do que está incluído
+  feeMensal   Decimal? @db.Decimal(12, 2)
+  setup       Decimal? @db.Decimal(12, 2) // valor único de implantação
+  condicoes   String? // prazo mínimo, forma de pagamento, verba de mídia à parte
+  validade    DateTime @db.Date
+
+  enviadaEm     DateTime?
+  visualizadaEm DateTime?
+  visualizacoes Int       @default(0)
+  respondidaEm  DateTime?
+  aceitaPor     String? // nome digitado por quem aceitou
+  motivoRecusa  String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  cliente Cliente @relation(fields: [clienteId], references: [id])
+
+  @@index([clienteId, criadoEm])
+  @@index([status])
 }
 
 model Fatura {

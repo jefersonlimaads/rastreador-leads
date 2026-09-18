@@ -12,6 +12,7 @@ import {
   inicioDoDia,
   fimDoDia,
   periodoPadrao,
+  hojeComoDataPura,
 } from "../src/lib/datas";
 
 const SP = "America/Sao_Paulo";
@@ -48,5 +49,20 @@ describe("datas puras: vencimento e competência", () => {
     const vencimento = new Date("2026-09-10T00:00:00.000Z");
     expect(formatarDataPura(vencimento)).toBe("10/09/2026");
     expect(formatarMesPuro(new Date("2026-09-01T00:00:00.000Z"))).toBe("setembro de 2026");
+  });
+});
+
+describe("hoje como data pura", () => {
+  it("usa o calendário de São Paulo, não o do servidor", () => {
+    const hoje = hojeComoDataPura("America/Sao_Paulo");
+    const esperado = new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo" }).format(new Date());
+    expect(hoje.toISOString().slice(0, 10)).toBe(esperado);
+    expect(hoje.toISOString().slice(11)).toBe("00:00:00.000Z");
+  });
+
+  it("soma dias sem escorregar de mês", () => {
+    const hoje = hojeComoDataPura("America/Sao_Paulo");
+    const amanha = hojeComoDataPura("America/Sao_Paulo", 1);
+    expect(amanha.getTime() - hoje.getTime()).toBe(24 * 60 * 60 * 1000);
   });
 });

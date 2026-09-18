@@ -37,10 +37,10 @@ export default async function PaginaClienteComercial({
           </p>
         </div>
         <Link
-          href="/carteira"
+          href={`/propostas/nova?cliente=${cliente.id}`}
           className="shrink-0 rounded-xl border border-borda px-3 py-2 text-sm"
         >
-          Campanhas
+          Nova proposta
         </Link>
       </div>
 

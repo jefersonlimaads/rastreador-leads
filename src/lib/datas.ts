@@ -74,6 +74,17 @@ export function formatarMesPuro(data: Date): string {
   }).format(data);
 }
 
+/**
+ * "Hoje" como data pura, no calendário do fuso — para gravar em campo de data.
+ *
+ * new Date() no servidor é UTC: às 21h de São Paulo já é o dia seguinte em
+ * Londres, e o contrato fechado à noite nascia com a data de amanhã.
+ */
+export function hojeComoDataPura(fuso: string = FUSO_PADRAO, somarDias = 0): Date {
+  const [ano, mes, dia] = partesNoFuso(new Date(), fuso).slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia + somarDias));
+}
+
 /** Meia-noite do dia daquele instante, no fuso, devolvida como instante real. */
 export function inicioDoDia(data: Date, fuso: string = FUSO_PADRAO): Date {
   const dia = partesNoFuso(data, fuso).slice(0, 10);
