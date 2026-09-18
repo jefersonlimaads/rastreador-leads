@@ -81,6 +81,7 @@ export default async function PaginaConfirmar({
                       : null
                 }
                 interesse={l.clique?.interesse ?? null}
+                etapaAtual={l.status}
                 codigo={l.clique?.codigo ?? null}
                 quando={formatarDataHora(l.criadoEm, cliente.fuso)}
               />

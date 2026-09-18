@@ -2,9 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { acaoMudarStatus, type EstadoStatus } from "../../acoes";
-import { ROTULO_STATUS } from "@/lib/regras";
+import { ETAPAS, ROTULO_STATUS } from "@/lib/regras";
 
-const STATUS = ["NOVO", "EM_ATENDIMENTO", "ORCAMENTO_ENVIADO", "FECHADO", "PERDIDO"] as const;
+const STATUS = ETAPAS;
 
 const estadoInicial: EstadoStatus = {};
 

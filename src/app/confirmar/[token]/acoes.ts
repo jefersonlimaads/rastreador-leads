@@ -10,6 +10,7 @@ import {
 } from "@/lib/confirmacao";
 import { normalizarTelefone } from "@/lib/telefone";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
+import { ETAPAS_EM_ANDAMENTO, ROTULO_STATUS } from "@/lib/regras";
 
 /**
  * Ações da página de confirmação. Não há sessão aqui: a autorização é o token,
@@ -77,8 +78,13 @@ export async function acaoDesfecho(
   const cliente = await clienteDaAcao(formData);
   if (!cliente) return { erro: "Link inválido ou expirado." };
 
-  const status = String(formData.get("status") ?? "") as "FECHADO" | "PERDIDO";
-  if (status !== "FECHADO" && status !== "PERDIDO") return { erro: "Resposta inválida." };
+  const status = String(formData.get("status") ?? "") as
+    | "FECHADO"
+    | "PERDIDO"
+    | (typeof ETAPAS_EM_ANDAMENTO)[number];
+
+  const validos = ["FECHADO", "PERDIDO", ...ETAPAS_EM_ANDAMENTO];
+  if (!validos.includes(status)) return { erro: "Resposta inválida." };
 
   const valorBruto = String(formData.get("valorVenda") ?? "")
     .replace(/\./g, "")
@@ -103,5 +109,7 @@ export async function acaoDesfecho(
   }
 
   revalidar(String(formData.get("token")));
-  return { ok: status === "FECHADO" ? "Venda registrada." : "Anotado." };
+  if (status === "FECHADO") return { ok: "Venda registrada." };
+  if (status === "PERDIDO") return { ok: "Anotado." };
+  return { ok: ROTULO_STATUS[status] ?? "Anotado." };
 }

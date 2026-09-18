@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { REGRAS, STATUS_ABERTOS } from "./regras";
+import { ETAPAS, REGRAS, STATUS_ABERTOS } from "./regras";
 import type { LeadCartao } from "@/app/(painel)/componentes";
 import type { Prisma } from "@prisma/client";
 
@@ -114,13 +114,9 @@ export async function pipeline(clienteId: string) {
     take: 300,
   });
 
-  const colunas: Record<string, LeadCartao[]> = {
-    NOVO: [],
-    EM_ATENDIMENTO: [],
-    ORCAMENTO_ENVIADO: [],
-    FECHADO: [],
-    PERDIDO: [],
-  };
+  const colunas: Record<string, LeadCartao[]> = Object.fromEntries(
+    ETAPAS.map((e) => [e, [] as LeadCartao[]]),
+  );
 
   for (const lead of leads) {
     colunas[lead.status]?.push(paraCartao(lead));

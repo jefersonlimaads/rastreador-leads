@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { REGRAS, STATUS_ABERTOS } from "./regras";
+import { ETAPAS_EM_ANDAMENTO, REGRAS, STATUS_ABERTOS } from "./regras";
 
 /**
  * Confirmação em lote pelo cliente.
@@ -61,8 +61,18 @@ export async function pendencias(clienteId: string) {
     take: 60,
   });
 
+  // Lead respondido nas últimas 20 horas sai da lista: cobrar de novo no mesmo
+  // dia o que a pessoa acabou de responder é o caminho mais curto para ela parar
+  // de responder.
+  const respondidoAgora = new Date(Date.now() - 20 * 60 * 60 * 1000);
+
   const leads = await prisma.lead.findMany({
-    where: { clienteId, arquivadoEm: null, status: { in: [...STATUS_ABERTOS] } },
+    where: {
+      clienteId,
+      arquivadoEm: null,
+      status: { in: [...STATUS_ABERTOS] },
+      eventos: { none: { criadoEm: { gte: respondidoAgora }, tipo: "MUDANCA_STATUS" } },
+    },
     orderBy: { criadoEm: "asc" },
     include: {
       clique: {
@@ -135,11 +145,14 @@ export async function descartarClique(clienteId: string, cliqueId: string) {
   return count > 0;
 }
 
-/** Desfecho informado pelo cliente. Vale tanto para lead quanto para clique. */
+/**
+ * Resposta do cliente sobre um lead: em que etapa está, ou qual foi o desfecho.
+ * Etapa em andamento mantém o lead na fila; fechado e perdido tiram.
+ */
 export async function registrarDesfecho(params: {
   clienteId: string;
   leadId: string;
-  status: "FECHADO" | "PERDIDO";
+  status: "FECHADO" | "PERDIDO" | (typeof ETAPAS_EM_ANDAMENTO)[number];
   valorVenda?: number;
   motivoPerda?: string;
 }) {
@@ -150,6 +163,8 @@ export async function registrarDesfecho(params: {
   if (status === "FECHADO" && !(params.valorVenda && params.valorVenda > 0)) return null;
   if (status === "PERDIDO" && !params.motivoPerda?.trim()) return null;
 
+  const encerrou = status === "FECHADO" || status === "PERDIDO";
+
   return prisma.$transaction(async (tx) => {
     const atualizado = await tx.lead.update({
       where: { id: lead.id },
@@ -157,7 +172,7 @@ export async function registrarDesfecho(params: {
         status,
         valorVenda: status === "FECHADO" ? params.valorVenda : lead.valorVenda,
         motivoPerda: status === "PERDIDO" ? params.motivoPerda?.trim() : lead.motivoPerda,
-        fechadoEm: new Date(),
+        fechadoEm: encerrou ? new Date() : null,
       },
     });
 
@@ -169,7 +184,9 @@ export async function registrarDesfecho(params: {
         descricao:
           status === "FECHADO"
             ? `Cliente informou venda de R$ ${params.valorVenda?.toFixed(2)}`
-            : `Cliente informou perda: ${params.motivoPerda?.trim()}`,
+            : status === "PERDIDO"
+              ? `Cliente informou perda: ${params.motivoPerda?.trim()}`
+              : `Cliente informou a etapa: ${status}`,
       },
     });
 

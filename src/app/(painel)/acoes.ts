@@ -16,6 +16,7 @@ import { cadastrarLead, sugerirClique } from "@/lib/atribuicao";
 import { normalizarTelefone } from "@/lib/telefone";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
 import { garantirToken } from "@/lib/confirmacao";
+import { ETAPAS } from "@/lib/regras";
 import type { StatusLead } from "@prisma/client";
 
 /**
@@ -147,7 +148,7 @@ export async function acaoPreverAtribuicao(params: {
 
 const MudancaStatus = z.object({
   leadId: z.string().min(1),
-  status: z.enum(["NOVO", "EM_ATENDIMENTO", "ORCAMENTO_ENVIADO", "FECHADO", "PERDIDO"]),
+  status: z.enum(ETAPAS),
   valorVenda: z.string().optional(),
   motivoPerda: z.string().max(300).optional(),
 });

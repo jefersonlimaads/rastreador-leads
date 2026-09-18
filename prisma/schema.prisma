@@ -27,10 +27,16 @@ enum Origem {
   WEBHOOK
 }
 
+/*
+ * Etapas do funil. Escolhidas para servir a nichos diferentes — reforma,
+ * advocacia, estética, serviço técnico — sem virar configuração por cliente,
+ * que complicaria o painel e as métricas.
+ */
 enum StatusLead {
   NOVO
   EM_ATENDIMENTO
-  ORCAMENTO_ENVIADO
+  PROPOSTA_ENVIADA
+  NEGOCIANDO
   FECHADO
   PERDIDO
 }

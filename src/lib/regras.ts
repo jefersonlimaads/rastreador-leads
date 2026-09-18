@@ -15,12 +15,31 @@ export const REGRAS = {
   cliqueSemContatoHoras: 24,
 } as const;
 
-export const STATUS_ABERTOS = ["NOVO", "EM_ATENDIMENTO", "ORCAMENTO_ENVIADO"] as const;
+export const STATUS_ABERTOS = [
+  "NOVO",
+  "EM_ATENDIMENTO",
+  "PROPOSTA_ENVIADA",
+  "NEGOCIANDO",
+] as const;
+
+/** Ordem do funil, do primeiro contato ao desfecho. Vale para o painel inteiro. */
+export const ETAPAS = [
+  "NOVO",
+  "EM_ATENDIMENTO",
+  "PROPOSTA_ENVIADA",
+  "NEGOCIANDO",
+  "FECHADO",
+  "PERDIDO",
+] as const;
+
+/** As que o cliente escolhe quando diz que o lead ainda está sendo tratado. */
+export const ETAPAS_EM_ANDAMENTO = ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIANDO"] as const;
 
 export const ROTULO_STATUS: Record<string, string> = {
   NOVO: "Novo",
   EM_ATENDIMENTO: "Em atendimento",
-  ORCAMENTO_ENVIADO: "Orçamento enviado",
+  PROPOSTA_ENVIADA: "Proposta enviada",
+  NEGOCIANDO: "Negociando",
   FECHADO: "Fechado",
   PERDIDO: "Perdido",
 };

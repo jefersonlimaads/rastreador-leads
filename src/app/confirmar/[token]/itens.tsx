@@ -7,6 +7,7 @@ import {
   acaoDesfecho,
   type EstadoConfirmacao,
 } from "./acoes";
+import { ETAPAS_EM_ANDAMENTO, ROTULO_STATUS } from "@/lib/regras";
 
 const vazio: EstadoConfirmacao = {};
 
@@ -140,6 +141,7 @@ export function ItemLead({
   telefone,
   codigo,
   interesse,
+  etapaAtual,
   quando,
 }: {
   token: string;
@@ -148,10 +150,11 @@ export function ItemLead({
   telefone: string | null;
   codigo: string | null;
   interesse: string | null;
+  etapaAtual: string;
   quando: string;
 }) {
   const [estado, responder, enviando] = useActionState(acaoDesfecho, vazio);
-  const [escolha, setEscolha] = useState<"" | "FECHADO" | "PERDIDO">("");
+  const [escolha, setEscolha] = useState<"" | "FECHADO" | "PERDIDO" | "ANDAMENTO">("");
 
   if (estado.ok) {
     return (
@@ -167,31 +170,71 @@ export function ItemLead({
     <article className={cartao}>
       <p className="font-medium">{titulo}</p>
       <p className="mt-0.5 text-sm text-suave">
-        {[interesse, telefone, codigo ? `código ${codigo}` : null, `desde ${quando}`]
+        {[
+          etapaAtual === "NOVO" ? null : ROTULO_STATUS[etapaAtual],
+          interesse,
+          telefone,
+          `desde ${quando}`,
+        ]
           .filter(Boolean)
           .join(" · ")}
       </p>
 
       {escolha === "" && (
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <div className="mt-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => setEscolha("FECHADO")}
+              className={`${botaoPrimario} flex-1`}
+            >
+              Virou cliente
+            </button>
+            <button
+              type="button"
+              onClick={() => setEscolha("PERDIDO")}
+              className={`${botaoSecundario} flex-1`}
+            >
+              Não fechou
+            </button>
+          </div>
           <button
             type="button"
-            onClick={() => setEscolha("FECHADO")}
-            className={`${botaoPrimario} flex-1`}
+            onClick={() => setEscolha("ANDAMENTO")}
+            className={`${botaoSecundario} w-full`}
           >
-            Virou cliente
-          </button>
-          <button
-            type="button"
-            onClick={() => setEscolha("PERDIDO")}
-            className={`${botaoSecundario} flex-1`}
-          >
-            Não fechou
+            Ainda estou tratando
           </button>
         </div>
       )}
 
-      {escolha !== "" && (
+      {/* Etapa do funil: só aparece para quem disse que ainda está tratando. */}
+      {escolha === "ANDAMENTO" && (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="text-sm text-suave">Em que ponto está?</p>
+          {ETAPAS_EM_ANDAMENTO.map((etapa) => (
+            <form key={etapa} action={responder}>
+              <input type="hidden" name="token" value={token} />
+              <input type="hidden" name="leadId" value={leadId} />
+              <input type="hidden" name="status" value={etapa} />
+              <button
+                type="submit"
+                disabled={enviando}
+                className={`${botaoSecundario} w-full ${etapa === etapaAtual ? "border-marca text-marca" : ""}`}
+              >
+                {ROTULO_STATUS[etapa]}
+                {etapa === etapaAtual ? " · atual" : ""}
+              </button>
+            </form>
+          ))}
+          <button type="button" onClick={() => setEscolha("")} className="mt-1 text-sm text-marca">
+            Voltar
+          </button>
+          <Resposta estado={estado} />
+        </div>
+      )}
+
+      {(escolha === "FECHADO" || escolha === "PERDIDO") && (
         <form action={responder} className="mt-4 flex flex-col gap-2">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="leadId" value={leadId} />

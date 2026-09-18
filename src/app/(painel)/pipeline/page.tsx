@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { pipeline } from "@/lib/consultas";
-import { ROTULO_STATUS } from "@/lib/regras";
+import { ETAPAS, ROTULO_STATUS } from "@/lib/regras";
 import { formatarTelefone } from "@/lib/telefone";
 import { Selo, moeda, tempoRelativo } from "../componentes";
 
-const ORDEM = ["NOVO", "EM_ATENDIMENTO", "ORCAMENTO_ENVIADO", "FECHADO", "PERDIDO"] as const;
+const ORDEM = ETAPAS;
 
 export default async function PaginaPipeline({ searchParams }: PageProps<"/pipeline">) {
   const { cliente } = await searchParams;
