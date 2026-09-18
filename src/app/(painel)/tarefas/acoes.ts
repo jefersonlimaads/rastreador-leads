@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { exigirSessao } from "@/lib/auth";
+import { dataPuraDe } from "@/lib/datas";
 
 export type EstadoTarefa = { erro?: string; ok?: string };
 
@@ -11,6 +12,8 @@ const Nova = z.object({
   titulo: z.string().min(2).max(200),
   descricao: z.string().max(2000).optional(),
   prazo: z.string().optional(),
+  inicio: z.string().optional(),
+  duracaoMin: z.string().optional(),
   clienteId: z.string().optional(),
 });
 
@@ -24,6 +27,8 @@ export async function acaoCriarTarefa(
     titulo: String(formData.get("titulo") ?? "").trim(),
     descricao: String(formData.get("descricao") ?? "").trim(),
     prazo: String(formData.get("prazo") ?? ""),
+    inicio: String(formData.get("inicio") ?? ""),
+    duracaoMin: String(formData.get("duracaoMin") ?? ""),
     clienteId: String(formData.get("clienteId") ?? ""),
   });
   if (!dados.success) return { erro: "Escreva o que precisa ser feito." };
@@ -34,12 +39,23 @@ export async function acaoCriarTarefa(
     return { erro: "Sem acesso a esse cliente." };
   }
 
+  const inicio = dados.data.inicio ? new Date(dados.data.inicio) : null;
+  if (inicio && Number.isNaN(inicio.getTime())) return { erro: "Horário inválido." };
+  const duracao = dados.data.duracaoMin ? Number(dados.data.duracaoMin) : null;
+
   await prisma.tarefa.create({
     data: {
       titulo: dados.data.titulo,
       descricao: dados.data.descricao || null,
-      // Prazo é data pura: guardar em UTC evita o dia andar para trás.
-      prazo: dados.data.prazo ? new Date(dados.data.prazo + "T00:00:00Z") : null,
+      // Com horário, o dia da tarefa é o dia desse horário em São Paulo.
+      // Sem, é data pura: guardar em UTC evita o dia andar para trás.
+      prazo: inicio
+        ? dataPuraDe(inicio)
+        : dados.data.prazo
+          ? new Date(dados.data.prazo + "T00:00:00Z")
+          : null,
+      inicio,
+      duracaoMin: inicio ? (duracao ?? 60) : null,
       clienteId,
       criadoPorId: sessao.usuarioId,
     },

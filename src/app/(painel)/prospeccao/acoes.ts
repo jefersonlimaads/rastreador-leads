@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirAdmin } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { excluirProspect, marcarPerdido, reativarProspect, registrarInteracao } from "@/lib/prospeccao";
+import { aoMudarEtapa } from "@/lib/automacoes";
 import type { CicloCliente, TipoInteracao } from "@prisma/client";
 
 export type EstadoProspeccao = { erro?: string; ok?: string };
@@ -44,7 +45,9 @@ export async function acaoNovoProspect(
     },
   });
 
+  await aoMudarEtapa(criado.id);
   revalidar();
+  revalidatePath("/tarefas");
   redirect(`/prospeccao/${criado.id}`);
 }
 
@@ -101,6 +104,13 @@ export async function acaoRegistrarInteracao(
 
   const etapa = String(formData.get("novaEtapa") ?? "");
   const proximo = String(formData.get("proximoContato") ?? "");
+  const reuniao = String(formData.get("reuniaoEm") ?? "");
+
+  if (etapa === "REUNIAO_MARCADA" && !reuniao) {
+    return { erro: "Informe o dia e o horário da reunião: é o que vai para a agenda." };
+  }
+  const reuniaoEm = reuniao ? new Date(reuniao) : null;
+  if (reuniaoEm && Number.isNaN(reuniaoEm.getTime())) return { erro: "Horário da reunião inválido." };
 
   await registrarInteracao({
     clienteId,
@@ -108,9 +118,11 @@ export async function acaoRegistrarInteracao(
     descricao: descricao.slice(0, 2000),
     novaEtapa: (etapa || null) as CicloCliente | null,
     proximoContato: dataPura(proximo),
+    reuniaoEm,
   });
 
   revalidar(clienteId);
+  revalidatePath("/tarefas");
   return { ok: "Registrado." };
 }
 

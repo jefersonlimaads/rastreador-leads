@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { CICLOS_ANTES_DA_PROPOSTA, CICLOS_EM_PROSPECCAO } from "./regras";
 import { hojeComoDataPura } from "./datas";
+import { aoMudarEtapa } from "./automacoes";
 import type { CicloCliente, TipoInteracao } from "@prisma/client";
 
 /**
@@ -29,7 +30,10 @@ export async function sincronizarCiclo(clienteId: string) {
   if (!cliente) return;
 
   // Cliente de verdade não volta a ser prospect por causa de proposta.
-  if (CICLOS_DE_CLIENTE.includes(cliente.ciclo)) return;
+  if (CICLOS_DE_CLIENTE.includes(cliente.ciclo)) {
+    await aoMudarEtapa(clienteId);
+    return;
+  }
 
   const propostas = cliente.propostas;
   let novo: CicloCliente;
@@ -44,6 +48,7 @@ export async function sincronizarCiclo(clienteId: string) {
     novo = "PERDIDO";
   } else if ((CICLOS_ANTES_DA_PROPOSTA as readonly string[]).includes(cliente.ciclo)) {
     // Sem proposta viva e já numa etapa manual: fica onde você deixou.
+    await aoMudarEtapa(clienteId);
     return;
   } else {
     // Estava em etapa de proposta e a proposta sumiu: volta para a última
@@ -54,6 +59,7 @@ export async function sincronizarCiclo(clienteId: string) {
   if (novo !== cliente.ciclo) {
     await prisma.cliente.update({ where: { id: clienteId }, data: { ciclo: novo } });
   }
+  await aoMudarEtapa(clienteId);
 }
 
 export type ProspectLista = {
@@ -117,8 +123,10 @@ export async function registrarInteracao(params: {
   descricao: string;
   novaEtapa?: CicloCliente | null;
   proximoContato?: Date | null;
+  /** Obrigatória na prática para "reunião marcada": é o que vai para a agenda. */
+  reuniaoEm?: Date | null;
 }) {
-  const { clienteId, tipo, descricao, novaEtapa, proximoContato } = params;
+  const { clienteId, tipo, descricao, novaEtapa, proximoContato, reuniaoEm } = params;
 
   await prisma.$transaction(async (tx) => {
     await tx.interacao.create({ data: { clienteId, tipo, descricao } });
@@ -134,9 +142,12 @@ export async function registrarInteracao(params: {
       data: {
         ...(podeMover ? { ciclo: novaEtapa } : {}),
         ...(proximoContato !== undefined ? { proximoContato } : {}),
+        ...(reuniaoEm ? { reuniaoEm } : {}),
       },
     });
   });
+
+  await aoMudarEtapa(clienteId);
 }
 
 /** Perdido exige motivo, pelo mesmo motivo que a recusa de proposta exige. */
@@ -153,6 +164,7 @@ export async function marcarPerdido(clienteId: string, motivo: string) {
       data: { clienteId, tipo: "NOTA", descricao: `Marcado como perdido: ${texto}` },
     }),
   ]);
+  await aoMudarEtapa(clienteId);
   return { ok: true };
 }
 
@@ -167,6 +179,7 @@ export async function reativarProspect(clienteId: string) {
       data: { clienteId, tipo: "NOTA", descricao: "Voltou para a prospecção" },
     }),
   ]);
+  await aoMudarEtapa(clienteId);
 }
 
 /**

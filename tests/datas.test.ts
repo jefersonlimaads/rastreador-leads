@@ -13,6 +13,9 @@ import {
   fimDoDia,
   periodoPadrao,
   hojeComoDataPura,
+  instanteLocal,
+  partesLocais,
+  dataPuraDe,
 } from "../src/lib/datas";
 
 const SP = "America/Sao_Paulo";
@@ -64,5 +67,20 @@ describe("hoje como data pura", () => {
     const hoje = hojeComoDataPura("America/Sao_Paulo");
     const amanha = hojeComoDataPura("America/Sao_Paulo", 1);
     expect(amanha.getTime() - hoje.getTime()).toBe(24 * 60 * 60 * 1000);
+  });
+});
+
+describe("agenda: hora local", () => {
+  it("14h em São Paulo é 17h em UTC, e volta como 14h", () => {
+    const i = instanteLocal(2026, 9, 18, 14, 30, "America/Sao_Paulo");
+    expect(i.toISOString()).toBe("2026-09-18T17:30:00.000Z");
+    const p = partesLocais(i, "America/Sao_Paulo");
+    expect([p.hora, p.minuto, p.dia]).toEqual([14, 30, 18]);
+  });
+
+  it("reunião às 22h em São Paulo cai no mesmo dia, não no seguinte", () => {
+    // Em UTC já é 01h do dia 19: a agenda não pode jogar para o dia seguinte.
+    const i = instanteLocal(2026, 9, 18, 22, 0, "America/Sao_Paulo");
+    expect(dataPuraDe(i, "America/Sao_Paulo").toISOString().slice(0, 10)).toBe("2026-09-18");
   });
 });

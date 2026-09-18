@@ -83,10 +83,15 @@ describe("propostas", () => {
     });
     expect(c.ciclo).toBe("ATIVO");
     expect(Number(c.feeMensal)).toBe(1800);
-    expect(c.tarefas.map((t) => t.titulo)).toEqual(
+    const abertas = c.tarefas.filter((t) => t.status === "ABERTA");
+    expect(abertas.map((t) => t.titulo)).toEqual(
       expect.arrayContaining(["Onboarding: pedir acessos"]),
     );
-    expect(c.tarefas).toHaveLength(2); // onboarding + cobrar implantação
+    expect(abertas).toHaveLength(2); // onboarding + cobrar implantação
+
+    // A tarefa automática de acompanhar a proposta se conclui com o aceite.
+    const acompanhar = c.tarefas.find((t) => t.chave === "etapa:PROPOSTA_ENVIADA");
+    expect(acompanhar?.status).toBe("FEITA");
   });
 
   it("recusa sem motivo não passa", async () => {

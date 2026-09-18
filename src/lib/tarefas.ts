@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { inicioDoDia, fimDoDia, FUSO_PADRAO } from "./datas";
+import { inicioDoDia, fimDoDia, FUSO_PADRAO, formatarHora } from "./datas";
 
 /**
  * Tarefas da operação. Sem cliente, é trabalho da jl.ads; com cliente, é
@@ -18,6 +18,8 @@ export type TarefaLista = {
   status: string;
   clienteId: string | null;
   clienteNome: string | null;
+  horario: string | null;
+  automatica: boolean;
 };
 
 type Filtro = {
@@ -33,7 +35,7 @@ export async function listarTarefas(filtro: Filtro = {}, fuso = FUSO_PADRAO) {
 
   const tarefas = await prisma.tarefa.findMany({
     where,
-    orderBy: [{ prazo: "asc" }, { criadoEm: "desc" }],
+    orderBy: [{ prazo: "asc" }, { inicio: "asc" }, { criadoEm: "desc" }],
     include: { cliente: { select: { nome: true } } },
     take: 200,
   });
@@ -46,6 +48,8 @@ export async function listarTarefas(filtro: Filtro = {}, fuso = FUSO_PADRAO) {
     status: t.status,
     clienteId: t.clienteId,
     clienteNome: t.cliente?.nome ?? null,
+    horario: t.inicio ? formatarHora(t.inicio, fuso) : null,
+    automatica: t.automatica,
   }));
 
   const inicio = inicioDoDia(new Date(), fuso);

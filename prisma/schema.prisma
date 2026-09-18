@@ -150,6 +150,7 @@ model Cliente {
   site           String?
   proximoContato DateTime? @db.Date
   motivoPerda    String?
+  reuniaoEm      DateTime? // data e hora da reunião agendada
 
   // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
   pixelId        String?
@@ -210,12 +211,22 @@ model Tarefa {
   criadoEm  DateTime     @default(now())
   feitoEm   DateTime?
 
+  // Com horário, a tarefa ocupa um bloco na agenda; sem, fica no dia inteiro.
+  inicio     DateTime?
+  duracaoMin Int?
+
+  // Tarefa criada pela mudança de etapa. A chave diz de qual etapa ela veio,
+  // para não duplicar e para concluir sozinha quando o prospect avança.
+  automatica Boolean @default(false)
+  chave      String?
+
   criadoPorId String?
   cliente     Cliente? @relation(fields: [clienteId], references: [id])
   criadoPor   Usuario? @relation(fields: [criadoPorId], references: [id])
 
   @@index([status, prazo])
   @@index([clienteId, status])
+  @@index([status, inicio])
 }
 
 /*

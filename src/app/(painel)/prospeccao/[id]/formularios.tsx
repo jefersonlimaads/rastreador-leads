@@ -52,6 +52,15 @@ export function RegistrarContato({
 }) {
   const [estado, registrar, registrando] = useActionState(acaoRegistrarInteracao, vazio);
   const [proximo, setProximo] = useState(daquiA(3));
+  const [etapa, setEtapa] = useState(etapaAtual);
+  const [diaReuniao, setDiaReuniao] = useState(daquiA(2));
+  const [horaReuniao, setHoraReuniao] = useState("10:00");
+
+  // A hora digitada é de São Paulo; quem converte é o navegador, que sabe o fuso.
+  const reuniaoIso =
+    etapa === "REUNIAO_MARCADA" && diaReuniao && horaReuniao
+      ? new Date(`${diaReuniao}T${horaReuniao}`).toISOString()
+      : "";
 
   return (
     <form
@@ -84,7 +93,12 @@ export function RegistrarContato({
       {etapaManual ? (
         <label className="flex flex-col gap-1.5">
           <span className="text-sm text-suave">Etapa depois desse contato</span>
-          <select name="novaEtapa" defaultValue={etapaAtual} className={campo}>
+          <select
+            name="novaEtapa"
+            value={etapa}
+            onChange={(e) => setEtapa(e.target.value)}
+            className={campo}
+          >
             {etapas.map((e) => (
               <option key={e.valor} value={e.valor}>
                 {e.rotulo}
@@ -96,6 +110,35 @@ export function RegistrarContato({
         <p className="text-xs text-suave">
           A etapa agora segue a proposta: muda quando ela for aberta, negociada ou respondida.
         </p>
+      )}
+
+      {/* Reunião marcada vai para a agenda com dia e hora, e gera a tarefa de
+          enviar a proposta para 24h depois. */}
+      {etapa === "REUNIAO_MARCADA" && (
+        <div className="flex flex-col gap-1.5 rounded-xl border border-marca bg-marca-suave p-3">
+          <span className="text-sm text-marca-texto">Quando é a reunião?</span>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="date"
+              value={diaReuniao}
+              onChange={(e) => setDiaReuniao(e.target.value)}
+              required
+              className={campo}
+            />
+            <input
+              type="time"
+              value={horaReuniao}
+              onChange={(e) => setHoraReuniao(e.target.value)}
+              required
+              step={900}
+              className={campo}
+            />
+          </div>
+          <input type="hidden" name="reuniaoEm" value={reuniaoIso} />
+          <span className="text-xs text-marca-texto">
+            Entra na agenda, e a tarefa de enviar a proposta fica para o dia seguinte.
+          </span>
+        </div>
       )}
 
       <div className="flex flex-col gap-1.5">

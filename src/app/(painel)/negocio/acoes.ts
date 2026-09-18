@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { exigirAdmin } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { competenciaDe, gerarFaturasDoMes } from "@/lib/financeiro";
+import { aoMudarEtapa } from "@/lib/automacoes";
 
 /**
  * Tudo aqui é dado da jl.ads sobre o cliente — fee, vencimento, contrato — e
@@ -81,8 +82,10 @@ export async function acaoSalvarComercial(
     },
   });
 
+  await aoMudarEtapa(d.clienteId);
   revalidatePath("/negocio");
   revalidatePath(`/negocio/${d.clienteId}`);
+  revalidatePath("/tarefas");
   return { ok: "Salvo." };
 }
 

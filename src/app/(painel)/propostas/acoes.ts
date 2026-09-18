@@ -53,7 +53,9 @@ export async function acaoSalvarProposta(
   if (!clienteId) {
     const nome = d.novoProspect?.trim();
     if (!nome) return { erro: "Escolha para quem é a proposta, ou digite o nome do prospect." };
-    const novo = await prisma.cliente.create({ data: { nome, ciclo: "PROSPECCAO" } });
+    // Já nasce com proposta a caminho: vai direto para reunião marcada, sem
+    // gerar a tarefa de abordar quem você já abordou.
+    const novo = await prisma.cliente.create({ data: { nome, ciclo: "REUNIAO_MARCADA" } });
     clienteId = novo.id;
   }
 

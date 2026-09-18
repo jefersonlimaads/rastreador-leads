@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { gerarToken } from "./confirmacao";
 import { hojeComoDataPura } from "./datas";
 import { sincronizarCiclo } from "./prospeccao";
+import { aoMudarEtapa } from "./automacoes";
 
 /**
  * Propostas comerciais da jl.ads.
@@ -179,6 +180,8 @@ export async function aceitarProposta(token: string, nome: string) {
     }
   });
 
+  // Virou cliente: as tarefas de prospecção que sobraram se encerram.
+  await aoMudarEtapa(p.clienteId);
   return { ok: true };
 }
 

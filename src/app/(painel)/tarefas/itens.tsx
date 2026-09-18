@@ -33,6 +33,8 @@ export function ItemTarefa({
     prazo: string | null;
     status: string;
     clienteNome: string | null;
+    horario?: string | null;
+    automatica?: boolean;
   };
   alerta?: boolean;
 }) {
@@ -61,7 +63,12 @@ export function ItemTarefa({
         <p className={`text-sm font-medium ${feita ? "line-through" : ""}`}>{tarefa.titulo}</p>
         {tarefa.descricao && <p className="mt-0.5 text-sm text-suave">{tarefa.descricao}</p>}
         <p className="mt-1 text-xs text-suave">
-          {[tarefa.clienteNome ?? "jl.ads", tarefa.prazo ? formatarPrazo(tarefa.prazo) : null]
+          {[
+            tarefa.clienteNome ?? "jl.ads",
+            tarefa.prazo ? formatarPrazo(tarefa.prazo) : null,
+            tarefa.horario ?? null,
+            tarefa.automatica ? "automática" : null,
+          ]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -88,6 +95,11 @@ export function FormularioTarefa({
 }) {
   const [estado, criar, criando] = useActionState(acaoCriarTarefa, vazio);
   const [aberto, setAberto] = useState(false);
+  const [dia, setDia] = useState("");
+  const [hora, setHora] = useState("");
+
+  // Hora digitada é local; o navegador converte para o instante certo.
+  const inicioIso = dia && hora ? new Date(`${dia}T${hora}`).toISOString() : "";
 
   // No filtro de um cliente, a tarefa já nasce dele; em "jl.ads", nasce sem dono.
   const clientePadrao =
@@ -115,8 +127,8 @@ export function FormularioTarefa({
 
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs text-suave">Prazo</span>
-          <input name="prazo" type="date" className={campo} />
+          <span className="text-xs text-suave">Dia</span>
+          <input name="prazo" type="date" value={dia} onChange={(e) => setDia(e.target.value)} className={campo} />
         </label>
 
         {clienteFixo ? (
@@ -135,6 +147,29 @@ export function FormularioTarefa({
           </label>
         )}
       </div>
+
+      {/* Com hora, a tarefa ocupa um bloco na agenda; sem, fica no dia inteiro. */}
+      {dia && (
+        <div className="grid grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-xs text-suave">Hora (opcional)</span>
+            <input type="time" step={900} value={hora} onChange={(e) => setHora(e.target.value)} className={campo} />
+          </label>
+          {hora && (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-suave">Duração</span>
+              <select name="duracaoMin" defaultValue="60" className={campo}>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">1 hora</option>
+                <option value="90">1h30</option>
+                <option value="120">2 horas</option>
+              </select>
+            </label>
+          )}
+        </div>
+      )}
+      <input type="hidden" name="inicio" value={inicioIso} />
 
       {estado.erro && (
         <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>

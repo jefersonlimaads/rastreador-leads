@@ -3,6 +3,28 @@ import { prisma } from "@/lib/prisma";
 import { listarTarefas } from "@/lib/tarefas";
 import { Vazio } from "../componentes";
 import { FormularioTarefa, ItemTarefa } from "./itens";
+import { AgendaMes, AgendaSemana } from "./agenda";
+import {
+  agendaDaSemana,
+  agendaDoMes,
+  chaveDoDia,
+  dataPuraDaChave,
+  inicioDaSemana,
+} from "@/lib/agenda";
+import { hojeComoDataPura } from "@/lib/datas";
+
+const MESES = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+function somarDias(d: Date, n: number) {
+  return new Date(d.getTime() + n * 24 * 60 * 60 * 1000);
+}
+
+function somarMeses(d: Date, n: number) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, 1));
+}
 
 /**
  * Tarefas da jl.ads e de todos os clientes numa lista só, ordenada por urgência.
@@ -16,6 +38,11 @@ export default async function PaginaTarefas({
   const sessao = await exigirSessao();
   const filtros = await searchParams;
   const escopo = typeof filtros.de === "string" ? filtros.de : "tudo";
+  const modo = filtros.modo === "semana" || filtros.modo === "mes" ? filtros.modo : "lista";
+  const dataRef =
+    typeof filtros.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(filtros.data)
+      ? dataPuraDaChave(filtros.data)
+      : hojeComoDataPura();
 
   const clientes =
     sessao.papel === "ADMIN"
@@ -37,9 +64,51 @@ export default async function PaginaTarefas({
 
   const abertas = atrasadas.length + hoje.length + proximas.length + semPrazo.length;
 
+  const alternador = <AlternarModo modo={modo} data={chaveDoDia(dataRef)} />;
+
+  if (modo === "semana") {
+    const { dias, segunda } = await agendaDaSemana(dataRef);
+    const domingo = somarDias(segunda, 6);
+    const titulo =
+      segunda.getUTCMonth() === domingo.getUTCMonth()
+        ? `${segunda.getUTCDate()} a ${domingo.getUTCDate()} de ${MESES[domingo.getUTCMonth()]}`
+        : `${segunda.getUTCDate()} de ${MESES[segunda.getUTCMonth()]} a ${domingo.getUTCDate()} de ${MESES[domingo.getUTCMonth()]}`;
+    return (
+      <>
+        {alternador}
+        <Navegar
+          titulo={titulo}
+          anterior={`/tarefas?modo=semana&data=${chaveDoDia(somarDias(segunda, -7))}`}
+          proximo={`/tarefas?modo=semana&data=${chaveDoDia(somarDias(segunda, 7))}`}
+          hoje={`/tarefas?modo=semana&data=${chaveDoDia(inicioDaSemana(hojeComoDataPura()))}`}
+        />
+        <AgendaSemana dias={dias} />
+        <Legenda />
+      </>
+    );
+  }
+
+  if (modo === "mes") {
+    const { dias, primeiro } = await agendaDoMes(dataRef);
+    return (
+      <>
+        {alternador}
+        <Navegar
+          titulo={`${MESES[primeiro.getUTCMonth()].replace(/^./, (l) => l.toUpperCase())} de ${primeiro.getUTCFullYear()}`}
+          anterior={`/tarefas?modo=mes&data=${chaveDoDia(somarMeses(primeiro, -1))}`}
+          proximo={`/tarefas?modo=mes&data=${chaveDoDia(somarMeses(primeiro, 1))}`}
+          hoje={`/tarefas?modo=mes&data=${chaveDoDia(hojeComoDataPura())}`}
+        />
+        <AgendaMes dias={dias} />
+        <Legenda />
+      </>
+    );
+  }
+
   return (
     <>
-      <h1 className="text-xl font-semibold tracking-tight">Tarefas</h1>
+      {alternador}
+      <h1 className="mt-4 text-xl font-semibold tracking-tight">Tarefas</h1>
       <p className="mt-1 text-sm text-suave">
         {abertas === 0 ? "Nada em aberto." : `${abertas} em aberto`}
         {atrasadas.length > 0 ? ` · ${atrasadas.length} atrasada(s)` : ""}
@@ -81,6 +150,74 @@ export default async function PaginaTarefas({
         </details>
       )}
     </>
+  );
+}
+
+function AlternarModo({ modo, data }: { modo: string; data: string }) {
+  const opcoes = [
+    { valor: "lista", rotulo: "Lista" },
+    { valor: "semana", rotulo: "Semana" },
+    { valor: "mes", rotulo: "Mês" },
+  ];
+  return (
+    <div className="flex rounded-xl border border-borda bg-superficie p-1">
+      {opcoes.map((o) => (
+        <a
+          key={o.valor}
+          href={`/tarefas?modo=${o.valor}&data=${data}`}
+          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${
+            modo === o.valor ? "bg-marca font-medium text-sobre-marca" : "text-suave"
+          }`}
+        >
+          {o.rotulo}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function Navegar({
+  titulo,
+  anterior,
+  proximo,
+  hoje,
+}: {
+  titulo: string;
+  anterior: string;
+  proximo: string;
+  hoje: string;
+}) {
+  return (
+    <div className="my-4 flex items-center justify-between gap-2">
+      <h1 className="text-xl font-semibold tracking-tight">{titulo}</h1>
+      <div className="flex shrink-0 gap-1">
+        <a href={anterior} aria-label="Anterior" className="rounded-lg border border-borda px-3 py-1.5 text-sm">
+          ‹
+        </a>
+        <a href={hoje} className="rounded-lg border border-borda px-3 py-1.5 text-sm">
+          Hoje
+        </a>
+        <a href={proximo} aria-label="Próximo" className="rounded-lg border border-borda px-3 py-1.5 text-sm">
+          ›
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function Legenda() {
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-3 text-xs text-suave">
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm bg-marca" /> com horário
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm bg-marca-suave" /> automática, dia inteiro
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="inline-block h-3 w-3 rounded-sm bg-[#141414]" /> sua, dia inteiro
+      </span>
+    </p>
   );
 }
 
