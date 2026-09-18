@@ -88,7 +88,7 @@ export function FormularioNovoCliente() {
 
       <Grupo titulo="Mídia (opcional)">
         <Campo rotulo="Conta de anúncios do Meta" ajuda="Os tokens se cadastram depois, dentro do cliente, em Ajustes.">
-          <input name="contaAnunciosId" placeholder="act_000000000000000" className={campo} />
+          <input name="contaAnunciosId" placeholder="ID da conta de anúncios (só o número já basta)" className={campo} />
         </Campo>
       </Grupo>
 

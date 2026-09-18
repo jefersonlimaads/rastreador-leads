@@ -87,7 +87,7 @@ export function FormulariosAjustes({
               placeholder="Token da API de Marketing"
               className={campo}
             />
-            <input name="contaAnunciosId" placeholder="act_000000000000000" className={campo} />
+            <input name="contaAnunciosId" placeholder="ID da conta de anúncios (só o número já basta)" className={campo} />
             <p className="text-xs text-suave">
               Campo em branco mantém o valor atual. Use token de usuário do sistema da BM da JL Ads.
             </p>

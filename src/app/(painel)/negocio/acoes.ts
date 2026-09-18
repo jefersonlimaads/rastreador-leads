@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { normalizarContaAnuncios } from "@/lib/telefone";
 import { exigirAdmin, clienteDaAgencia } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { competenciaDe, gerarFaturasDoMes } from "@/lib/financeiro";
@@ -218,7 +219,7 @@ export async function acaoNovoClienteAtivo(
       diaVencimento: dia,
       // Data pura: guardada em UTC para o dia não andar para trás.
       inicioContrato: d.inicioContrato ? new Date(d.inicioContrato + "T00:00:00Z") : null,
-      contaAnunciosId: d.contaAnunciosId?.trim() || null,
+      contaAnunciosId: normalizarContaAnuncios(d.contaAnunciosId),
       ...(atendimento ? { numeros: { create: { numero: atendimento, rotulo: "Atendimento" } } } : {}),
     },
   });

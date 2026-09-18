@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { normalizarContaAnuncios } from "@/lib/telefone";
 import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
 import { chaveValida, cifrar } from "@/lib/cripto";
 import { sincronizarGastos } from "@/lib/meta/marketing";
@@ -165,7 +166,7 @@ export async function acaoSalvarCredenciais(
       // Tokens entram no banco já cifrados. O pixel e a conta não são segredo.
       capiToken: dados.data.capiToken ? cifrar(dados.data.capiToken) : undefined,
       marketingToken: dados.data.marketingToken ? cifrar(dados.data.marketingToken) : undefined,
-      contaAnunciosId: dados.data.contaAnunciosId || undefined,
+      contaAnunciosId: normalizarContaAnuncios(dados.data.contaAnunciosId) ?? undefined,
     },
   });
 

@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import { extrairCodigo, gerarCodigo, normalizarCodigo } from "../src/lib/codigo";
 import { formatarTelefone, linkWhatsapp, normalizarTelefone, hashSha256 } from "../src/lib/telefone";
+import { normalizarContaAnuncios } from "../src/lib/telefone";
 
 describe("código do clique", () => {
   it("gera código com 5 caracteres, sem caracteres ambíguos", () => {
@@ -65,5 +66,16 @@ describe("telefone", () => {
     expect(hash).toHaveLength(64);
     expect(hash).toMatch(/^[0-9a-f]+$/);
     expect(await hashSha256(" 5511988887777 ")).toBe(hash);
+  });
+});
+
+
+describe("conta de anúncios", () => {
+  it("aceita número puro, com act_, com espaços ou colado do endereço", () => {
+    expect(normalizarContaAnuncios("1128897849462370")).toBe("act_1128897849462370");
+    expect(normalizarContaAnuncios(" act_1128897849462370 ")).toBe("act_1128897849462370");
+    expect(normalizarContaAnuncios("act=1128897849462370&business_id=9")).toBe("act_1128897849462370");
+    expect(normalizarContaAnuncios("")).toBeNull();
+    expect(normalizarContaAnuncios("abc")).toBeNull();
   });
 });

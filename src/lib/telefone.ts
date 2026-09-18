@@ -51,3 +51,13 @@ export async function hashSha256(valor: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+/**
+ * Conta de anúncios do Meta no formato único "act_<número>". Aceita o número
+ * puro, com "act_", com espaços, ou o trecho "act=123" copiado do endereço do
+ * Gerenciador de Anúncios. Sem número nenhum, devolve null.
+ */
+export function normalizarContaAnuncios(texto: string | null | undefined): string | null {
+  const digitos = (texto ?? "").match(/\d{6,}/)?.[0];
+  return digitos ? `act_${digitos}` : null;
+}
