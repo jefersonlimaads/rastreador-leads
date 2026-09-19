@@ -4,7 +4,7 @@ import { metricasPorAnuncio, type LinhaMetrica } from "./metricas";
 import { dataPuraDe, FUSO_PADRAO, hojeComoDataPura, instanteLocal } from "./datas";
 import { gerarToken } from "./confirmacao";
 import { alcancePorCampanha } from "./meta/marketing";
-import { conversas, leadsMeta, resultadosPorCampanha, type Acoes, type ResultadoCampanha } from "./resultados";
+import { contatosSoDoMeta, leadsMeta, resultadosPorCampanha, type Acoes, type ResultadoCampanha } from "./resultados";
 
 /**
  * Relatório de resultados para o cliente final.
@@ -67,11 +67,11 @@ export type Totais = {
   visitas: number;
   /** Contatos que a plataforma registrou (página rastreada ou cadastro manual). */
   leads: number;
-  /** Conversas iniciadas em anúncios de clique para o WhatsApp, contadas pelo Meta. */
+  /** Contatos que não passam pela página: conversas do WhatsApp direto e formulário do Meta. */
   conversas: number;
   /** Leads que o Meta diz ter gerado: formulário instantâneo ou evento do pixel. */
   leadsMeta: number;
-  /** Contatos no total: os da plataforma mais as conversas do WhatsApp. */
+  /** Contatos no total: os da plataforma mais os que só o Meta conhece (ver contatosSoDoMeta). */
   contatos: number;
   fechados: number;
   perdidos: number;
@@ -100,7 +100,7 @@ async function totais(clienteId: string, de: Date, ate: Date, fuso: string): Pro
   const [gasto, visitas, leads] = await Promise.all([
     prisma.gasto.findMany({
       where: { clienteId, dia: { gte: de, lte: ate } },
-      select: { valor: true, impressoes: true, cliques: true, acoes: true },
+      select: { valor: true, impressoes: true, cliques: true, acoes: true, otimizacao: true, objetivo: true },
     }),
     prisma.clique.count({ where: { clienteId, criadoEm: { gte: inicio, lte: fim } } }),
     prisma.lead.findMany({
@@ -112,9 +112,17 @@ async function totais(clienteId: string, de: Date, ate: Date, fuso: string): Pro
   const investimento = gasto.reduce((s, g) => s + Number(g.valor), 0);
   const impressoes = gasto.reduce((s, g) => s + g.impressoes, 0);
   const cliquesAnuncio = gasto.reduce((s, g) => s + g.cliques, 0);
-  const totalConversas = gasto.reduce((s, g) => s + conversas(g.acoes as Acoes | null), 0);
   const totalLeadsMeta = gasto.reduce((s, g) => s + leadsMeta(g.acoes as Acoes | null), 0);
-  const contatos = leads.length + totalConversas;
+  // Página rastreada = o script registrou visitas no período.
+  const soDoMeta = gasto.reduce(
+    (s, g) => s + contatosSoDoMeta({ ...g, acoes: g.acoes as Acoes | null }, visitas > 0),
+    0,
+  );
+  const totalConversas = gasto.reduce(
+    (s, g) => s + contatosSoDoMeta({ ...g, acoes: g.acoes as Acoes | null }, true),
+    0,
+  );
+  const contatos = leads.length + soDoMeta;
   const fechados = leads.filter((l) => l.status === "FECHADO");
   const receita = fechados.reduce((s, l) => s + (l.valorVenda ? Number(l.valorVenda) : 0), 0);
 
@@ -161,7 +169,7 @@ export async function montarRelatorio(clienteId: string, de: Date, ate: Date) {
     totais(clienteId, antesDe, antesAte, fuso),
     prisma.gasto.findMany({
       where: { clienteId, dia: { gte: de, lte: ate } },
-      select: { dia: true, valor: true, acoes: true },
+      select: { dia: true, valor: true, acoes: true, otimizacao: true, objetivo: true },
     }),
     prisma.lead.findMany({
       where: { clienteId, arquivadoEm: null, criadoEm: { gte: inicio, lte: fim } },
@@ -182,7 +190,7 @@ export async function montarRelatorio(clienteId: string, de: Date, ate: Date) {
     const p = porDia.get(diaISO(g.dia));
     if (p) {
       p.investimento += Number(g.valor);
-      p.leads += conversas(g.acoes as Acoes | null);
+      p.leads += contatosSoDoMeta({ ...g, acoes: g.acoes as Acoes | null }, atual.visitas > 0);
     }
   }
   const status = new Map<string, number>();

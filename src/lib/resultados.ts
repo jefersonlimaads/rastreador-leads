@@ -99,6 +99,9 @@ type Linha = {
 export function tipoDoResultado(otimizacao: string | null, objetivo: string | null, acoes?: Acoes | null): TipoResultado {
   switch (otimizacao) {
     case "CONVERSATIONS":
+    case "REPLIES":
+    case "MESSAGING_PURCHASE_CONVERSION":
+    case "MESSAGING_APPOINTMENT_CONVERSION":
       return "conversas";
     case "LEAD_GENERATION":
     case "QUALITY_LEAD":
@@ -255,4 +258,25 @@ export function resultadosPorCampanha(
     });
   }
   return saida.sort((a, b) => b.gasto - a.gasto);
+}
+
+/**
+ * Contatos que só o Meta conhece, para somar aos que a plataforma registrou.
+ *
+ * - Clique direto para o WhatsApp: as conversas iniciadas. Não passam pela
+ *   página, então a plataforma nunca as vê.
+ * - Formulário instantâneo do Meta: os leads do formulário, pelo mesmo motivo.
+ * - Campanha para a página: só quando a página não está rastreada. Com o
+ *   script instalado, cada pessoa já é um lead da plataforma, e somar o pixel
+ *   contaria a mesma pessoa duas vezes.
+ */
+export function contatosSoDoMeta(
+  linha: Pick<Linha, "otimizacao" | "objetivo" | "acoes">,
+  paginaRastreada: boolean,
+): number {
+  const tipo = tipoDoResultado(linha.otimizacao, linha.objetivo, linha.acoes);
+  if (tipo === "conversas") return conversas(linha.acoes);
+  if (tipo === "leads_formulario") return leadsMeta(linha.acoes);
+  if (tipo === "leads_site" && !paginaRastreada) return leadsMeta(linha.acoes);
+  return 0;
 }

@@ -1,8 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizarCodigo } from "@/lib/codigo";
 import { normalizarTelefone } from "@/lib/telefone";
+import { cadastrarLead } from "@/lib/atribuicao";
+import { enfileirarEventoCapi } from "@/lib/meta/capi";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -70,8 +72,9 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-real-ip") ??
     null;
 
+  let clique;
   try {
-    await prisma.clique.upsert({
+    clique = await prisma.clique.upsert({
       // Mesma pessoa voltando com o mesmo código não vira clique novo.
       where: { clienteId_codigo: { clienteId: cliente.id, codigo } },
       update: {},
@@ -102,6 +105,38 @@ export async function POST(request: NextRequest) {
   } catch (erro) {
     console.error("[clique] falha ao gravar", erro);
     return NextResponse.json({ erro: "falha ao gravar" }, { status: 500, headers: CORS });
+  }
+
+  /*
+   * Formulário com telefone = lead. A pessoa deu nome e WhatsApp na própria
+   * página: não precisa esperar ninguém cadastrar nem confirmar. Entra em Leads
+   * e no pipeline na hora, já ligado ao anúncio do clique. Se o mesmo telefone
+   * já tem lead aberto, vira retorno no lead existente, não lead novo.
+   */
+  const telefone = normalizarTelefone(d.telefoneVisitante ?? "");
+  if (telefone && clique.status === "PENDENTE") {
+    try {
+      const resultado = await cadastrarLead({
+        clienteId: cliente.id,
+        telefone,
+        nome: d.nomeVisitante ?? null,
+        mensagem: d.interesse
+          ? `Preencheu o formulário da página: ${d.interesse}`
+          : "Preencheu o formulário da página",
+        mensagemEm: new Date(),
+        usuarioId: null,
+        cliqueIdEscolhido: clique.id,
+        atribuicaoEscolhida: "EXATA",
+        origem: "FORMULARIO",
+      });
+      if (resultado.tipo !== "retorno") {
+        // Depois da resposta: a página não espera o Meta.
+        after(() => enfileirarEventoCapi({ leadId: resultado.lead.id, tipo: "LEAD" }));
+      }
+    } catch (erro) {
+      // O clique já está gravado: sem o lead, ele ainda aparece para confirmação.
+      console.error("[clique] falha ao criar lead do formulário", erro);
+    }
   }
 
   return NextResponse.json({ ok: true, codigo }, { headers: CORS });

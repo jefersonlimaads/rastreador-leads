@@ -79,9 +79,11 @@ export function DocumentoRelatorio({
               agora={a.contatos}
               antes={b.contatos}
               nota={
-                a.conversas > 0 && a.leads > 0
-                  ? `${inteiro(a.leads)} pela página · ${inteiro(a.conversas)} no WhatsApp direto`
-                  : undefined
+                a.leads > 0 && a.contatos > a.leads
+                  ? `${inteiro(a.leads)} registrados pela página · ${inteiro(a.contatos - a.leads)} contados pelo Meta`
+                  : a.leads === 0 && a.contatos > 0
+                    ? "Contados pelo Meta"
+                    : undefined
               }
             />
             <Numero titulo="Custo por contato" valor={moeda(a.cpl)} agora={a.cpl} antes={b.cpl} menorMelhor />
@@ -332,7 +334,7 @@ function Funil({ a, alcance }: { a: Totais; alcance: number | null }) {
       : { rotulo: "Vezes que o anúncio apareceu", valor: a.impressoes },
     { rotulo: "Cliques no anúncio", valor: a.cliquesAnuncio },
     { rotulo: "Visitas na página", valor: a.visitas },
-    { rotulo: a.conversas > 0 ? "Contatos (página + WhatsApp)" : "Contatos recebidos", valor: a.contatos },
+    { rotulo: "Contatos recebidos", valor: a.contatos },
     { rotulo: "Vendas fechadas", valor: a.fechados },
   ].filter((e, i, todas) => e.valor > 0 || i >= todas.length - 2);
 

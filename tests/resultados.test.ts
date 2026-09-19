@@ -3,7 +3,7 @@
  * Gerenciador de Anúncios, senão o cliente compara e desconfia do relatório.
  */
 import { describe, expect, it } from "vitest";
-import { leadsMeta, resultadosPorCampanha, tipoDoResultado, type LinhaGasto } from "../src/lib/resultados";
+import { contatosSoDoMeta, leadsMeta, resultadosPorCampanha, tipoDoResultado, type LinhaGasto } from "../src/lib/resultados";
 
 const linha = (p: Partial<LinhaGasto>): LinhaGasto => ({
   campaignId: "c1",
@@ -91,5 +91,22 @@ describe("casos de borda", () => {
 
   it("campanha só com linhas antigas, sem resultado, fica de fora", () => {
     expect(resultadosPorCampanha([linha({ valor: 10 })])).toHaveLength(0);
+  });
+});
+
+describe("contatos que só o Meta conhece", () => {
+  const conv = { "onsite_conversion.messaging_conversation_started_7d": 3, lead: 2, "offsite_conversion.fb_pixel_lead": 2 };
+
+  it("WhatsApp direto (otimização Respostas) conta as conversas", () => {
+    expect(tipoDoResultado("REPLIES", "OUTCOME_LEADS")).toBe("conversas");
+    expect(contatosSoDoMeta({ otimizacao: "REPLIES", objetivo: "OUTCOME_LEADS", acoes: conv }, true)).toBe(3);
+  });
+
+  it("campanha de página não soma conversas nem pixel quando a página é rastreada", () => {
+    expect(contatosSoDoMeta({ otimizacao: "OFFSITE_CONVERSIONS", objetivo: "OUTCOME_LEADS", acoes: conv }, true)).toBe(0);
+  });
+
+  it("sem rastreio na página, vale o número do pixel", () => {
+    expect(contatosSoDoMeta({ otimizacao: "OFFSITE_CONVERSIONS", objetivo: "OUTCOME_LEADS", acoes: conv }, false)).toBe(2);
   });
 });

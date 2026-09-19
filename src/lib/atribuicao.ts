@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { extrairCodigo, normalizarCodigo } from "./codigo";
 import { REGRAS, STATUS_ABERTOS } from "./regras";
-import type { Atribuicao, Clique, Lead } from "@prisma/client";
+import type { Atribuicao, Clique, Lead, Origem } from "@prisma/client";
 
 /**
  * Regras 1 a 3 do escopo, sem tocar no banco: dado o texto da mensagem e o
@@ -70,9 +70,11 @@ export async function cadastrarLead(params: {
   mensagem?: string | null;
   codigoInformado?: string | null;
   mensagemEm: Date;
-  usuarioId: string;
+  /** Quem cadastrou. Nulo quando o lead entra sozinho, pelo formulário da página. */
+  usuarioId: string | null;
   cliqueIdEscolhido?: string | null;
   atribuicaoEscolhida?: Atribuicao | null;
+  origem?: Origem;
 }): Promise<ResultadoCadastro> {
   const { clienteId, telefone, nome, mensagem, mensagemEm, usuarioId } = params;
 
@@ -124,7 +126,7 @@ export async function cadastrarLead(params: {
         leadAnteriorId: anterior?.id ?? null,
         telefone,
         nome: nome?.trim() || null,
-        origem: "MANUAL",
+        origem: params.origem ?? "MANUAL",
         status: "NOVO",
         atribuicao,
         mensagemEm,

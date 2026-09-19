@@ -25,6 +25,7 @@ enum StatusClique {
 enum Origem {
   MANUAL
   WEBHOOK
+  FORMULARIO // a própria pessoa preencheu nome e telefone na landing page
 }
 
 /*
