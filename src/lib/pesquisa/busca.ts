@@ -38,13 +38,16 @@ export async function iniciarBusca(p: ParametrosBusca): Promise<{ buscaId: strin
   const quantidade = Math.max(1, Math.min(MAX_QUANTIDADE, Math.round(p.quantidade)));
   // Google quando houver chave (mais completo); senão, o mapa aberto, grátis.
   // Pede mais do que precisa: as empresas que você já tem saem da conta.
-  const fonte = googleConfigurado() ? "google" : "osm";
-  const resultado =
-    fonte === "google"
-      ? await buscarNoGoogle(`${p.nicho} em ${p.cidade}`, Math.min(60, quantidade + 20))
-      : await buscarNoOsm(p.nicho, p.cidade, quantidade + 40);
-  if ("erro" in resultado) return { erro: resultado.erro };
-  return registrarBusca(p, fonte, resultado.empresas, quantidade);
+  // Google recusou (chave sem faturamento ativo, cota estourada): segue grátis
+  // pelo mapa aberto em vez de parar a prospecção.
+  if (googleConfigurado()) {
+    const google = await buscarNoGoogle(`${p.nicho} em ${p.cidade}`, Math.min(60, quantidade + 20));
+    if (!("erro" in google)) return registrarBusca(p, "google", google.empresas, quantidade);
+    console.error("[pesquisa] Google falhou, usando o mapa aberto:", google.erro.slice(0, 200));
+  }
+  const aberto = await buscarNoOsm(p.nicho, p.cidade, quantidade + 40);
+  if ("erro" in aberto) return { erro: aberto.erro };
+  return registrarBusca(p, "osm", aberto.empresas, quantidade);
 }
 
 /**
