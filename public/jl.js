@@ -8,7 +8,9 @@
  *           data-servico="orçamento"></script>
  *
  * Ele gera o código curto, monta o link do wa.me com o código dentro da
- * mensagem e registra o clique sem travar o redirecionamento.
+ * mensagem e registra o clique sem travar o redirecionamento. Em página com
+ * formulário antes do WhatsApp, registra no envio (com nome e telefone
+ * digitados) e põe o código na mensagem que a própria página abrir.
  */
 (function () {
   "use strict";
@@ -272,6 +274,109 @@
     new MutationObserver(function () {
       preparar();
     }).observe(document.documentElement, { childList: true, subtree: true });
+  }
+
+  /*
+   * Formulário antes do WhatsApp: a pessoa preenche nome e telefone, envia, e a
+   * própria página abre o WhatsApp. Não há link para tocar, então o registro
+   * acontece no envio do formulário — com o que ela digitou.
+   *
+   * Só conta formulário que pede telefone (ou marcado com data-jl-form), para
+   * não registrar busca, newsletter ou login como contato.
+   */
+  var CAMPO_TELEFONE =
+    'input[type="tel"], [data-jl-telefone], input[name*="tel" i], input[name*="whats" i], ' +
+    'input[name*="fone" i], input[name*="phone" i], input[name*="celular" i], input[placeholder*="whats" i]';
+
+  function interesseDoFormulario(form) {
+    var escolhido = form.querySelector("select");
+    if (escolhido && escolhido.selectedIndex > 0) {
+      var op = escolhido.options[escolhido.selectedIndex];
+      if (op && op.value) return limpar(op.textContent);
+    }
+    var marcado = form.querySelector('input[type="radio"]:checked');
+    if (marcado) {
+      var rotulo = marcado.closest("label") || form.querySelector('label[for="' + marcado.id + '"]');
+      return limpar(rotulo ? rotulo.textContent : marcado.value);
+    }
+    return null;
+  }
+
+  document.addEventListener(
+    "submit",
+    function (evento) {
+      var form = evento.target;
+      if (!form || form.tagName !== "FORM" || form.hasAttribute("data-jl-ignorar")) return;
+      if (!form.hasAttribute("data-jl-form") && !form.querySelector(CAMPO_TELEFONE)) return;
+      if (jaRegistrado) return;
+      jaRegistrado = true;
+      var botao = evento.submitter || null;
+      dados.interesse =
+        (botao && botao.getAttribute("data-jl-servico")) ||
+        interesseDoCampo() ||
+        interesseDoFormulario(form) ||
+        descobrirInteresse(null);
+      dados.nomeVisitante = nomeDoVisitante();
+      dados.telefoneVisitante = telefoneDoVisitante();
+      registrar();
+    },
+    true,
+  );
+
+  /*
+   * A página que abre o WhatsApp sozinha depois do envio monta a própria
+   * mensagem ("Olá, sou a Ana..."). Ela é mantida, e o código vai no fim,
+   * entre colchetes, para o lead chegar já atribuído ao anúncio.
+   */
+  var WHATSAPP = /^(https?:\/\/)?(wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)\/|^whatsapp:\/\//i;
+
+  function comCodigo(url) {
+    try {
+      var u = new URL(url, window.location.href);
+      var texto = u.searchParams.get("text") || "";
+      if (texto.indexOf("[" + codigo + "]") !== -1) return url;
+      texto = (texto ? texto + " " : mensagem().replace(/ \[[A-Z0-9]+\]$/, " ")) + "[" + codigo + "]";
+      u.searchParams.delete("text");
+      // Montado à mão: searchParams troca espaço por "+", e o WhatsApp mostra o "+".
+      var resto = u.search ? u.search + "&" : "?";
+      // Base tirada do texto original: em "whatsapp://" o navegador não tem origin.
+      return url.split(/[?#]/)[0] + resto + "text=" + encodeURIComponent(texto) + u.hash;
+    } catch (e) {
+      return url;
+    }
+  }
+
+  function aoAbrirWhatsapp() {
+    if (jaRegistrado) return;
+    jaRegistrado = true;
+    dados.interesse = interesseDoCampo() || dados.interesse;
+    dados.nomeVisitante = nomeDoVisitante();
+    dados.telefoneVisitante = telefoneDoVisitante();
+    registrar();
+  }
+
+  // window.open("https://wa.me/...") — o jeito mais comum depois do envio.
+  var abrirOriginal = window.open;
+  window.open = function (url) {
+    if (typeof url === "string" && WHATSAPP.test(url)) {
+      aoAbrirWhatsapp();
+      arguments[0] = comCodigo(url);
+    }
+    return abrirOriginal.apply(window, arguments);
+  };
+
+  // location.href = "https://wa.me/..." — só dá para ver onde o navegador
+  // oferece a Navigation API (Chrome, Android). Nos outros, o envio do
+  // formulário já registrou o contato; só a mensagem sai sem o código.
+  if (window.navigation && window.navigation.addEventListener) {
+    window.navigation.addEventListener("navigate", function (evento) {
+      var destino = evento.destination && evento.destination.url;
+      if (!destino || !WHATSAPP.test(destino) || destino.indexOf("%5B" + codigo + "%5D") !== -1) return;
+      if (!evento.cancelable) return;
+      evento.preventDefault();
+      aoAbrirWhatsapp();
+      window.location.href = comCodigo(destino);
+    });
   }
 
   window.jlAds = {

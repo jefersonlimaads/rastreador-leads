@@ -79,7 +79,7 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
         data-servico="orçamento"></script>`}
                 </pre>
                 <p className="mt-2 text-xs text-suave">
-                  Cole antes do &lt;/body&gt;. O script acha sozinho os links de wa.me da página.
+                  Cole antes do &lt;/body&gt;. O script acha sozinho os botões de WhatsApp e os formulários com campo de telefone, e registra quem enviou.
                 </p>
               </details>
             </article>

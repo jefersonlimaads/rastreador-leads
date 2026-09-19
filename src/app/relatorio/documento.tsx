@@ -1,5 +1,6 @@
 import type { Relatorio, Totais } from "@/lib/relatorio";
 import { ROTULO_STATUS } from "@/lib/regras";
+import { RESULTADO, ROTULO_OBJETIVO } from "@/lib/resultados";
 
 /**
  * O relatório como o cliente vê. Mesmo componente na prévia do painel e no
@@ -72,7 +73,17 @@ export function DocumentoRelatorio({
         >
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Numero titulo="Investimento" valor={moeda(a.investimento)} agora={a.investimento} antes={b.investimento} neutro />
-            <Numero titulo="Contatos recebidos" valor={inteiro(a.leads)} agora={a.leads} antes={b.leads} />
+            <Numero
+              titulo="Contatos recebidos"
+              valor={inteiro(a.contatos)}
+              agora={a.contatos}
+              antes={b.contatos}
+              nota={
+                a.conversas > 0 && a.leads > 0
+                  ? `${inteiro(a.leads)} pela página · ${inteiro(a.conversas)} no WhatsApp direto`
+                  : undefined
+              }
+            />
             <Numero titulo="Custo por contato" valor={moeda(a.cpl)} agora={a.cpl} antes={b.cpl} menorMelhor />
             <Numero titulo="Vendas fechadas" valor={inteiro(a.fechados)} agora={a.fechados} antes={b.fechados} />
             {a.receita > 0 ? (
@@ -98,11 +109,20 @@ export function DocumentoRelatorio({
           <GraficoDiario dias={r.porDia} mostrarGasto={temGasto} />
         </Bloco>
 
+        {r.resultados.length > 0 && (
+          <Bloco
+            titulo="Resultado de cada campanha"
+            nota="Cada campanha medida pelo que ela foi configurada para entregar, como no Gerenciador de Anúncios."
+          >
+            <ResultadosCampanhas campanhas={r.resultados} />
+          </Bloco>
+        )}
+
         <Bloco titulo="Do anúncio à venda">
-          <Funil a={a} />
+          <Funil a={a} alcance={r.alcanceTotal} />
         </Bloco>
 
-        {r.campanhas.length > 0 && (
+        {r.resultados.length === 0 && r.campanhas.length > 0 && (
           <Bloco titulo="Por campanha">
             <Tabela
               coluna="Campanha"
@@ -147,7 +167,8 @@ export function DocumentoRelatorio({
 
         <footer className="mt-4 border-t border-borda pt-5 text-xs leading-relaxed text-suave">
           Contatos contam no dia em que chegaram, e vendas no período do contato que as gerou.
-          Investimento, impressões e cliques vêm do Meta Ads. Relatório preparado por{" "}
+          Investimento, impressões, cliques e conversas iniciadas no WhatsApp vêm do Meta Ads;
+          contatos pela página são registrados pela própria página. Relatório preparado por{" "}
           <span className="font-medium text-texto">{r.agencia}</span>.
         </footer>
       </div>
@@ -304,12 +325,14 @@ function GraficoDiario({
   );
 }
 
-function Funil({ a }: { a: Totais }) {
+function Funil({ a, alcance }: { a: Totais; alcance: number | null }) {
   const etapas = [
-    { rotulo: "Pessoas alcançadas (impressões)", valor: a.impressoes },
+    alcance != null
+      ? { rotulo: "Pessoas alcançadas", valor: alcance }
+      : { rotulo: "Vezes que o anúncio apareceu", valor: a.impressoes },
     { rotulo: "Cliques no anúncio", valor: a.cliquesAnuncio },
     { rotulo: "Visitas na página", valor: a.visitas },
-    { rotulo: "Contatos recebidos", valor: a.leads },
+    { rotulo: a.conversas > 0 ? "Contatos (página + WhatsApp)" : "Contatos recebidos", valor: a.contatos },
     { rotulo: "Vendas fechadas", valor: a.fechados },
   ].filter((e, i, todas) => e.valor > 0 || i >= todas.length - 2);
 
@@ -341,6 +364,59 @@ function Funil({ a }: { a: Totais }) {
         );
       })}
     </ol>
+  );
+}
+
+/** Um cartão por campanha: o resultado que ela persegue e quanto custou cada um. */
+export function ResultadosCampanhas({ campanhas }: { campanhas: NonNullable<Relatorio>["resultados"] }) {
+  return (
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {campanhas.map((c) => {
+        const tipo = RESULTADO[c.tipo];
+        const objetivo = c.objetivo ? (ROTULO_OBJETIVO[c.objetivo] ?? null) : null;
+        // Comparação só faz sentido onde a página rastreia: leads do pixel.
+        const comparar = c.tipo === "leads_site" && (c.resultados > 0 || c.contatosPainel > 0);
+        return (
+          <li key={c.campaignId} className="break-inside-avoid rounded-2xl border border-borda p-4">
+            <p className="text-sm font-medium [overflow-wrap:anywhere]">{c.nome}</p>
+            {objetivo && <p className="mt-0.5 text-xs text-suave">Objetivo: {objetivo}</p>}
+            <p className="mt-3">
+              <span className="font-titulo text-2xl font-bold">{inteiro(c.resultados)}</span>{" "}
+              <span className="text-sm text-suave">{c.resultados === 1 ? tipo.singular : tipo.plural}</span>
+            </p>
+            <dl className="mt-2 grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <dt className="text-[11px] text-suave">Custo {tipo.custo}</dt>
+                <dd className="font-semibold">{moeda(c.custoPorResultado)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] text-suave">Investido</dt>
+                <dd className="font-semibold">{moeda(c.gasto)}</dd>
+              </div>
+              {c.alcance != null && c.tipo !== "alcance" && (
+                <div>
+                  <dt className="text-[11px] text-suave">Pessoas alcançadas</dt>
+                  <dd className="font-semibold">{inteiro(c.alcance)}</dd>
+                </div>
+              )}
+              {c.frequencia != null && c.frequencia > 0 && (
+                <div>
+                  <dt className="text-[11px] text-suave">Vezes por pessoa</dt>
+                  <dd className="font-semibold">
+                    {c.frequencia.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}
+                  </dd>
+                </div>
+              )}
+            </dl>
+            {comparar && (
+              <p className="mt-3 rounded-xl bg-fundo px-3 py-2 text-xs text-suave">
+                O Meta contou {inteiro(c.resultados)} · chegaram {inteiro(c.contatosPainel)} pela página
+              </p>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

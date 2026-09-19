@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
-import { formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
+import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
+import { campanhasDoMeta } from "@/lib/relatorio";
+import { ResultadosCampanhas } from "@/app/relatorio/documento";
 import { prisma } from "@/lib/prisma";
 import { moeda, Selo, Vazio } from "../componentes";
 
@@ -30,7 +32,10 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const { linhas, total, semAtribuicao } = await metricasPorAnuncio({ clienteId, de, ate, nivel, fuso });
+  const [{ linhas, total, semAtribuicao }, doMeta] = await Promise.all([
+    metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
+    campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
+  ]);
 
   const ultimaSync = await prisma.gasto.findFirst({
     where: { clienteId },
@@ -92,6 +97,15 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
           nota={moeda(total.receita)}
         />
       </section>
+
+      {doMeta.campanhas.length > 0 && (
+        <section className="mt-5">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Resultado de cada campanha (Meta)
+          </h2>
+          <ResultadosCampanhas campanhas={doMeta.campanhas} />
+        </section>
+      )}
 
       {semAtribuicao > 0 && (
         <p className="mt-3 text-sm text-suave">

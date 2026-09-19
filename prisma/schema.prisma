@@ -474,6 +474,19 @@ model Gasto {
   cliques      Int      @default(0)
   atualizadoEm DateTime @updatedAt
 
+  /*
+   * O que o Meta diz que o anúncio entregou naquele dia. objetivo é o da
+   * campanha (OUTCOME_LEADS...), otimizacao é o do conjunto (CONVERSATIONS,
+   * OFFSITE_CONVERSIONS...) e decide qual número é "o resultado". acoes e
+   * valoresAcoes guardam a lista inteira do Meta ({ tipo: quantidade }), para
+   * um tipo novo de campanha não exigir outra migration.
+   */
+  objetivo     String?
+  otimizacao   String?
+  cliquesLink  Int      @default(0)
+  acoes        Json?
+  valoresAcoes Json?
+
   cliente Cliente @relation(fields: [clienteId], references: [id])
 
   @@unique([clienteId, adId, dia])
