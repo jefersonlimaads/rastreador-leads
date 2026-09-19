@@ -328,6 +328,9 @@
       var form = evento.target;
       if (!form || form.tagName !== "FORM" || form.hasAttribute("data-jl-ignorar")) return;
       if (!ehFormularioDeContato(form)) return;
+      // Envio com campo obrigatório vazio: a página vai pedir para completar.
+      // Registrar agora gravaria a versão incompleta e perderia a certa.
+      if (form.checkValidity && !form.checkValidity()) return;
       if (jaRegistrado) return;
       jaRegistrado = true;
       var botao = evento.submitter || null;
