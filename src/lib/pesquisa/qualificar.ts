@@ -33,49 +33,89 @@ export type Qualificacao = {
   mensagem: string;
 };
 
+type Gap = { texto: string; gancho: string };
+
 export function qualificarPorRegra(d: DadosProspect, assinatura: string): Qualificacao {
   const s = d.sinais;
   let nota = 35;
-  const gaps: string[] = [];
+  const gaps: Gap[] = [];
   const pontos: string[] = [];
 
   // Negócio que já vende: tem demanda para escalar.
+  // Sem o dado de avaliações (mapa aberto, lista colada), fica no meio: não
+  // pune a empresa pela fonte não saber.
   const av = d.avaliacoes ?? 0;
-  nota += av >= 100 ? 20 : av >= 30 ? 14 : av >= 10 ? 8 : 2;
+  nota += d.avaliacoes == null ? 8 : av >= 100 ? 20 : av >= 30 ? 14 : av >= 10 ? 8 : 2;
   if (d.notaGoogle != null) nota += d.notaGoogle >= 4.5 ? 8 : d.notaGoogle >= 4 ? 4 : d.notaGoogle < 3.5 ? -10 : 0;
-  if (d.notaGoogle != null && d.notaGoogle >= 4.3 && av > 0 && av < 40) {
-    gaps.push(`Nota ${d.notaGoogle.toFixed(1)} no Google com só ${av} avaliações: bem avaliado, mas pouca gente conhece.`);
+  const bemAvaliado = d.notaGoogle != null && d.notaGoogle >= 4.3;
+  if (bemAvaliado && av > 0 && av < 40) {
+    gaps.push({
+      texto: `Nota ${d.notaGoogle!.toFixed(1)} no Google com só ${av} avaliações: bem avaliado, mas pouca gente conhece.`,
+      gancho: `vocês têm nota ${d.notaGoogle!.toFixed(1)} no Google, mas ainda pouca gente conhece o trabalho`,
+    });
   }
   if (av >= 30) pontos.push(`${av} avaliações no Google (nota ${d.notaGoogle?.toFixed(1) ?? "?"})`);
 
   // Presença digital: o que falta é a oportunidade.
   if (s.situacao === "sem_site") {
     nota += 8;
-    gaps.push("Não tem site: depende só do Instagram e do Google Maps para converter.");
+    gaps.push({
+      texto: "Não tem site: depende só do Instagram e do Google Maps para converter.",
+      gancho: "vocês ainda não têm um site próprio, e parte dos contatos se perde no caminho até o WhatsApp",
+    });
   } else if (s.situacao === "fora_do_ar") {
     nota += 4;
-    gaps.push("Site fora do ar ou muito lento: quem clica não encontra nada.");
+    gaps.push({
+      texto: "Site fora do ar ou muito lento: quem clica não encontra nada.",
+      gancho: "o site de vocês não abriu aqui para mim, e quem chega por anúncio ou pelo Google desiste na hora",
+    });
   } else {
-    if (!s.pixelMeta) {
+    if (!s.pixelMeta && s.naoConfirmavel) {
+      // Não dá para afirmar: vira ponto a conferir, não gancho de abordagem.
+      nota += 7;
+      pontos.push(`site em ${s.plataforma ?? "plataforma que carrega por script"}: confira o pixel com a extensão Meta Pixel Helper antes de citar`);
+    } else if (!s.pixelMeta) {
       nota += 15;
-      gaps.push("Site sem Pixel do Meta: não sabe quem visita, nem consegue fazer remarketing.");
+      gaps.push({
+        texto: "Site sem Pixel do Meta: não sabe quem visita, nem consegue fazer remarketing.",
+        gancho: "o site ainda não tem o Pixel do Meta, então quem visita e não chama no WhatsApp some sem deixar rastro",
+      });
     }
-    if (!s.googleTag) {
+    if (!s.googleTag && !s.naoConfirmavel) {
       nota += 5;
-      gaps.push("Sem tag do Google: não mede conversões nem aparece para quem já visitou.");
+      gaps.push({
+        texto: "Sem tag do Google: não mede conversões nem aparece para quem já visitou.",
+        gancho: "o site ainda não mede as conversões do Google",
+      });
     }
-    if (!s.botaoWhatsapp && !s.formulario) {
+    if (s.naoConfirmavel) {
+      // Botão de WhatsApp de Wix e afins entra por script: não dá para afirmar.
+    } else if (!s.botaoWhatsapp && !s.formulario) {
       nota += 5;
-      gaps.push("Site sem WhatsApp nem formulário: o visitante não tem como pedir orçamento.");
+      gaps.push({
+        texto: "Site sem WhatsApp nem formulário: o visitante não tem como pedir orçamento.",
+        gancho: "o site não tem um botão de WhatsApp nem formulário, e pelo celular isso faz muita gente desistir",
+      });
     } else if (!s.botaoWhatsapp) {
       nota += 3;
-      gaps.push("Site sem botão de WhatsApp: pelo celular, falar com a empresa dá trabalho.");
+      gaps.push({
+        texto: "Site sem botão de WhatsApp: pelo celular, falar com a empresa dá trabalho.",
+        gancho: "não achei um botão de WhatsApp no site, e pelo celular isso faz diferença",
+      });
     }
     if (s.paginaDeLinks) {
       nota += 5;
-      gaps.push("Usa página de links no lugar de site: pouca conversão e nenhum rastreamento.");
+      gaps.push({
+        texto: "Usa página de links no lugar de site: pouca conversão e nenhum rastreamento.",
+        gancho: "vocês usam uma página de links no lugar de site, o que limita bastante a conversão",
+      });
     }
-    if (!s.https) gaps.push("Site sem cadeado (https): o navegador avisa que não é seguro.");
+    if (!s.https) {
+      gaps.push({
+        texto: "Site sem cadeado (https): o navegador avisa que não é seguro.",
+        gancho: "o navegador marca o site de vocês como não seguro",
+      });
+    }
     // Já anuncia com estrutura: provavelmente tem gestor. Conversa de otimização.
     if (s.pixelMeta && (s.googleAds || s.gtm)) {
       nota -= 15;
@@ -85,33 +125,36 @@ export function qualificarPorRegra(d: DadosProspect, assinatura: string): Qualif
   if (d.instagram || s.instagram) nota += 5;
   if (!d.telefone) {
     nota -= 20;
-    gaps.push("Sem telefone público no Google: abordagem só por Instagram ou e-mail.");
+    gaps.push({
+      texto: "Sem telefone público: abordagem só por Instagram ou e-mail.",
+      gancho: "",
+    });
   }
 
   const pontuacao = Math.max(0, Math.min(100, Math.round(nota)));
-  const primeiro = gaps[0];
+  const primeiro = gaps.find((g) => g.gancho);
+  const tipo = d.categoria ?? d.nicho;
   const resumo = primeiro
-    ? `${d.categoria ?? d.nicho} em ${d.cidade}. ${primeiro.split(":")[0]}.`
-    : `${d.categoria ?? d.nicho} em ${d.cidade}, com presença digital já estruturada.`;
+    ? `${tipo} em ${d.cidade}. ${primeiro.texto.split(":")[0]}.`
+    : `${tipo} em ${d.cidade}, com presença digital já estruturada.`;
 
   const briefing = [
-    `Quem é: ${d.nome} (${d.categoria ?? d.nicho}, ${d.cidade}).`,
+    `Quem é: ${d.nome} (${tipo}, ${d.cidade}).`,
     pontos.length ? `Sinais: ${pontos.join("; ")}.` : null,
-    gaps.length ? `Gaps encontrados:\n${gaps.map((g) => `- ${g}`).join("\n")}` : "Nenhum gap óbvio no site.",
+    gaps.length ? `Gaps encontrados:\n${gaps.map((g) => `- ${g.texto}`).join("\n")}` : "Nenhum gap óbvio no site.",
     primeiro
-      ? `Gancho da abordagem: comece pelo primeiro gap, com um exemplo concreto do que ele perde hoje. Ofereça um diagnóstico rápido, sem compromisso.`
-      : `Gancho da abordagem: elogie a estrutura e ofereça uma análise de desempenho das campanhas atuais.`,
-    `Antes de mandar: confira a Biblioteca de Anúncios (link na ficha) para saber se ele já anuncia.`,
+      ? "Gancho da abordagem: comece pelo primeiro gap, com um exemplo concreto do que a empresa perde hoje. Ofereça um diagnóstico rápido, sem compromisso."
+      : "Gancho da abordagem: elogie a estrutura e ofereça uma análise de desempenho das campanhas atuais.",
+    d.instagram || s.instagram ? `Antes de mandar: olhe o Instagram (@${d.instagram ?? s.instagram}) para citar algo recente do perfil.` : null,
+    "Confira também a Biblioteca de Anúncios (link na ficha) para saber se já anunciam.",
   ]
     .filter(Boolean)
     .join("\n\n");
 
-  const gancho = primeiro
-    ? primeiro.split(":")[0].toLowerCase().replace(/^site sem /, "o site de vocês está sem ").replace(/^não tem site/, "vocês ainda não têm site")
-    : null;
-  const mensagem = gancho
-    ? `Oi, tudo bem? Aqui é ${assinatura}. Vi a ${d.nome} no Google — ótima avaliação! Reparei que ${gancho}, e isso costuma deixar cliente na mesa. Trabalho com tráfego pago para ${d.nicho.toLowerCase()} e posso te mostrar em 10 minutos o que daria para melhorar. Faz sentido conversarmos?`
-    : `Oi, tudo bem? Aqui é ${assinatura}. Vi a ${d.nome} no Google e gostei do que vocês fazem. Trabalho com tráfego pago para ${d.nicho.toLowerCase()} e posso te mostrar em 10 minutos onde as campanhas podem render mais. Faz sentido conversarmos?`;
+  const abertura = `Oi, tudo bem? Aqui é ${assinatura}. Encontrei vocês pesquisando ${d.nicho.toLowerCase()} em ${d.cidade.split(",")[0]}`;
+  const mensagem = primeiro
+    ? `${abertura}${bemAvaliado ? " e vi a ótima avaliação no Google" : ""}. Reparei que ${primeiro.gancho}. Trabalho com tráfego pago para ${d.nicho.toLowerCase()} e posso te mostrar, numa conversa de 10 minutos, o que daria para ajustar. Faz sentido?`
+    : `${abertura}. Trabalho com tráfego pago para ${d.nicho.toLowerCase()} e posso te mostrar, numa conversa de 10 minutos, onde os anúncios de vocês podem render mais. Faz sentido?`;
 
-  return { pontuacao, resumo, gaps, briefing, mensagem };
+  return { pontuacao, resumo, gaps: gaps.map((g) => g.texto), briefing, mensagem };
 }

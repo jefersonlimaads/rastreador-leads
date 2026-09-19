@@ -49,6 +49,14 @@ describe("diagnóstico do site", () => {
     expect(s.https).toBe(false);
   });
 
+  it("site em Wix: pixel ausente vira dúvida, não gap", () => {
+    const s = analisarHtml('<html><script src="https://static.wixstatic.com/x.js"></script></html>', "https://x.com.br");
+    expect(s.plataforma).toBe("Wix");
+    expect(s.naoConfirmavel).toBe(true);
+    const q = qualificarPorRegra(base({ sinais: s }), "J");
+    expect(q.gaps.some((g) => g.includes("Pixel"))).toBe(false);
+  });
+
   it("não visita endereço interno", () => {
     expect(enderecoPublico("https://clinica.com.br")).toBe(true);
     expect(enderecoPublico("http://localhost:3000")).toBe(false);
@@ -79,7 +87,8 @@ describe("nota por regra", () => {
     expect(q.pontuacao).toBeGreaterThanOrEqual(70);
     expect(q.gaps.some((g) => g.includes("Pixel"))).toBe(true);
     expect(q.mensagem).toContain("Jeferson, da jl.ads");
-    expect(q.mensagem).toContain("Clínica Teste");
+    expect(q.mensagem).toContain("Pixel do Meta");
+    expect(q.mensagem).toContain("clínica de estética em Campinas");
   });
 
   it("quem já tem pixel e tag de anúncio vale menos", () => {
@@ -149,5 +158,58 @@ describe("busca", () => {
     expect(promovido).toBeTruthy();
     const depois = await prisma.buscaProspeccao.findUniqueOrThrow({ where: { id: busca.id } });
     expect(depois.adicionados).toBe(2);
+  });
+});
+
+import { lerLista } from "../src/lib/pesquisa/lista";
+import { converterOsm, filtrosDoNicho } from "../src/lib/pesquisa/osm";
+
+describe("colar lista", () => {
+  it("separa nome, telefone, site e Instagram, na ordem que vier", () => {
+    const l = lerLista(
+      [
+        "Clínica Bella Pele, (19) 99812-3344, bellapele.com.br",
+        "Espaço Renova — @espacorenova",
+        "Studio Face Design 19 3232-1010",
+        "https://www.instagram.com/dermaprime/ Derma Prime",
+        "",
+        "odontosorriso.com.br",
+      ].join("\n"),
+    );
+    expect(l).toHaveLength(5);
+    expect(l[0]).toEqual({ nome: "Clínica Bella Pele", telefone: "(19) 99812-3344", site: "https://bellapele.com.br", instagram: null });
+    expect(l[1]).toMatchObject({ nome: "Espaço Renova", instagram: "espacorenova", telefone: null });
+    expect(l[2]).toMatchObject({ nome: "Studio Face Design", telefone: "19 3232-1010" });
+    expect(l[3]).toMatchObject({ nome: "Derma Prime", instagram: "dermaprime" });
+    expect(l[4]).toMatchObject({ nome: "odontosorriso", site: "https://odontosorriso.com.br" });
+  });
+});
+
+describe("mapa aberto", () => {
+  it("nicho conhecido usa a categoria do mapa e também o nome", () => {
+    const f = filtrosDoNicho("clínica odontológica");
+    expect(f).toContain('nwr["amenity"="dentist"]');
+    // "clínica" sozinho não puxa laboratório e cardiologista para odontologia.
+    expect(f).not.toContain('nwr["amenity"="clinic"]');
+    expect(filtrosDoNicho("clínica médica")).toContain('nwr["amenity"="clinic"]');
+    expect(f.some((x) => x.startsWith('node["amenity"]["name"~'))).toBe(true);
+  });
+
+  it("converte os dados do mapa e põe quem tem telefone primeiro", () => {
+    const e = converterOsm(
+      [
+        { type: "node", id: 1, tags: { name: "Sem Contato" } },
+        { type: "node", id: 2, tags: { name: "Odonto Top", phone: "+55 19 3333-4444;+55 19 99999-0000", website: "odontotop.com.br", "contact:instagram": "https://instagram.com/odontotop/" } },
+        { type: "way", id: 3, tags: { name: "odonto top" } },
+        { type: "node", id: 4 },
+        { type: "node", id: 5, tags: { name: 'Centro de Saúde "Dr. Laerte" - Jardim Eulina', phone: "19 3333-0000" } },
+        { type: "node", id: 6, tags: { name: "Sabin", brand: "Sabin", phone: "19 3333-1111" } },
+        { type: "node", id: 7, tags: { name: "Odonto Municipal", "operator:type": "public" } },
+      ],
+      "Campinas, SP",
+    );
+    expect(e).toHaveLength(2);
+    expect(e[0]).toMatchObject({ placeId: "osm:node/2", telefone: "+55 19 3333-4444", site: "https://odontotop.com.br" });
+    expect(e[1].nome).toBe("Sem Contato");
   });
 });

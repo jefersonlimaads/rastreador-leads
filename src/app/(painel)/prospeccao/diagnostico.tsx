@@ -70,15 +70,21 @@ export function PainelDiagnostico({ d }: { d: Diagnostico }) {
             <Sinal ok={false} rotulo={sinais.situacao === "sem_site" ? "Sem site" : "Site fora do ar"} />
           ) : (
             <>
-              <Sinal ok={sinais.pixelMeta} rotulo="Pixel do Meta" />
-              <Sinal ok={sinais.googleTag || sinais.gtm} rotulo="Tag do Google" />
-              <Sinal ok={sinais.botaoWhatsapp} rotulo="Botão de WhatsApp" />
+              <Sinal ok={sinais.pixelMeta} incerto={sinais.naoConfirmavel} rotulo="Pixel do Meta" />
+              <Sinal ok={sinais.googleTag || sinais.gtm} incerto={sinais.naoConfirmavel} rotulo="Tag do Google" />
+              <Sinal ok={sinais.botaoWhatsapp} incerto={sinais.naoConfirmavel} rotulo="Botão de WhatsApp" />
               <Sinal ok={sinais.formulario} rotulo="Formulário" />
               <Sinal ok={sinais.https} rotulo="Site seguro (https)" />
               {sinais.plataforma && <li className="text-suave">Feito em {sinais.plataforma}</li>}
             </>
           )}
         </ul>
+      )}
+      {sinais?.naoConfirmavel && (
+        <p className="mt-2 text-xs text-suave">
+          ? = não dá para confirmar pela leitura do site ({sinais.plataforma ?? "carrega por script"}). Antes de citar,
+          confira com a extensão Meta Pixel Helper do Chrome.
+        </p>
       )}
 
       {gaps.length > 0 && (
@@ -127,16 +133,19 @@ export function PainelDiagnostico({ d }: { d: Diagnostico }) {
       <p className="mt-4 text-[11px] text-suave">
         {d.analisadoPorIa ? "Análise feita com IA" : "Análise por regra fixa (sem IA)"}
         {d.analisadoEm ? ` em ${d.analisadoEm.toLocaleDateString("pt-BR")}` : ""} a partir de dados públicos
-        do Google e do site.
+        {d.placeId.startsWith("osm:") ? " do mapa aberto (OpenStreetMap)" : d.placeId.startsWith("lista:") ? " da lista colada" : " do Google"} e
+        do site.
       </p>
     </section>
   );
 }
 
-function Sinal({ ok, rotulo }: { ok: boolean; rotulo: string }) {
+function Sinal({ ok, rotulo, incerto }: { ok: boolean; rotulo: string; incerto?: boolean }) {
+  // Achou, é certo; não achou num site montado por script, é dúvida.
+  const duvida = !ok && incerto;
   return (
     <li className="flex items-center gap-1.5">
-      <span className={ok ? "text-ok" : "text-alerta"}>{ok ? "✓" : "✗"}</span>
+      <span className={ok ? "text-ok" : duvida ? "text-suave" : "text-alerta"}>{ok ? "✓" : duvida ? "?" : "✗"}</span>
       <span className={ok ? "" : "text-suave"}>{rotulo}</span>
     </li>
   );

@@ -18,6 +18,12 @@ export type SinaisSite = {
   formulario: boolean;
   /** Página de links (Linktree e similares) em vez de site. */
   paginaDeLinks: boolean;
+  /**
+   * Site montado por script (Wix, apps em React...): pixel e botão de WhatsApp
+   * podem entrar depois que a página abre e não aparecem na leitura. Nesses,
+   * "não achei" não quer dizer "não tem".
+   */
+  naoConfirmavel: boolean;
   plataforma: string | null;
   titulo: string | null;
   descricao: string | null;
@@ -34,6 +40,7 @@ const VAZIO: Omit<SinaisSite, "situacao"> = {
   botaoWhatsapp: false,
   formulario: false,
   paginaDeLinks: false,
+  naoConfirmavel: false,
   plataforma: null,
   titulo: null,
   descricao: null,
@@ -91,6 +98,10 @@ export function analisarHtml(html: string, url: string): SinaisSite {
     botaoWhatsapp: /wa\.me\/|api\.whatsapp\.com\/send|whatsapp:\/\/send/i.test(h),
     formulario: /<form[\s>]/i.test(h),
     paginaDeLinks: /linktr\.ee|beacons\.ai|bio\.link|linkin\.bio/i.test(url),
+    naoConfirmavel:
+      plataforma === "Wix" ||
+      // Página quase vazia com um contêiner de app: o conteúdo vem todo por script.
+      (h.length < 8000 && /<div id=["'](root|__next|app)["']/i.test(h)),
     plataforma,
     titulo: limpar(h.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1], 120),
     descricao: limpar(

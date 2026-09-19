@@ -580,6 +580,8 @@ model BuscaProspeccao {
   cidade      String
   quantidade  Int
   notaMinima  Int       @default(50)
+  /// De onde vieram as empresas: google, osm (mapa aberto) ou lista (colada).
+  fonte       String    @default("google")
   status      String    @default("RODANDO")
   encontrados Int       @default(0)
   analisados  Int       @default(0)

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
-import { iniciarBusca, processarBusca, promoverDiagnostico } from "@/lib/pesquisa/busca";
-import { googleConfigurado } from "@/lib/pesquisa/google";
+import { iniciarBusca, iniciarBuscaPorLista, processarBusca, promoverDiagnostico } from "@/lib/pesquisa/busca";
+import { lerLista } from "@/lib/pesquisa/lista";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -189,22 +189,25 @@ export async function acaoBuscarProspects(
   const notaMinima = Number(formData.get("notaMinima") ?? 50);
   if (nicho.length < 3) return { erro: "Diga o nicho: por exemplo, clínica de estética." };
   if (cidade.length < 2) return { erro: "Diga a cidade (e o bairro, se quiser focar)." };
-  if (!googleConfigurado()) return { erro: "Falta a chave do Google (GOOGLE_PLACES_API_KEY) na Vercel." };
+  if (await buscaRodando(sessao.agenciaId)) return { erro: "Já tem uma busca rodando. Espere ela terminar." };
 
-  // Uma busca por vez: duas ao mesmo tempo disputariam as mesmas empresas.
-  const rodando = await prisma.buscaProspeccao.findFirst({
-    where: { agenciaId: sessao.agenciaId, status: "RODANDO" },
-    select: { id: true },
-  });
-  if (rodando) return { erro: "Já tem uma busca rodando. Espere ela terminar." };
-
-  const r = await iniciarBusca({ agenciaId: sessao.agenciaId, nicho, cidade, quantidade, notaMinima });
+  const lista = String(formData.get("lista") ?? "").trim();
+  const r = lista
+    ? await iniciarBuscaPorLista({ agenciaId: sessao.agenciaId, nicho, cidade, notaMinima }, lerLista(lista))
+    : await iniciarBusca({ agenciaId: sessao.agenciaId, nicho, cidade, quantidade, notaMinima });
   if ("erro" in r) return { erro: r.erro };
 
   const quem = quemAssina(sessao);
   after(() => processarBusca(r.buscaId, quem));
   revalidatePath("/prospeccao");
-  return { ok: "Busca iniciada. Os prospects vão aparecendo em A abordar." };
+  return { ok: "Análise iniciada. Os prospects vão aparecendo em A abordar." };
+}
+
+/** Uma busca por vez: duas ao mesmo tempo disputariam as mesmas empresas. */
+async function buscaRodando(agenciaId: string) {
+  return Boolean(
+    await prisma.buscaProspeccao.findFirst({ where: { agenciaId, status: "RODANDO" }, select: { id: true } }),
+  );
 }
 
 /** Busca interrompida (função encerrada no meio): continua de onde parou. */

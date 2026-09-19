@@ -1,7 +1,10 @@
 import "server-only";
 import { prisma } from "../prisma";
 import { normalizarTelefone } from "../telefone";
-import { buscarNoGoogle } from "./google";
+import { createHash } from "node:crypto";
+import { buscarNoGoogle, googleConfigurado, type EmpresaGoogle } from "./google";
+import { buscarNoOsm } from "./osm";
+import type { LinhaLista } from "./lista";
 import { baixarSite, type SinaisSite } from "./site";
 import { qualificarPorRegra, type DadosProspect } from "./qualificar";
 import { qualificarComIa } from "./ia";
@@ -33,9 +36,49 @@ export type ParametrosBusca = {
 
 export async function iniciarBusca(p: ParametrosBusca): Promise<{ buscaId: string } | { erro: string }> {
   const quantidade = Math.max(1, Math.min(MAX_QUANTIDADE, Math.round(p.quantidade)));
+  // Google quando houver chave (mais completo); senão, o mapa aberto, grátis.
   // Pede mais do que precisa: as empresas que você já tem saem da conta.
-  const resultado = await buscarNoGoogle(`${p.nicho} em ${p.cidade}`, Math.min(60, quantidade + 20));
+  const fonte = googleConfigurado() ? "google" : "osm";
+  const resultado =
+    fonte === "google"
+      ? await buscarNoGoogle(`${p.nicho} em ${p.cidade}`, Math.min(60, quantidade + 20))
+      : await buscarNoOsm(p.nicho, p.cidade, quantidade + 40);
   if ("erro" in resultado) return { erro: resultado.erro };
+  return registrarBusca(p, fonte, resultado.empresas, quantidade);
+}
+
+/**
+ * Lista colada: cada linha vira uma empresa para analisar. Sem busca externa,
+ * então o "id do lugar" é uma impressão digital do nome + telefone — colar a
+ * mesma empresa duas vezes não duplica.
+ */
+export async function iniciarBuscaPorLista(
+  p: Omit<ParametrosBusca, "quantidade">,
+  linhas: LinhaLista[],
+): Promise<{ buscaId: string } | { erro: string }> {
+  if (linhas.length === 0) return { erro: "Não encontrei nenhuma empresa na lista." };
+  const empresas: (EmpresaGoogle & { instagram?: string | null })[] = linhas.map((l) => ({
+    placeId: `lista:${createHash("sha1").update(`${l.nome.toLowerCase()}|${(l.telefone ?? "").replace(/\D/g, "")}`).digest("hex").slice(0, 20)}`,
+    nome: l.nome,
+    categoria: null,
+    telefone: l.telefone,
+    site: l.site ?? (l.instagram ? `https://instagram.com/${l.instagram}` : null),
+    endereco: null,
+    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nome} ${p.cidade}`)}`,
+    nota: null,
+    avaliacoes: null,
+    instagram: l.instagram,
+  }));
+  return registrarBusca({ ...p, quantidade: empresas.length }, "lista", empresas, empresas.length);
+}
+
+async function registrarBusca(
+  p: ParametrosBusca,
+  fonte: string,
+  todas: (EmpresaGoogle & { instagram?: string | null })[],
+  quantidade: number,
+): Promise<{ buscaId: string }> {
+  const resultado = { empresas: todas };
 
   // Já pesquisadas antes (inclusive as descartadas) e já cadastradas pelo telefone.
   const [conhecidas, clientes] = await Promise.all([
@@ -67,10 +110,11 @@ export async function iniciarBusca(p: ParametrosBusca): Promise<{ buscaId: strin
       cidade: p.cidade,
       quantidade,
       notaMinima: p.notaMinima,
+      fonte,
       encontrados: novas.length,
       status: novas.length === 0 ? "CONCLUIDA" : "RODANDO",
       concluidaEm: novas.length === 0 ? new Date() : null,
-      erro: novas.length === 0 ? "Nenhuma empresa nova: as que o Google trouxe você já tem." : null,
+      erro: novas.length === 0 ? "Nenhuma empresa nova: as encontradas você já tem ou já pesquisou antes." : null,
     },
   });
 
@@ -88,6 +132,7 @@ export async function iniciarBusca(p: ParametrosBusca): Promise<{ buscaId: strin
         mapsUrl: e.mapsUrl,
         notaGoogle: e.nota,
         avaliacoes: e.avaliacoes,
+        instagram: e.instagram ?? null,
       })),
       skipDuplicates: true,
     });
@@ -149,7 +194,7 @@ export async function processarBusca(buscaId: string, quem: { assinatura: string
 
 async function analisarUm(
   id: string,
-  busca: { id: string; agenciaId: string; nicho: string; cidade: string; notaMinima: number },
+  busca: { id: string; agenciaId: string; nicho: string; cidade: string; notaMinima: number; fonte: string },
   quem: { assinatura: string; agencia: string },
 ) {
   const item = await prisma.diagnostico.findUniqueOrThrow({ where: { id } });
@@ -163,7 +208,7 @@ async function analisarUm(
     site: item.site,
     notaGoogle: item.notaGoogle,
     avaliacoes: item.avaliacoes,
-    instagram: sinais.instagram,
+    instagram: sinais.instagram ?? item.instagram,
     sinais,
   };
   const porRegra = qualificarPorRegra(dados, quem.assinatura);
@@ -173,11 +218,11 @@ async function analisarUm(
 
   await prisma.$transaction(async (tx) => {
     let clienteId: string | null = null;
-    if (entra) clienteId = await criarProspect(tx, busca, item, sinais);
+    if (entra) clienteId = await criarProspect(tx, busca, item, { ...sinais, instagram: sinais.instagram ?? item.instagram });
     await tx.diagnostico.update({
       where: { id },
       data: {
-        instagram: sinais.instagram,
+        instagram: sinais.instagram ?? item.instagram,
         facebook: sinais.facebook,
         sinais,
         pontuacao: q.pontuacao,
@@ -206,7 +251,7 @@ type Tx = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
  */
 async function criarProspect(
   tx: Tx,
-  busca: { agenciaId: string; nicho: string },
+  busca: { agenciaId: string; nicho: string; fonte?: string },
   item: { nome: string; telefone: string | null; site: string | null },
   sinais: SinaisSite,
 ) {
@@ -216,7 +261,7 @@ async function criarProspect(
       nome: item.nome,
       ciclo: "PROSPECCAO",
       nicho: busca.nicho,
-      origem: "Busca Google",
+      origem: busca.fonte === "lista" ? "Lista importada" : "Busca automática",
       contatoTelefone: item.telefone ? normalizarTelefone(item.telefone) : null,
       site: item.site,
       instagram: sinais.instagram,
@@ -235,7 +280,7 @@ export async function promoverDiagnostico(id: string, agenciaId: string) {
   return prisma.$transaction(async (tx) => {
     const clienteId = await criarProspect(
       tx,
-      { agenciaId, nicho: d.busca?.nicho ?? d.categoria ?? "Prospect" },
+      { agenciaId, nicho: d.busca?.nicho ?? d.categoria ?? "Prospect", fonte: d.busca?.fonte },
       d,
       (d.sinais as SinaisSite | null) ?? ({ instagram: d.instagram } as SinaisSite),
     );

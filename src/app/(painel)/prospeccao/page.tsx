@@ -79,6 +79,9 @@ export default async function PaginaProspeccao({
                 <div className="min-w-0">
                   <p className="truncate font-medium">
                     {b.nicho} · {b.cidade}
+                    <span className="ml-2 text-xs font-normal text-suave">
+                      {b.fonte === "lista" ? "lista colada" : b.fonte === "osm" ? "mapa aberto" : "Google"}
+                    </span>
                   </p>
                   <p className="text-xs text-suave">
                     {b.status === "RODANDO"

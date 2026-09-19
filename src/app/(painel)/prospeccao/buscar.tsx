@@ -27,13 +27,16 @@ const SUGESTOES = [
 ];
 
 /**
- * Busca de prospects: nicho + cidade no Google, e a análise de cada empresa
- * roda sozinha. Quem passa da nota mínima cai em "A abordar" com briefing e
- * mensagem sugerida.
+ * Prospecção automática em duas formas, ambas gratuitas:
+ * - Buscar no mapa: nicho + cidade no mapa aberto (ou no Google, se houver chave).
+ * - Colar lista: as empresas que você mesmo juntou, uma por linha.
+ * Nos dois casos, cada empresa é analisada e quem passa da nota mínima cai em
+ * "A abordar" com briefing e mensagem sugerida.
  */
 export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: boolean; rodando: boolean }) {
   const [estado, buscar, buscando] = useActionState(acaoBuscarProspects, vazio);
   const [aberto, setAberto] = useState(false);
+  const [modo, setModo] = useState<"mapa" | "lista">("mapa");
   // Busca iniciada, fecha o formulário: o andamento aparece logo abaixo.
   const [visto, setVisto] = useState(estado);
   if (estado !== visto) {
@@ -51,7 +54,7 @@ export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: 
           disabled={rodando}
           className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca disabled:opacity-60 sm:self-start"
         >
-          {rodando ? "Buscando prospects..." : "Buscar prospects automaticamente"}
+          {rodando ? "Analisando prospects..." : "Buscar prospects automaticamente"}
         </button>
       </div>
     );
@@ -65,21 +68,33 @@ export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: 
           Fechar
         </button>
       </div>
+
+      <div className="inline-flex self-start rounded-xl border border-borda bg-fundo p-1 text-sm">
+        {(
+          [
+            ["mapa", "Buscar no mapa"],
+            ["lista", "Colar lista"],
+          ] as const
+        ).map(([valor, rotulo]) => (
+          <button
+            key={valor}
+            type="button"
+            onClick={() => setModo(valor)}
+            className={`rounded-lg px-3.5 py-1.5 ${modo === valor ? "bg-marca font-medium text-sobre-marca" : "text-suave"}`}
+          >
+            {rotulo}
+          </button>
+        ))}
+      </div>
+
       <p className="text-sm text-suave">
-        Busca no Google, analisa o site e a presença de cada empresa e põe em A abordar quem tem mais
-        chance de contratar — com briefing e mensagem sugerida.
+        {modo === "mapa"
+          ? google
+            ? "Busca as empresas no Google e analisa site e presença de cada uma."
+            : "Busca as empresas no mapa aberto (OpenStreetMap), de graça. Ele não tem todas as empresas da cidade: para cobrir as que faltarem, use Colar lista."
+          : "Cole uma empresa por linha — nome, telefone, site ou @ do Instagram, na ordem que vier. Dá para copiar direto do Google Maps ou do Instagram."}
       </p>
-      {!google && (
-        <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">
-          Falta a chave do Google (GOOGLE_PLACES_API_KEY) na Vercel: a busca não funciona sem ela.
-        </p>
-      )}
-      {google && !ia && (
-        <p className="rounded-lg bg-fundo px-3 py-2 text-xs text-suave">
-          Sem a chave do Claude (ANTHROPIC_API_KEY), a nota e a mensagem saem por regra fixa — funcionam,
-          mas sem a personalização da IA.
-        </p>
-      )}
+
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-suave">Nicho</span>
@@ -91,17 +106,19 @@ export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: 
           </datalist>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-suave">Cidade (e bairro, se quiser)</span>
+          <span className="text-suave">Cidade</span>
           <input name="cidade" required placeholder="Campinas, SP" className={campo} />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-suave">Quantas empresas analisar</span>
-          <select name="quantidade" defaultValue="20" className={campo}>
-            <option value="10">10</option>
-            <option value="20">20</option>
-            <option value="30">30</option>
-          </select>
-        </label>
+        {modo === "mapa" && (
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="text-suave">Quantas empresas analisar</span>
+            <select name="quantidade" defaultValue="20" className={campo}>
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="30">30</option>
+            </select>
+          </label>
+        )}
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-suave">Nota mínima para entrar em A abordar</span>
           <select name="notaMinima" defaultValue="50" className={campo}>
@@ -112,17 +129,31 @@ export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: 
           </select>
         </label>
       </div>
+
+      {modo === "lista" && (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-suave">Empresas (até 50, uma por linha)</span>
+          <textarea
+            name="lista"
+            required
+            rows={7}
+            placeholder={"Clínica Bella Pele, (19) 99812-3344, bellapele.com.br\nEspaço Renova — @espacorenova\nStudio Face Design 19 3232-1010"}
+            className={`${campo} font-mono text-xs`}
+          />
+        </label>
+      )}
+
       {estado.erro && <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>}
       <button
         type="submit"
-        disabled={buscando || !google}
+        disabled={buscando}
         className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca disabled:opacity-60"
       >
-        {buscando ? "Buscando no Google..." : "Buscar"}
+        {buscando ? (modo === "mapa" ? "Buscando no mapa... pode levar até 1 minuto" : "Lendo a lista...") : modo === "mapa" ? "Buscar" : "Analisar lista"}
       </button>
       <p className="text-xs text-suave">
-        Empresas que você já tem ou que já foram pesquisadas não voltam. Custo aproximado: alguns
-        centavos por empresa.
+        Gratuito. Empresas que você já tem ou que já foram pesquisadas não voltam.
+        {ia ? " A análise usa IA para personalizar briefing e mensagem." : " Nota, briefing e mensagem saem pela regra da plataforma."}
       </p>
     </Formulario>
   );
