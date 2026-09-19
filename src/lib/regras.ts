@@ -140,3 +140,12 @@ export const ROTULO_FATURA: Record<string, string> = {
   PAGA: "Paga",
   CANCELADA: "Cancelada",
 };
+
+/**
+ * Parâmetros de URL que vão em todo anúncio do Meta (Rastreamento → Parâmetros
+ * de URL). O mesmo texto para qualquer cliente: o que está entre {{ }} o Meta
+ * preenche no clique. Os ids são o que liga o lead ao gasto do anúncio.
+ */
+export const PARAMETROS_URL_META =
+  "utm_source=facebook&utm_medium=cpc&utm_campaign={{campaign.name}}&utm_content={{ad.name}}" +
+  "&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}";

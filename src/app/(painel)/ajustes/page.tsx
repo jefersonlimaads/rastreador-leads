@@ -2,7 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { exigirSessao, clienteEmFoco } from "@/lib/auth";
 import { formatarTelefone } from "@/lib/telefone";
 import { Selo } from "../componentes";
-import { ROTULO_FUNIL } from "@/lib/regras";
+import { PARAMETROS_URL_META, ROTULO_FUNIL } from "@/lib/regras";
+import { BlocoCopiavel } from "./copiar";
 import { FormulariosAjustes } from "./formularios";
 
 // "Puxar dados do Meta agora" busca 90 dias e pode passar de um minuto.
@@ -70,17 +71,23 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
 
               <details className="mt-3">
                 <summary className="cursor-pointer text-sm text-marca-texto">
-                  Script para a landing page
+                  Script da página e parâmetros dos anúncios
                 </summary>
-                <pre className="mt-2 overflow-x-auto rounded-xl bg-fundo p-3 text-xs">
-                  {`<script async src="${appUrl}/jl.js"
+                <BlocoCopiavel
+                  texto={`<script async src="${appUrl}/jl.js"
         data-cliente="${c.id}"
         data-numero="${c.numeros[0]?.numero ?? "5511999999999"}"
         data-servico="orçamento"></script>`}
-                </pre>
+                />
                 <p className="mt-2 text-xs text-suave">
                   Cole antes do &lt;/body&gt;. O script acha sozinho os botões de WhatsApp e os formulários com campo de telefone, e registra quem enviou.
                 </p>
+                <p className="mt-4 text-sm font-medium">Parâmetros de URL dos anúncios</p>
+                <p className="mt-1 text-xs text-suave">
+                  No Gerenciador de Anúncios, em cada anúncio: Rastreamento → Parâmetros de URL. É o
+                  mesmo texto para todo cliente; o Meta preenche o que está entre chaves no clique.
+                </p>
+                <BlocoCopiavel texto={PARAMETROS_URL_META} />
               </details>
             </article>
           ))}
