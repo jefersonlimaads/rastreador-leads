@@ -253,11 +253,15 @@
     var alvos = document.querySelectorAll(SELETOR);
     for (var i = 0; i < alvos.length; i++) {
       var alvo = alvos[i];
-      if (alvo.tagName === "A") {
+      if (alvo.tagName === "A" && !alvo.hasAttribute("data-jl-pronto")) {
+        alvo.setAttribute("data-jl-pronto", "");
         // O texto do botão entra na mensagem: cada botão da página pode falar
         // de um serviço diferente.
         dados.interesse = descobrirInteresse(alvo);
-        alvo.href = montarLink(alvo.getAttribute("href"));
+        var original = alvo.getAttribute("href") || "";
+        // Link que já traz mensagem própria ("Quero falar sobre cobertura...")
+        // mantém o texto de quem fez a página; só ganha o código no fim.
+        alvo.href = /[?&]text=/.test(original) ? comCodigo(original) : montarLink(original);
       }
       alvo.addEventListener("click", aoClicar, { passive: true });
     }
