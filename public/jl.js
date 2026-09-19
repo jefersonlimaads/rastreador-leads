@@ -193,7 +193,8 @@
 
     if (alvo) {
       var texto = limpar(alvo.textContent);
-      if (texto && !GENERICOS.test(texto)) return texto;
+      // Texto do botão que é só o número de telefone não diz o assunto.
+      if (texto && !GENERICOS.test(texto) && !/^[\d\s+().-]+$/.test(texto)) return texto;
     }
 
     return SERVICO !== "os serviços" ? SERVICO : null;
