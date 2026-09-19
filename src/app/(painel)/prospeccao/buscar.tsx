@@ -90,7 +90,7 @@ export function BuscarProspects({ google, ia, rodando }: { google: boolean; ia: 
       <p className="text-sm text-suave">
         {modo === "mapa"
           ? google
-            ? "Busca as empresas no Google e analisa site e presença de cada uma."
+            ? "Busca as empresas no Google (se o Google recusar, no mapa aberto, de graça) e analisa site e presença de cada uma."
             : "Busca as empresas no mapa aberto (OpenStreetMap), de graça. Ele não tem todas as empresas da cidade: para cobrir as que faltarem, use Colar lista."
           : "Cole uma empresa por linha — nome, telefone, site ou @ do Instagram, na ordem que vier. Dá para copiar direto do Google Maps ou do Instagram."}
       </p>
