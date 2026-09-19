@@ -130,6 +130,9 @@ export async function cadastrarLead(params: {
         status: "NOVO",
         atribuicao,
         mensagemEm,
+        // O lead existe desde que a mensagem chegou, não desde que alguém o
+        // cadastrou: lançado dias depois, ele conta no dia certo dos relatórios.
+        criadoEm: mensagemEm.getTime() < Date.now() ? mensagemEm : undefined,
         responsavelId: usuarioId,
       },
     });

@@ -264,3 +264,17 @@ describe("atribuição", () => {
     expect(segundo.lead.atribuicao).not.toBe("EXATA");
   });
 });
+
+describe("lead lançado depois", () => {
+  it("conta a partir de quando a mensagem chegou, não do cadastro", async () => {
+    const mensagemEm = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+    const { lead } = await cadastrarLead({
+      clienteId: CLIENTE,
+      telefone: "5511900000010",
+      mensagem: "chegou na semana passada",
+      mensagemEm,
+      usuarioId: USUARIO,
+    });
+    expect(lead.criadoEm.getTime()).toBe(mensagemEm.getTime());
+  });
+});
