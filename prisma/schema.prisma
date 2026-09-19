@@ -140,6 +140,15 @@ model Agencia {
    */
   metaToken String?
 
+  /*
+   * Chave para mandar prospects de fora (Cowork, planilha, outra automação).
+   * Guardada só como hash SHA-256: nem quem ler o banco consegue usá-la. A
+   * chave inteira aparece uma vez, na hora de gerar; depois, só o final.
+   */
+  chaveImportacao    String?   @unique
+  chaveImportacaoFim String?
+  chaveImportacaoEm  DateTime?
+
   clientes Cliente[]
   usuarios Usuario[]
   tarefas  Tarefa[]

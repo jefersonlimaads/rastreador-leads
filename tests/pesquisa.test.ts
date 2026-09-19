@@ -213,3 +213,72 @@ describe("mapa aberto", () => {
     expect(e[1].nome).toBe("Sem Contato");
   });
 });
+
+import { agenciaPorChave, gerarChaveImportacao, validarEmpresas } from "../src/lib/pesquisa/importacao";
+import { iniciarBuscaPorLista } from "../src/lib/pesquisa/busca";
+
+describe("importação (Cowork)", () => {
+  const AG2 = "agencia-importacao-teste";
+  beforeAll(async () => {
+    await prisma.diagnostico.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.buscaProspeccao.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.cliente.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.agencia.deleteMany({ where: { id: AG2 } });
+    await prisma.agencia.create({ data: { id: AG2, nome: "Importação Teste", slug: AG2 } });
+  });
+  afterAll(async () => {
+    await prisma.diagnostico.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.buscaProspeccao.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.cliente.deleteMany({ where: { agenciaId: AG2 } });
+    await prisma.agencia.deleteMany({ where: { id: AG2 } });
+  });
+
+  it("chave gerada abre a porta; chave trocada derruba a anterior", async () => {
+    const primeira = await gerarChaveImportacao(AG2);
+    expect((await agenciaPorChave(primeira))?.id).toBe(AG2);
+    const segunda = await gerarChaveImportacao(AG2);
+    expect(await agenciaPorChave(primeira)).toBeNull();
+    expect((await agenciaPorChave(segunda))?.id).toBe(AG2);
+    expect(await agenciaPorChave("jli_qualquercoisaerrada123")).toBeNull();
+    // No banco só fica o hash.
+    const a = await prisma.agencia.findUniqueOrThrow({ where: { id: AG2 } });
+    expect(a.chaveImportacao).not.toBe(segunda);
+    expect(a.chaveImportacaoFim).toBe(segunda.slice(-4));
+  });
+
+  it("empresa inválida fica de fora sem derrubar o lote", () => {
+    const { linhas, recusadas } = validarEmpresas([
+      { nome: "Boa Estética", telefone: "(19) 99999-1111", notaGoogle: "4,8" },
+      { nome: "" },
+      "texto solto",
+    ]);
+    expect(linhas).toHaveLength(1);
+    expect(recusadas.map((r) => r.posicao)).toEqual([2, 3]);
+  });
+
+  it("briefing e mensagem do Cowork são mantidos; a plataforma só confere o site", async () => {
+    const { linhas } = validarEmpresas([
+      {
+        nome: "Estética Cowork",
+        telefone: "(19) 98888-2222",
+        notaGoogle: 4.7,
+        avaliacoes: 90,
+        pontuacao: 77,
+        resumo: "Bem avaliada, sem site.",
+        gaps: ["Sem site próprio"],
+        briefing: "Contexto: ...",
+        mensagem: "Oi! Mensagem escrita pelo Cowork.",
+      },
+    ]);
+    const r = await iniciarBuscaPorLista({ agenciaId: AG2, nicho: "estética", cidade: "Campinas", notaMinima: 50 }, linhas, "cowork");
+    if ("erro" in r) throw new Error(r.erro);
+    await processarBusca(r.buscaId, { assinatura: "J", agencia: "X" });
+    const d = await prisma.diagnostico.findFirstOrThrow({ where: { buscaId: r.buscaId }, include: { cliente: true } });
+    expect(d.mensagem).toBe("Oi! Mensagem escrita pelo Cowork.");
+    expect(d.pontuacao).toBe(77);
+    expect(d.analisadoPorIa).toBe(true);
+    expect(d.notaGoogle).toBe(4.7);
+    expect(d.cliente?.origem).toBe("Cowork (Google Maps)");
+    expect((d.sinais as { situacao: string }).situacao).toBe("sem_site");
+  });
+});

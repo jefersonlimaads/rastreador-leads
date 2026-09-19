@@ -80,7 +80,7 @@ export default async function PaginaProspeccao({
                   <p className="truncate font-medium">
                     {b.nicho} · {b.cidade}
                     <span className="ml-2 text-xs font-normal text-suave">
-                      {b.fonte === "lista" ? "lista colada" : b.fonte === "osm" ? "mapa aberto" : "Google"}
+                      {b.fonte === "lista" ? "lista colada" : b.fonte === "osm" ? "mapa aberto" : b.fonte === "cowork" ? "Cowork" : "Google"}
                     </span>
                   </p>
                   <p className="text-xs text-suave">

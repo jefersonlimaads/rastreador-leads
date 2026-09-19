@@ -32,7 +32,7 @@ export function PainelDiagnostico({ d }: { d: Diagnostico }) {
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2 text-sm">
-        {d.site && (
+        {d.site && !/instagram\.com|facebook\.com/i.test(d.site) && (
           <a href={d.site} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-borda px-2.5 py-1">
             Site
           </a>
@@ -131,9 +131,18 @@ export function PainelDiagnostico({ d }: { d: Diagnostico }) {
       )}
 
       <p className="mt-4 text-[11px] text-suave">
-        {d.analisadoPorIa ? "Análise feita com IA" : "Análise por regra fixa (sem IA)"}
+        {d.analisadoPorIa
+          ? d.placeId.startsWith("lista:") ? "Análise feita com IA (Cowork)" : "Análise feita com IA"
+          : "Análise por regra fixa (sem IA)"}
         {d.analisadoEm ? ` em ${d.analisadoEm.toLocaleDateString("pt-BR")}` : ""} a partir de dados públicos
-        {d.placeId.startsWith("osm:") ? " do mapa aberto (OpenStreetMap)" : d.placeId.startsWith("lista:") ? " da lista colada" : " do Google"} e
+        {d.placeId.startsWith("osm:")
+          ? " do mapa aberto (OpenStreetMap)"
+          : d.placeId.startsWith("lista:")
+            ? d.analisadoPorIa
+              ? " do Google Maps (coletados pelo Cowork)"
+              : " da lista colada"
+            : " do Google"}{" "}
+        e
         do site.
       </p>
     </section>

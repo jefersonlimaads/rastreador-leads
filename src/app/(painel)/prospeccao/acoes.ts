@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { iniciarBusca, iniciarBuscaPorLista, processarBusca, promoverDiagnostico } from "@/lib/pesquisa/busca";
 import { lerLista } from "@/lib/pesquisa/lista";
+import { validarEmpresas } from "@/lib/pesquisa/importacao";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -192,9 +193,25 @@ export async function acaoBuscarProspects(
   if (await buscaRodando(sessao.agenciaId)) return { erro: "Já tem uma busca rodando. Espere ela terminar." };
 
   const lista = String(formData.get("lista") ?? "").trim();
-  const r = lista
-    ? await iniciarBuscaPorLista({ agenciaId: sessao.agenciaId, nicho, cidade, notaMinima }, lerLista(lista))
-    : await iniciarBusca({ agenciaId: sessao.agenciaId, nicho, cidade, quantidade, notaMinima });
+  // Lista em JSON (o que o Cowork gera, com análise pronta) ou texto livre.
+  let json: unknown = null;
+  if (/^[[{]/.test(lista)) {
+    try {
+      json = JSON.parse(lista);
+    } catch {
+      return { erro: "A lista parece JSON, mas não está completa. Copie de novo, do [ até o ]." };
+    }
+  }
+  const brutas = Array.isArray(json) ? json : (json as { empresas?: unknown[] } | null)?.empresas;
+  const r = !lista
+    ? await iniciarBusca({ agenciaId: sessao.agenciaId, nicho, cidade, quantidade, notaMinima })
+    : brutas
+      ? await iniciarBuscaPorLista(
+          { agenciaId: sessao.agenciaId, nicho, cidade, notaMinima },
+          validarEmpresas(brutas.slice(0, 50)).linhas,
+          "cowork",
+        )
+      : await iniciarBuscaPorLista({ agenciaId: sessao.agenciaId, nicho, cidade, notaMinima }, lerLista(lista));
   if ("erro" in r) return { erro: r.erro };
 
   const quem = quemAssina(sessao);

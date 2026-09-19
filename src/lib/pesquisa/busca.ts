@@ -58,29 +58,45 @@ export async function iniciarBusca(p: ParametrosBusca): Promise<{ buscaId: strin
 export async function iniciarBuscaPorLista(
   p: Omit<ParametrosBusca, "quantidade">,
   linhas: LinhaLista[],
-): Promise<{ buscaId: string } | { erro: string }> {
+  fonte: "lista" | "cowork" = "lista",
+): Promise<{ buscaId: string; novas: number } | { erro: string }> {
   if (linhas.length === 0) return { erro: "Não encontrei nenhuma empresa na lista." };
-  const empresas: (EmpresaGoogle & { instagram?: string | null })[] = linhas.map((l) => ({
+  const empresas: EmpresaEntrada[] = linhas.map((l) => ({
     placeId: `lista:${createHash("sha1").update(`${l.nome.toLowerCase()}|${(l.telefone ?? "").replace(/\D/g, "")}`).digest("hex").slice(0, 20)}`,
     nome: l.nome,
-    categoria: null,
+    categoria: l.extra?.categoria ?? null,
     telefone: l.telefone,
     site: l.site ?? (l.instagram ? `https://instagram.com/${l.instagram}` : null),
-    endereco: null,
-    mapsUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nome} ${p.cidade}`)}`,
-    nota: null,
-    avaliacoes: null,
+    endereco: l.extra?.endereco ?? null,
+    mapsUrl:
+      l.extra?.mapsUrl ??
+      `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${l.nome} ${p.cidade}`)}`,
+    nota: l.extra?.notaGoogle ?? null,
+    avaliacoes: l.extra?.avaliacoes ?? null,
     instagram: l.instagram,
+    analise: l.extra,
   }));
-  return registrarBusca({ ...p, quantidade: empresas.length }, "lista", empresas, empresas.length);
+  return registrarBusca({ ...p, quantidade: empresas.length }, fonte, empresas, empresas.length);
 }
+
+/** Empresa a analisar, com a análise pronta de fora quando houver. */
+type EmpresaEntrada = EmpresaGoogle & {
+  instagram?: string | null;
+  analise?: {
+    pontuacao: number | null;
+    resumo: string | null;
+    gaps: string[] | null;
+    briefing: string | null;
+    mensagem: string | null;
+  };
+};
 
 async function registrarBusca(
   p: ParametrosBusca,
   fonte: string,
-  todas: (EmpresaGoogle & { instagram?: string | null })[],
+  todas: EmpresaEntrada[],
   quantidade: number,
-): Promise<{ buscaId: string }> {
+): Promise<{ buscaId: string; novas: number }> {
   const resultado = { empresas: todas };
 
   // Já pesquisadas antes (inclusive as descartadas) e já cadastradas pelo telefone.
@@ -136,11 +152,17 @@ async function registrarBusca(
         notaGoogle: e.nota,
         avaliacoes: e.avaliacoes,
         instagram: e.instagram ?? null,
+        // Análise pronta de fora: guardada já na entrada; a plataforma só confere o site.
+        pontuacao: e.analise?.pontuacao ?? null,
+        resumo: e.analise?.resumo ?? null,
+        gaps: e.analise?.gaps ?? undefined,
+        briefing: e.analise?.briefing ?? null,
+        mensagem: e.analise?.mensagem ?? null,
       })),
       skipDuplicates: true,
     });
   }
-  return { buscaId: busca.id };
+  return { buscaId: busca.id, novas: novas.length };
 }
 
 /** Analisa o que estiver na fila desta busca, até o orçamento de tempo acabar. */
@@ -215,8 +237,20 @@ async function analisarUm(
     sinais,
   };
   const porRegra = qualificarPorRegra(dados, quem.assinatura);
-  const porIa = await qualificarComIa(dados, porRegra, quem);
-  const q = porIa ?? porRegra;
+  // Briefing e mensagem que vieram prontos (Cowork) valem mais que os da regra:
+  // foram escritos com IA olhando o perfil. A nota deles vale se vier; senão, a da regra.
+  const pronta =
+    item.briefing && item.mensagem
+      ? {
+          pontuacao: item.pontuacao ?? porRegra.pontuacao,
+          resumo: item.resumo ?? porRegra.resumo,
+          gaps: Array.isArray(item.gaps) && item.gaps.length ? (item.gaps as string[]) : porRegra.gaps,
+          briefing: item.briefing,
+          mensagem: item.mensagem,
+        }
+      : null;
+  const porIa = pronta ? null : await qualificarComIa(dados, porRegra, quem);
+  const q = pronta ?? porIa ?? porRegra;
   const entra = q.pontuacao >= busca.notaMinima;
 
   await prisma.$transaction(async (tx) => {
@@ -233,7 +267,7 @@ async function analisarUm(
         gaps: q.gaps,
         briefing: q.briefing,
         mensagem: q.mensagem,
-        analisadoPorIa: Boolean(porIa),
+        analisadoPorIa: Boolean(porIa || pronta),
         status: entra ? "ANALISADO" : "DESCARTADO",
         analisadoEm: new Date(),
         clienteId,
@@ -264,7 +298,7 @@ async function criarProspect(
       nome: item.nome,
       ciclo: "PROSPECCAO",
       nicho: busca.nicho,
-      origem: busca.fonte === "lista" ? "Lista importada" : "Busca automática",
+      origem: busca.fonte === "lista" ? "Lista importada" : busca.fonte === "cowork" ? "Cowork (Google Maps)" : "Busca automática",
       contatoTelefone: item.telefone ? normalizarTelefone(item.telefone) : null,
       site: item.site,
       instagram: sinais.instagram,

@@ -11,6 +11,19 @@ export type LinhaLista = {
   telefone: string | null;
   site: string | null;
   instagram: string | null;
+  /** Dados e análise que vieram prontos (importação do Cowork, JSON colado). */
+  extra?: {
+    endereco: string | null;
+    categoria: string | null;
+    mapsUrl: string | null;
+    notaGoogle: number | null;
+    avaliacoes: number | null;
+    pontuacao: number | null;
+    resumo: string | null;
+    gaps: string[] | null;
+    briefing: string | null;
+    mensagem: string | null;
+  };
 };
 
 export const MAX_LINHAS = 50;

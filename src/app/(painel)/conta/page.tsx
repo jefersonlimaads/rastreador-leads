@@ -5,6 +5,7 @@ import { contasDisponiveis } from "@/lib/meta/marketing";
 import { Selo } from "../componentes";
 import { ConexaoMeta } from "../ajustes/meta";
 import { Bloco, FormNovoUsuario, FormSenha } from "../ajustes/formularios";
+import { ImportacaoCowork } from "./importacao";
 
 /**
  * Minha conta: o que é da pessoa e da agência, não de um cliente. Senha para
@@ -16,7 +17,10 @@ export default async function PaginaConta() {
 
   const [agencia, equipe] = ehAdmin
     ? await Promise.all([
-        prisma.agencia.findUnique({ where: { id: sessao.agenciaId }, select: { nome: true, metaToken: true } }),
+        prisma.agencia.findUnique({
+          where: { id: sessao.agenciaId },
+          select: { nome: true, metaToken: true, chaveImportacaoFim: true, chaveImportacaoEm: true },
+        }),
         prisma.usuario.findMany({
           where: { agenciaId: sessao.agenciaId, clienteId: null },
           orderBy: { nome: "asc" },
@@ -68,6 +72,24 @@ export default async function PaginaConta() {
             ))}
           </ul>
           <FormNovoUsuario clienteId={null} papeis={["ADMIN"]} />
+        </Bloco>
+      )}
+
+      {ehAdmin && agencia && (
+        <Bloco
+          titulo="Importação automática (Cowork)"
+          descricao="Uma tarefa no Cowork pesquisa no Google Maps pelo seu navegador e manda os prospects para cá, já com briefing e mensagem. Sem custo além do seu plano do Claude."
+        >
+          <ImportacaoCowork
+            url={process.env.APP_URL ?? "https://rastreador-leads.vercel.app"}
+            agencia={agencia.nome}
+            assinatura={`${sessao.nome.split(" ")[0]}, da ${agencia.nome}`}
+            chaveAtual={
+              agencia.chaveImportacaoFim && agencia.chaveImportacaoEm
+                ? { fim: agencia.chaveImportacaoFim, em: agencia.chaveImportacaoEm.toLocaleDateString("pt-BR") }
+                : null
+            }
+          />
         </Bloco>
       )}
 
