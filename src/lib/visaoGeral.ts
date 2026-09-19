@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { REGRAS, STATUS_ABERTOS } from "./regras";
 import { inicioDoDia, periodoPadrao } from "./datas";
+import { totalPendencias } from "./confirmacao";
 
 /**
  * Visão de quem gere vários clientes: uma linha por cliente, com o que decide
@@ -23,7 +24,7 @@ export type LinhaCliente = {
   semResposta: number;
   followUp: number;
   cliquesPendentes: number;
-  /** Itens esperando a confirmação do cliente: cliques sem resposta + leads em aberto. */
+  /** Itens que o cliente encontra ao abrir o link de confirmação (mesma regra do link). */
   pendentesConfirmacao: number;
   /** Muito clique sem resposta = ninguém está confirmando do outro lado. */
   registroAbandonado: boolean;
@@ -93,6 +94,12 @@ export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaClie
     }),
   ]);
 
+  // Pendências do link de confirmação contadas pela mesma regra do próprio
+  // link: o número da carteira é o que o cliente vai encontrar ao abrir.
+  const pendentes = new Map(
+    await Promise.all(ids.map(async (id) => [id, await totalPendencias(id)] as const)),
+  );
+
   return clientes.map((cliente) => {
     const inicioHoje = inicioDoDia(agora, cliente.fuso);
     const meus = leads.filter((l) => l.clienteId === cliente.id);
@@ -122,9 +129,6 @@ export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaClie
     const leadsPeriodo = meus.length;
 
     const aguardando = cliques.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
-    const abertos = meus.filter((l) =>
-      (STATUS_ABERTOS as readonly string[]).includes(l.status),
-    ).length;
 
     const recentes = cliquesRecentes.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
     const respondidos = cliquesRespondidos.find((c) => c.clienteId === cliente.id)?._count._all ?? 0;
@@ -144,7 +148,7 @@ export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaClie
       semResposta,
       followUp,
       cliquesPendentes: aguardando,
-      pendentesConfirmacao: aguardando + abertos,
+      pendentesConfirmacao: pendentes.get(cliente.id) ?? 0,
       registroAbandonado: recentes >= 5 && respondidos / recentes < 0.3,
       numero: cliente.numeros[0]?.numero ?? null,
       temContaAnuncios: cliente._count.contas > 0,
