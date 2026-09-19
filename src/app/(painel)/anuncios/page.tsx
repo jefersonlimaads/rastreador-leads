@@ -3,6 +3,8 @@ import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
 import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { campanhasDoMeta } from "@/lib/relatorio";
+import { inteligenciaDoCliente } from "@/lib/campanhas";
+import { Inteligencia } from "./inteligencia";
 import { ResultadosCampanhas } from "@/app/relatorio/documento";
 import { prisma } from "@/lib/prisma";
 import { moeda, Selo, Vazio } from "../componentes";
@@ -32,9 +34,10 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const [{ linhas, total, semAtribuicao }, doMeta] = await Promise.all([
+  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia] = await Promise.all([
     metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
     campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
+    inteligenciaDoCliente(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso), fuso),
   ]);
 
   const ultimaSync = await prisma.gasto.findFirst({
@@ -97,6 +100,14 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
           nota={moeda(total.receita)}
         />
       </section>
+
+      <Inteligencia
+        recomendacoes={inteligencia.recomendacoes}
+        alertas={inteligencia.alertas}
+        custoMediano={inteligencia.custoMediano}
+        tipoMediano={inteligencia.tipoMediano}
+        dias={inteligencia.dias}
+      />
 
       {doMeta.campanhas.length > 0 && (
         <section className="mt-5">
