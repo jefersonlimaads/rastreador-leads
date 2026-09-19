@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { iniciarBusca, processarBusca, promoverDiagnostico } from "@/lib/pesquisa/busca";
+import { googleConfigurado } from "@/lib/pesquisa/google";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -167,4 +170,78 @@ export async function acaoExcluirProspect(
   if (r.erro) return { erro: r.erro };
   revalidar();
   redirect("/prospeccao");
+}
+
+// ——— Prospecção automática ———
+
+function quemAssina(sessao: Sessao) {
+  return { assinatura: `${sessao.nome.split(" ")[0]}, da ${sessao.agenciaNome}`, agencia: sessao.agenciaNome };
+}
+
+export async function acaoBuscarProspects(
+  _estado: EstadoProspeccao,
+  formData: FormData,
+): Promise<EstadoProspeccao> {
+  const sessao = await exigirAdmin();
+  const nicho = String(formData.get("nicho") ?? "").trim().slice(0, 80);
+  const cidade = String(formData.get("cidade") ?? "").trim().slice(0, 80);
+  const quantidade = Number(formData.get("quantidade") ?? 20);
+  const notaMinima = Number(formData.get("notaMinima") ?? 50);
+  if (nicho.length < 3) return { erro: "Diga o nicho: por exemplo, clínica de estética." };
+  if (cidade.length < 2) return { erro: "Diga a cidade (e o bairro, se quiser focar)." };
+  if (!googleConfigurado()) return { erro: "Falta a chave do Google (GOOGLE_PLACES_API_KEY) na Vercel." };
+
+  // Uma busca por vez: duas ao mesmo tempo disputariam as mesmas empresas.
+  const rodando = await prisma.buscaProspeccao.findFirst({
+    where: { agenciaId: sessao.agenciaId, status: "RODANDO" },
+    select: { id: true },
+  });
+  if (rodando) return { erro: "Já tem uma busca rodando. Espere ela terminar." };
+
+  const r = await iniciarBusca({ agenciaId: sessao.agenciaId, nicho, cidade, quantidade, notaMinima });
+  if ("erro" in r) return { erro: r.erro };
+
+  const quem = quemAssina(sessao);
+  after(() => processarBusca(r.buscaId, quem));
+  revalidatePath("/prospeccao");
+  return { ok: "Busca iniciada. Os prospects vão aparecendo em A abordar." };
+}
+
+/** Busca interrompida (função encerrada no meio): continua de onde parou. */
+export async function acaoContinuarBusca(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const id = String(formData.get("buscaId") ?? "");
+  const busca = await prisma.buscaProspeccao.findFirst({
+    where: { id, agenciaId: sessao.agenciaId, status: "RODANDO" },
+    select: { id: true },
+  });
+  if (!busca) return;
+  const quem = quemAssina(sessao);
+  after(() => processarBusca(busca.id, quem));
+  revalidatePath("/prospeccao");
+}
+
+/** Você discordou da nota: o descartado vira prospect em A abordar. */
+export async function acaoPromoverDiagnostico(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const clienteId = await promoverDiagnostico(String(formData.get("id") ?? ""), sessao.agenciaId);
+  if (!clienteId) return;
+  revalidar(clienteId);
+  redirect(`/prospeccao/${clienteId}`);
+}
+
+/** Cancela uma busca: o que já foi analisado fica, o resto sai da fila. */
+export async function acaoCancelarBusca(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const id = String(formData.get("buscaId") ?? "");
+  const busca = await prisma.buscaProspeccao.findFirst({ where: { id, agenciaId: sessao.agenciaId } });
+  if (!busca) return;
+  await prisma.$transaction([
+    prisma.diagnostico.deleteMany({ where: { buscaId: id, status: "PENDENTE" } }),
+    prisma.buscaProspeccao.update({
+      where: { id },
+      data: { status: "CONCLUIDA", concluidaEm: new Date(), erro: busca.analisados < busca.encontrados ? "Cancelada" : null },
+    }),
+  ]);
+  revalidatePath("/prospeccao");
 }

@@ -143,6 +143,7 @@ model Agencia {
   clientes Cliente[]
   usuarios Usuario[]
   tarefas  Tarefa[]
+  buscas   BuscaProspeccao[]
 }
 
 model Cliente {
@@ -205,6 +206,7 @@ model Cliente {
   interacoes Interacao[]
   relatorios Relatorio[]
   contas     ContaAnuncios[]
+  diagnostico Diagnostico?
 
   agencia Agencia @relation(fields: [agenciaId], references: [id])
 
@@ -563,4 +565,75 @@ model ContaAnuncios {
 
   @@unique([clienteId, contaId])
   @@index([contaId])
+}
+
+/*
+ * Uma rodada de prospecção automática: nicho + cidade no Google, cada empresa
+ * encontrada vira um Diagnostico, e as que passam da nota mínima viram
+ * prospect em "A abordar". status: RODANDO, CONCLUIDA, ERRO (texto, não enum:
+ * estado novo não exige migration antes do deploy).
+ */
+model BuscaProspeccao {
+  id          String    @id @default(cuid())
+  agenciaId   String
+  nicho       String
+  cidade      String
+  quantidade  Int
+  notaMinima  Int       @default(50)
+  status      String    @default("RODANDO")
+  encontrados Int       @default(0)
+  analisados  Int       @default(0)
+  adicionados Int       @default(0)
+  erro        String?
+  criadoEm    DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+  concluidaEm DateTime?
+
+  agencia      Agencia       @relation(fields: [agenciaId], references: [id])
+  diagnosticos Diagnostico[]
+
+  @@index([agenciaId, criadoEm])
+}
+
+/*
+ * O que a pesquisa descobriu sobre uma empresa. Fica guardado mesmo quando ela
+ * não passa da nota: assim a próxima busca não traz a mesma empresa de novo, e
+ * dá para promover um descartado se você discordar da nota.
+ * status: PENDENTE, ANALISADO, DESCARTADO, ERRO.
+ */
+model Diagnostico {
+  id         String  @id @default(cuid())
+  agenciaId  String
+  buscaId    String?
+  clienteId  String? @unique
+  placeId    String
+  nome       String
+  categoria  String?
+  telefone   String?
+  site       String?
+  endereco   String?
+  mapsUrl    String?
+  notaGoogle Float?
+  avaliacoes Int?
+  instagram  String?
+  facebook   String?
+
+  sinais    Json?
+  pontuacao Int?
+  resumo    String?
+  gaps      Json?
+  briefing  String?
+  mensagem  String?
+  analisadoPorIa Boolean @default(false)
+
+  status      String    @default("PENDENTE")
+  erro        String?
+  criadoEm    DateTime  @default(now())
+  analisadoEm DateTime?
+
+  busca   BuscaProspeccao? @relation(fields: [buscaId], references: [id], onDelete: SetNull)
+  cliente Cliente?         @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+
+  @@unique([agenciaId, placeId])
+  @@index([buscaId, status])
 }

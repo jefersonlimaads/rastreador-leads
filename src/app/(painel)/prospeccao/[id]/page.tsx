@@ -13,6 +13,7 @@ import { formatarTelefone } from "@/lib/telefone";
 import { ROTULO_SITUACAO, situacao } from "@/lib/propostas";
 import { Selo } from "../../componentes";
 import { FichaProspect, RegistrarContato, SaidaDoFunil } from "./formularios";
+import { PainelDiagnostico } from "../diagnostico";
 
 export default async function PaginaProspect({ params }: { params: Promise<{ id: string }> }) {
   const sessao = await exigirAdmin();
@@ -24,6 +25,7 @@ export default async function PaginaProspect({ params }: { params: Promise<{ id:
       interacoes: { orderBy: { criadoEm: "desc" }, take: 50 },
       propostas: { orderBy: { criadoEm: "desc" } },
       _count: { select: { leads: true, cliques: true, faturas: true } },
+      diagnostico: true,
     },
   });
   if (!p) notFound();
@@ -88,6 +90,8 @@ export default async function PaginaProspect({ params }: { params: Promise<{ id:
           Perdido: {p.motivoPerda}
         </p>
       )}
+
+      {p.diagnostico && <PainelDiagnostico d={p.diagnostico} />}
 
       {!perdido && (
         <RegistrarContato

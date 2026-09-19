@@ -73,6 +73,8 @@ export type ProspectLista = {
   proximoContato: Date | null;
   ultimaInteracao: { tipo: string; descricao: string; criadoEm: Date } | null;
   propostaEmAberto: boolean;
+  /** Nota da prospecção automática, quando o prospect veio de uma busca. */
+  pontuacao: number | null;
 };
 
 export async function listarProspects(agenciaId: string) {
@@ -82,6 +84,7 @@ export async function listarProspects(agenciaId: string) {
     include: {
       interacoes: { orderBy: { criadoEm: "desc" }, take: 1 },
       propostas: { where: { status: { in: ["ENVIADA", "NEGOCIANDO"] } }, select: { id: true } },
+      diagnostico: { select: { pontuacao: true } },
     },
   });
 
@@ -104,6 +107,7 @@ export async function listarProspects(agenciaId: string) {
         }
       : null,
     propostaEmAberto: p.propostas.length > 0,
+    pontuacao: p.diagnostico?.pontuacao ?? null,
   }));
 
   return {

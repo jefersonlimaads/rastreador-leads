@@ -61,6 +61,8 @@ export async function GET() {
       estado(process.env.CHAVE_CRIPTOGRAFIA) +
       (process.env.CHAVE_CRIPTOGRAFIA ? (chaveValida() ? ", válida" : ", INVÁLIDA: precisa ter 44 caracteres") : ""),
     diagnosticoChave: diagnosticoChave(process.env.CHAVE_CRIPTOGRAFIA),
+    GOOGLE_PLACES_API_KEY: estado(process.env.GOOGLE_PLACES_API_KEY),
+    ANTHROPIC_API_KEY: estado(process.env.ANTHROPIC_API_KEY),
     destino,
     vercelEnv: process.env.VERCEL_ENV ?? "fora da Vercel",
     // Quantas variáveis o processo enxerga no total, para saber se o problema
