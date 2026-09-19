@@ -39,9 +39,7 @@ export function ConexaoMeta({
   const conectado = Boolean(mascara);
 
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">Conexão com o Meta</h2>
-      <div className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <>
         {conectado ? (
           <p className="text-sm">
             <span className={erroLista ? "text-alerta" : "text-ok"}>●</span> Token da agência {mascara}
@@ -50,10 +48,7 @@ export function ConexaoMeta({
               : ` · ${contasVisiveis} ${contasVisiveis === 1 ? "conta de anúncios visível" : "contas de anúncios visíveis"}`}
           </p>
         ) : (
-          <p className="text-sm text-suave">
-            Cole o token do usuário do sistema da BM da agência. Ele vale para todos os clientes:
-            cada cliente só precisa compartilhar a conta de anúncios com a BM da agência.
-          </p>
+          <p className="text-sm text-suave">Ainda não conectado.</p>
         )}
         {conectado && !trocar ? (
           <button type="button" onClick={() => setTrocar(true)} className="self-start text-sm text-marca-texto">
@@ -69,8 +64,7 @@ export function ConexaoMeta({
           </Formulario>
         )}
         {conectado && !trocar && <Aviso estado={estado} />}
-      </div>
-    </section>
+    </>
   );
 }
 
@@ -79,12 +73,10 @@ export type ContaListada = { contaId: string; nome: string; negocio: string | nu
 /** Contas de anúncios de um cliente: as ligadas, e a escolha de uma nova. */
 export function ContasDoCliente({
   clienteId,
-  nomeCliente,
   ligadas,
   disponiveis,
 }: {
   clienteId: string;
-  nomeCliente: string;
   ligadas: { id: string; contaId: string; nome: string | null }[];
   disponiveis: ContaListada[];
 }) {
@@ -93,11 +85,7 @@ export function ContasDoCliente({
   const livres = disponiveis.filter((c) => !c.usadaPor);
 
   return (
-    <section className="mt-6">
-      <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
-        Contas de anúncios — {nomeCliente}
-      </h2>
-      <div className="flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4">
+    <>
         {ligadas.length === 0 ? (
           <p className="text-sm text-suave">Nenhuma conta ligada ainda.</p>
         ) : (
@@ -138,13 +126,12 @@ export function ContasDoCliente({
               na BM da agência, atribua ao usuário do sistema.
             </p>
           )}
-          <input name="contaDigitada" placeholder="ou digite o número da conta" className={campo} />
+          <input name="contaDigitada" placeholder={livres.length > 0 ? "ou digite o número da conta" : "Número da conta de anúncios"} className={campo} />
           <Aviso estado={estado} />
           <button type="submit" disabled={vinculando} className={botao}>
             {vinculando ? "Ligando..." : "Ligar conta"}
           </button>
         </Formulario>
-      </div>
-    </section>
+    </>
   );
 }

@@ -64,7 +64,12 @@ export default async function PaginaTarefas({
 
   const abertas = atrasadas.length + hoje.length + proximas.length + semPrazo.length;
 
-  const alternador = <AlternarModo modo={modo} data={chaveDoDia(dataRef)} />;
+  const alternador = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-xl font-semibold tracking-tight">Tarefas</h1>
+      <AlternarModo modo={modo} data={chaveDoDia(dataRef)} />
+    </div>
+  );
 
   if (modo === "semana") {
     const { dias, segunda } = await agendaDaSemana(sessao.agenciaId, dataRef);
@@ -108,7 +113,6 @@ export default async function PaginaTarefas({
   return (
     <>
       {alternador}
-      <h1 className="mt-4 text-xl font-semibold tracking-tight">Tarefas</h1>
       <p className="mt-1 text-sm text-suave">
         {abertas === 0 ? "Nada em aberto." : `${abertas} em aberto`}
         {atrasadas.length > 0 ? ` · ${atrasadas.length} atrasada(s)` : ""}
@@ -160,12 +164,12 @@ function AlternarModo({ modo, data }: { modo: string; data: string }) {
     { valor: "mes", rotulo: "Mês" },
   ];
   return (
-    <div className="flex rounded-xl border border-borda bg-superficie p-1">
+    <div className="inline-flex rounded-xl border border-borda bg-superficie p-1">
       {opcoes.map((o) => (
         <a
           key={o.valor}
           href={`/tarefas?modo=${o.valor}&data=${data}`}
-          className={`flex-1 rounded-lg py-1.5 text-center text-sm ${
+          className={`rounded-lg px-3.5 py-1.5 text-center text-sm ${
             modo === o.valor ? "bg-marca font-medium text-sobre-marca" : "text-suave"
           }`}
         >
@@ -189,7 +193,7 @@ function Navegar({
 }) {
   return (
     <div className="my-4 flex items-center justify-between gap-2">
-      <h1 className="text-xl font-semibold tracking-tight">{titulo}</h1>
+      <h2 className="text-base font-semibold">{titulo}</h2>
       <div className="flex shrink-0 gap-1">
         <a href={anterior} aria-label="Anterior" className="rounded-lg border border-borda px-3 py-1.5 text-sm">
           ‹

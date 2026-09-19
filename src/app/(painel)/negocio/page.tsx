@@ -6,7 +6,7 @@ import {
   ROTULO_CICLO,
   CICLOS_EM_PROSPECCAO,
 } from "@/lib/financeiro";
-import { formatarDataPura, formatarMesPuro } from "@/lib/datas";
+import { formatarDataPura } from "@/lib/datas";
 import { moeda, Selo, Vazio } from "../componentes";
 import { BotaoGerarFaturas, BotaoPagar } from "./botoes";
 

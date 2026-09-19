@@ -120,7 +120,9 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
               <p className="mt-3 text-xs text-suave">
                 {l.gastoSincronizadoEm
                   ? `Sem gasto no período. Última sincronização em ${formatarDataHora(l.gastoSincronizadoEm, l.fuso)}.`
-                  : "Gasto nunca sincronizado: falta o token da API de Marketing em Ajustes."}
+                  : l.temContaAnuncios
+                    ? "Gasto ainda não sincronizado: em Ajustes do cliente, use Puxar dados do Meta agora."
+                    : "Sem conta de anúncios ligada: ligue em Ajustes do cliente."}
               </p>
             )}
           </article>

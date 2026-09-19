@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { detalheLead } from "@/lib/consultas";
 import { formatarTelefone, linkWhatsapp } from "@/lib/telefone";
@@ -19,6 +20,22 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
   if (!lead) notFound();
 
   const mostrarDinheiro = podeVerDinheiro(sessao.papel);
+
+  // Nomes do anúncio, conjunto e campanha vêm do Meta (tabela de gasto); o
+  // clique só traz os números. Sem gasto sincronizado, fica o que o link trouxe.
+  const nomes = lead.clique?.adId
+    ? await prisma.gasto.findFirst({
+        where: { clienteId, adId: lead.clique.adId },
+        orderBy: { dia: "desc" },
+        select: { adNome: true, adsetNome: true, campaignNome: true },
+      })
+    : null;
+  let pagina: string | null = null;
+  try {
+    pagina = lead.clique?.url ? new URL(lead.clique.url).hostname : null;
+  } catch {
+    pagina = null;
+  }
   const fuso = lead.cliente.fuso;
 
   return (
@@ -41,7 +58,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
             rel="noopener noreferrer"
             className="shrink-0 rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
           >
-            Conversa
+            WhatsApp
           </a>
         )}
       </div>
@@ -60,23 +77,42 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
       <section className="mt-5 rounded-2xl border border-borda bg-superficie p-4">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Origem</h2>
         {lead.clique ? (
-          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-suave">Código</dt>
-            <dd className="font-medium">{lead.clique.codigo}</dd>
+          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm [&_dd]:min-w-0 [&_dd]:[overflow-wrap:anywhere]">
+            {lead.clique.interesse && (
+              <>
+                <dt className="text-suave">Interesse</dt>
+                <dd className="font-medium">{lead.clique.interesse}</dd>
+              </>
+            )}
             <dt className="text-suave">Anúncio</dt>
-            <dd>{lead.clique.adId ?? "—"}</dd>
-            <dt className="text-suave">Conjunto</dt>
-            <dd>{lead.clique.adsetId ?? "—"}</dd>
-            <dt className="text-suave">Campanha</dt>
-            <dd>{lead.clique.campaignId ?? lead.clique.utmCampaign ?? "—"}</dd>
-            <dt className="text-suave">Clique em</dt>
-            <dd>{formatarDataHora(lead.clique.criadoEm, fuso)}</dd>
-            <dt className="text-suave">Mensagem em</dt>
+            <dd>{nomes?.adNome ?? lead.clique.utmContent ?? lead.clique.adId ?? "sem anúncio (visita direta)"}</dd>
+            {(nomes?.adsetNome || lead.clique.adsetId) && (
+              <>
+                <dt className="text-suave">Conjunto</dt>
+                <dd>{nomes?.adsetNome ?? lead.clique.adsetId}</dd>
+              </>
+            )}
+            {(nomes?.campaignNome || lead.clique.utmCampaign || lead.clique.campaignId) && (
+              <>
+                <dt className="text-suave">Campanha</dt>
+                <dd>{nomes?.campaignNome ?? lead.clique.utmCampaign ?? lead.clique.campaignId}</dd>
+              </>
+            )}
+            {pagina && (
+              <>
+                <dt className="text-suave">Página</dt>
+                <dd>{pagina}</dd>
+              </>
+            )}
+            <dt className="text-suave">Chegou em</dt>
             <dd>{formatarDataHora(lead.mensagemEm, fuso)}</dd>
+            <dt className="text-suave">Código</dt>
+            <dd className="text-suave">{lead.clique.codigo}</dd>
           </dl>
         ) : (
           <p className="mt-2 text-sm text-suave">
-            Sem clique ligado. Lead entrou com atribuição desconhecida.
+            Não dá para saber de qual anúncio veio: chegou sem passar pela página rastreada.
+            Chegou em {formatarDataHora(lead.mensagemEm, fuso)}.
           </p>
         )}
       </section>

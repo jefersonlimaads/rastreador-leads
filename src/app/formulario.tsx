@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, type FormHTMLAttributes, type ReactNode } from "react";
+import { useState, useTransition, type FormHTMLAttributes, type ReactNode } from "react";
 
 /**
  * Formulário que não se apaga sozinho.
@@ -46,8 +46,12 @@ export function Formulario({
  */
 export function useLimparAoConcluir(estado: { ok?: unknown }) {
   const [chave, setChave] = useState(0);
-  useEffect(() => {
-    if (estado.ok) setChave((c) => c + 1);
-  }, [estado]);
+  // Ajuste de estado durante o render ao ver um estado novo: o jeito do React
+  // de derivar de uma mudança, sem efeito e sem render em cascata.
+  const [visto, setVisto] = useState(estado);
+  if (estado !== visto) {
+    setVisto(estado);
+    if (estado.ok) setChave(chave + 1);
+  }
   return chave;
 }

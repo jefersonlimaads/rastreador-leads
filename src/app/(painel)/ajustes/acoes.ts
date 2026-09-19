@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { normalizarContaAnuncios } from "@/lib/telefone";
+import { normalizarContaAnuncios, normalizarTelefone } from "@/lib/telefone";
 import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
 import { chaveValida, cifrar } from "@/lib/cripto";
 import { sincronizarGastos, testarToken } from "@/lib/meta/marketing";
@@ -61,7 +61,8 @@ export async function acaoCriarUsuario(
   });
 
   revalidatePath("/ajustes");
-  return { ok: "Usuário criado." };
+  revalidatePath("/conta");
+  return { ok: "Acesso criado. Passe o e-mail e a senha inicial para a pessoa." };
 }
 
 const TrocaSenha = z
@@ -219,6 +220,7 @@ export async function acaoSalvarTokenAgencia(
 
   await prisma.agencia.update({ where: { id: sessao.agenciaId }, data: { metaToken: cifrar(token) } });
   revalidatePath("/ajustes");
+  revalidatePath("/conta");
   return {
     ok: `Conectado como ${teste.nome}. ${teste.contas} ${teste.contas === 1 ? "conta de anúncios visível" : "contas de anúncios visíveis"}.`,
   };
@@ -267,4 +269,23 @@ export async function acaoDesvincularConta(formData: FormData): Promise<void> {
   // O gasto já gravado fica: é histórico do cliente, e some sozinho do período.
   await prisma.contaAnuncios.delete({ where: { id: conta.id } });
   revalidatePath("/ajustes");
+}
+
+/** WhatsApp de atendimento: onde chegam os leads. É o número que o script da página usa. */
+export async function acaoSalvarNumero(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirAdmin();
+  const clienteId = String(formData.get("clienteId") ?? "");
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
+  const numero = normalizarTelefone(String(formData.get("numero") ?? ""));
+  if (!numero) return { erro: "Número inválido. Use DDD + número." };
+
+  const atual = await prisma.numeroWhatsapp.findFirst({ where: { clienteId }, orderBy: { id: "asc" } });
+  if (atual) await prisma.numeroWhatsapp.update({ where: { id: atual.id }, data: { numero } });
+  else await prisma.numeroWhatsapp.create({ data: { clienteId, numero, rotulo: "Atendimento" } });
+
+  revalidatePath("/ajustes");
+  return { ok: "Número salvo. Se o script já está na página, atualize o data-numero dele também." };
 }

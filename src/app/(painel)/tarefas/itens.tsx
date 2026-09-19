@@ -1,7 +1,7 @@
 "use client";
 
 import { Formulario } from "@/app/formulario";
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import {
   acaoAlternarTarefa,
   acaoApagarTarefa,
@@ -100,13 +100,15 @@ export function FormularioTarefa({
   const [hora, setHora] = useState("");
 
   // Anotou, fecha: a tarefa aparece na lista, e o próximo "Nova tarefa" abre limpo.
-  useEffect(() => {
+  const [visto, setVisto] = useState(estado);
+  if (estado !== visto) {
+    setVisto(estado);
     if (estado.ok) {
       setAberto(false);
       setDia("");
       setHora("");
     }
-  }, [estado]);
+  }
 
   // Hora digitada é local; o navegador converte para o instante certo.
   const inicioIso = dia && hora ? new Date(`${dia}T${hora}`).toISOString() : "";
@@ -120,9 +122,9 @@ export function FormularioTarefa({
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="mt-4 w-full rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
+        className="mt-4 w-full rounded-xl border border-dashed border-borda px-4 py-2.5 text-left text-sm text-suave hover:border-marca hover:text-texto"
       >
-        Nova tarefa
+        + Nova tarefa
       </button>
     );
   }

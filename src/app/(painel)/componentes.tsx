@@ -49,6 +49,11 @@ export type LeadCartao = {
   valorVenda: number | null;
 };
 
+/**
+ * Um lead numa lista. Compacto de propósito: no celular cabem vários por tela.
+ * O cartão inteiro abre o lead; os dois botões fazem as ações do dia a dia sem
+ * precisar entrar nele.
+ */
 export function CartaoLead({
   lead,
   destaque,
@@ -58,45 +63,48 @@ export function CartaoLead({
   destaque?: string;
   mostrarValor?: boolean;
 }) {
+  const titulo =
+    lead.nome ||
+    (lead.telefone ? formatarTelefone(lead.telefone) : null) ||
+    lead.interesse ||
+    "Lead sem identificação";
+  const detalhe = [
+    lead.nome && lead.telefone ? formatarTelefone(lead.telefone) : null,
+    lead.nome || lead.telefone ? lead.interesse : null,
+    tempoRelativo(lead.criadoEm),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <article
-      className={`rounded-2xl border bg-superficie p-4 ${
-        destaque ? "border-alerta" : "border-borda"
+      className={`relative flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-3.5 transition-colors hover:border-suave sm:flex-row sm:items-center ${
+        destaque ? "border-l-4 border-l-alerta" : ""
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <Link href={`/leads/${lead.id}`} className="block truncate font-medium">
-            {lead.nome ||
-              (lead.telefone ? formatarTelefone(lead.telefone) : null) ||
-              lead.interesse ||
-              "Lead sem identificação"}
-          </Link>
-          <p className="mt-0.5 text-sm text-suave">
-            {[
-              lead.nome && lead.telefone ? formatarTelefone(lead.telefone) : null,
-              lead.nome || lead.telefone ? lead.interesse : null,
-              tempoRelativo(lead.criadoEm),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
+      {/* O link cobre o cartão; os botões ficam por cima dele. */}
+      <Link href={`/leads/${lead.id}`} className="absolute inset-0 rounded-2xl" aria-label={`Abrir ${titulo}`} />
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="truncate font-medium">{titulo}</p>
+          {destaque && <span className="shrink-0 text-xs font-medium text-alerta">{destaque}</span>}
         </div>
-        {destaque && <Selo tom="alerta">{destaque}</Selo>}
+        <p className="mt-0.5 truncate text-sm text-suave">{detalhe}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Selo tom={lead.status === "FECHADO" ? "ok" : lead.status === "PERDIDO" ? "neutro" : "marca"}>
+            {ROTULO_STATUS[lead.status] ?? lead.status}
+          </Selo>
+          {lead.anuncio ? (
+            <Selo>{lead.anuncio}</Selo>
+          ) : (
+            lead.atribuicao !== "EXATA" && <Selo>origem {ROTULO_ATRIBUICAO[lead.atribuicao]?.toLowerCase() ?? "?"}</Selo>
+          )}
+          {mostrarValor && lead.valorVenda != null && <Selo tom="ok">{moeda(lead.valorVenda)}</Selo>}
+        </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Selo tom={lead.status === "FECHADO" ? "ok" : "neutro"}>
-          {ROTULO_STATUS[lead.status] ?? lead.status}
-        </Selo>
-        <Selo tom={lead.atribuicao === "EXATA" ? "marca" : "neutro"}>
-          {ROTULO_ATRIBUICAO[lead.atribuicao] ?? lead.atribuicao}
-        </Selo>
-        {lead.anuncio && <Selo>{lead.anuncio}</Selo>}
-        {mostrarValor && lead.valorVenda != null && <Selo tom="ok">{moeda(lead.valorVenda)}</Selo>}
-      </div>
-
-      <div className="mt-4 flex gap-2">
+      <div className="relative z-10 flex shrink-0 gap-2">
         {/* Sem telefone não há conversa para abrir: o lead veio da confirmação
             em lote, onde o cliente não precisa digitar nada. */}
         {lead.telefone && (
@@ -104,16 +112,17 @@ export function CartaoLead({
             href={linkWhatsapp(lead.telefone)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 rounded-xl bg-marca px-3 py-2.5 text-center text-sm font-medium text-sobre-marca"
+            className="flex flex-1 items-center justify-center whitespace-nowrap rounded-xl bg-marca px-3 py-2 text-sm font-medium text-sobre-marca sm:flex-none sm:px-3.5"
           >
-            Abrir conversa
+            WhatsApp
           </a>
         )}
-        <form action={acaoRegistrarContato} className="flex-1">
+        <form action={acaoRegistrarContato} className="flex-1 sm:flex-none">
           <input type="hidden" name="leadId" value={lead.id} />
           <button
             type="submit"
-            className="w-full rounded-xl border border-borda px-3 py-2.5 text-sm font-medium"
+            title="Marca que você falou com o lead agora: sai da fila de sem resposta"
+            className="w-full whitespace-nowrap rounded-xl border border-borda bg-superficie px-3 py-2 text-sm sm:px-3.5"
           >
             Registrei contato
           </button>
@@ -146,7 +155,7 @@ export function Secao({
         {titulo}
         {contagem != null && <span className="text-xs font-normal">{contagem}</span>}
       </h2>
-      <div className="flex flex-col gap-3">{children}</div>
+      <div className="flex flex-col gap-2">{children}</div>
     </section>
   );
 }

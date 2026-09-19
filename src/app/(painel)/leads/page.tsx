@@ -66,7 +66,7 @@ export default async function PaginaLeads({ searchParams }: PageProps<"/leads">)
         </p>
       )}
 
-      <div className="mt-4 flex flex-col gap-3">
+      <div className="mt-4 flex flex-col gap-2">
         {leads.length === 0 ? (
           <Vazio>Nenhum lead com esses filtros.</Vazio>
         ) : (

@@ -18,9 +18,9 @@ export function NovoProspect({ origens }: { origens: string[] }) {
       <button
         type="button"
         onClick={() => setAberto(true)}
-        className="mt-4 w-full rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
+        className="mt-4 w-full rounded-xl border border-dashed border-borda px-4 py-2.5 text-left text-sm text-suave hover:border-marca hover:text-texto"
       >
-        Novo prospect
+        + Novo prospect
       </button>
     );
   }

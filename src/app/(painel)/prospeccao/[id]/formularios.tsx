@@ -1,6 +1,6 @@
 "use client";
 
-import { Formulario } from "@/app/formulario";
+import { Formulario, useLimparAoConcluir } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import {
   acaoExcluirProspect,
@@ -52,6 +52,7 @@ export function RegistrarContato({
   tipos: { valor: string; rotulo: string }[];
 }) {
   const [estado, registrar, registrando] = useActionState(acaoRegistrarInteracao, vazio);
+  const chaveRegistro = useLimparAoConcluir(estado);
   const [proximo, setProximo] = useState(daquiA(3));
   const [etapa, setEtapa] = useState(etapaAtual);
   const [diaReuniao, setDiaReuniao] = useState(daquiA(2));
@@ -66,7 +67,7 @@ export function RegistrarContato({
   return (
     <Formulario
       acao={registrar}
-      key={estado.ok ? Date.now() : "registro"}
+      key={chaveRegistro}
       className="mt-5 flex flex-col gap-3 rounded-2xl border border-borda bg-superficie p-4"
     >
       <input type="hidden" name="clienteId" value={clienteId} />
