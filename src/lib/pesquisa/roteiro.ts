@@ -41,7 +41,8 @@ PARÂMETROS DESTA RODADA (troque a cada vez):
 PASSO 1 — Buscar no Google Maps
 Abra no Chrome: https://www.google.com/maps/search/[nicho]+em+[cidade]
 Para cada resultado, até a quantidade, abra a ficha e anote: nome, categoria, telefone, site, endereço, nota (estrelas), número de avaliações e o link da ficha.
-Pule: redes e franquias grandes, serviços públicos (UBS, posto de saúde, hospital público) e quem estiver "fechado permanentemente".
+Pule: redes e franquias grandes, serviços públicos (UBS, posto de saúde, hospital público), quem estiver "fechado permanentemente" e quem tiver endereço FORA da cidade pedida (o Maps mistura cidades vizinhas — confira o endereço).
+Nome: use o nome limpo da empresa ou do profissional (ex.: "Larissa Canzian"). Se a ficha tiver o nome recheado de palavras-chave ("Nutricionista Fulana: nutrição infantil, autismo..."), mande só o nome e ponha o resto em "categoria".
 
 PASSO 2 — Olhar o site (quando houver)
 Abra o site e veja: tem botão de WhatsApp? Tem formulário? Qual o @ do Instagram (link no rodapé)? É uma página de links (Linktree) em vez de site?
@@ -60,10 +61,14 @@ PASSO 4 — Enviar para a plataforma
 Monte um JSON neste formato (até 50 empresas por envio):
 ${exemplo}
 
-Salve como prospects.json e envie com:
-curl -X POST ${p.url}/api/prospects/importar -H "Authorization: Bearer ${p.chave}" -H "Content-Type: application/json" --data @prospects.json
+Envie pelo Chrome (a conta já está logada):
+abra ${p.url}/prospeccao → "Buscar prospects automaticamente" → aba "Colar lista" → preencha nicho e cidade → cole o JSON inteiro no campo da lista → "Analisar lista".
+(Alternativa, só se o seu ambiente permitir comandos de rede: curl -X POST ${p.url}/api/prospects/importar -H "Authorization: Bearer ${p.chave}" -H "Content-Type: application/json" --data @prospects.json)
 
-Se não conseguir rodar comandos: abra ${p.url}/prospeccao no Chrome → "Buscar prospects automaticamente" → aba "Colar lista", preencha nicho e cidade e cole o JSON inteiro no campo da lista → "Analisar lista".
+No fim, me mostre uma tabela curta: nota, empresa e gancho principal de cada uma.
 
-No fim, me diga quantas empresas foram enviadas e o link "acompanhar" da resposta.`;
+ECONOMIA (para não gastar o limite do plano à toa):
+- Não tire prints nem descreva as páginas: só anote os dados pedidos.
+- No site, olhe só a página inicial; não navegue pelo site inteiro.
+- Pare na quantidade pedida. Se um resultado não servir, pule sem explicar.`;
 }
