@@ -140,7 +140,11 @@
     var candidatos = document.querySelectorAll("input" + (tipo ? "[type='" + tipo + "']" : ""));
     for (var i = 0; i < candidatos.length; i++) {
       var c = candidatos[i];
-      var pistas = ((c.name || "") + " " + (c.id || "") + " " + (c.placeholder || "")).toLowerCase();
+      var rotulo = c.labels && c.labels.length ? c.labels[0].textContent : "";
+      var pistas = (
+        (c.name || "") + " " + (c.id || "") + " " + (c.placeholder || "") + " " +
+        (c.getAttribute("aria-label") || "") + " " + rotulo
+      ).toLowerCase();
       if (padrao.test(pistas) && c.value) return limpar(c.value);
     }
     return null;
@@ -285,12 +289,23 @@
    * própria página abre o WhatsApp. Não há link para tocar, então o registro
    * acontece no envio do formulário — com o que ela digitou.
    *
-   * Só conta formulário que pede telefone (ou marcado com data-jl-form), para
-   * não registrar busca, newsletter ou login como contato.
+   * Conta formulário de contato: o que pede telefone, o marcado com
+   * data-jl-form, ou o que tem ao menos dois campos para preencher. Busca,
+   * login e newsletter de um campo só ficam de fora.
    */
   var CAMPO_TELEFONE =
     'input[type="tel"], [data-jl-telefone], input[name*="tel" i], input[name*="whats" i], ' +
     'input[name*="fone" i], input[name*="phone" i], input[name*="celular" i], input[placeholder*="whats" i]';
+
+  function ehFormularioDeContato(form) {
+    if (form.hasAttribute("data-jl-form")) return true;
+    if (form.querySelector('input[type="password"], input[type="search"]')) return false;
+    if (form.querySelector(CAMPO_TELEFONE)) return true;
+    var campos = form.querySelectorAll(
+      'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]), select, textarea',
+    );
+    return campos.length >= 2;
+  }
 
   function interesseDoFormulario(form) {
     var escolhido = form.querySelector("select");
@@ -311,7 +326,7 @@
     function (evento) {
       var form = evento.target;
       if (!form || form.tagName !== "FORM" || form.hasAttribute("data-jl-ignorar")) return;
-      if (!form.hasAttribute("data-jl-form") && !form.querySelector(CAMPO_TELEFONE)) return;
+      if (!ehFormularioDeContato(form)) return;
       if (jaRegistrado) return;
       jaRegistrado = true;
       var botao = evento.submitter || null;
@@ -353,7 +368,8 @@
   function aoAbrirWhatsapp() {
     if (jaRegistrado) return;
     jaRegistrado = true;
-    dados.interesse = interesseDoCampo() || dados.interesse;
+    var form = document.querySelector("form");
+    dados.interesse = interesseDoCampo() || (form && interesseDoFormulario(form)) || dados.interesse;
     dados.nomeVisitante = nomeDoVisitante();
     dados.telefoneVisitante = telefoneDoVisitante();
     registrar();
@@ -393,6 +409,8 @@
     },
     codigoNovo: codigoNovo,
     mensagem: mensagem,
+    // Para página que monta o próprio link: window.jlAds.comCodigo(url).
+    comCodigo: comCodigo,
     link: function () {
       return montarLink(null);
     },
