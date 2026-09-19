@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { normalizarContaAnuncios } from "@/lib/telefone";
 import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
 import { chaveValida, cifrar } from "@/lib/cripto";
-import { sincronizarGastos } from "@/lib/meta/marketing";
+import { sincronizarGastos, testarToken } from "@/lib/meta/marketing";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
 
@@ -128,8 +128,6 @@ const Credenciais = z.object({
   clienteId: z.string().min(1),
   pixelId: z.string().max(64).optional(),
   capiToken: z.string().max(500).optional(),
-  marketingToken: z.string().max(500).optional(),
-  contaAnunciosId: z.string().max(64).optional(),
 });
 
 export async function acaoSalvarCredenciais(
@@ -142,8 +140,6 @@ export async function acaoSalvarCredenciais(
     clienteId: String(formData.get("clienteId") ?? ""),
     pixelId: String(formData.get("pixelId") ?? "").trim(),
     capiToken: String(formData.get("capiToken") ?? "").trim(),
-    marketingToken: String(formData.get("marketingToken") ?? "").trim(),
-    contaAnunciosId: String(formData.get("contaAnunciosId") ?? "").trim(),
   });
   if (!dados.success) return { erro: "Dados inválidos." };
   if (!(await clienteDaAgencia(dados.data.clienteId, sessao.agenciaId))) {
@@ -152,7 +148,7 @@ export async function acaoSalvarCredenciais(
 
   // Sem a chave de criptografia o token não pode ser guardado: avisa em vez
   // de derrubar a tela.
-  if ((dados.data.capiToken || dados.data.marketingToken) && !chaveValida()) {
+  if (dados.data.capiToken && !chaveValida()) {
     return {
       erro: "CHAVE_CRIPTOGRAFIA não está configurada ou está com valor errado na Vercel. Nada foi salvo.",
     };
@@ -163,10 +159,8 @@ export async function acaoSalvarCredenciais(
     where: { id: dados.data.clienteId },
     data: {
       pixelId: dados.data.pixelId || undefined,
-      // Tokens entram no banco já cifrados. O pixel e a conta não são segredo.
+      // Token entra no banco já cifrado. O pixel não é segredo.
       capiToken: dados.data.capiToken ? cifrar(dados.data.capiToken) : undefined,
-      marketingToken: dados.data.marketingToken ? cifrar(dados.data.marketingToken) : undefined,
-      contaAnunciosId: normalizarContaAnuncios(dados.data.contaAnunciosId) ?? undefined,
     },
   });
 
@@ -192,10 +186,85 @@ export async function acaoSincronizarMeta(
   }
   revalidatePath("/anuncios");
   revalidatePath("/relatorios");
+  const periodo = `de ${r.de.split("-").reverse().join("/")} a ${r.ate.split("-").reverse().join("/")}`;
+  const contas = r.contas === 1 ? "1 conta" : `${r.contas} contas`;
+  const falhou = r.falhas.length
+    ? ` Não deu para ler ${r.falhas.map((f) => f.conta).join(", ")}: confira se estão atribuídas ao usuário do sistema.`
+    : "";
   return {
     ok:
-      r.gravados === 0
-        ? "Conectou no Meta, mas não há gasto nos últimos 90 dias nesta conta."
-        : `Pronto: ${r.gravados} registros de anúncio por dia, de ${r.de.split("-").reverse().join("/")} a ${r.ate.split("-").reverse().join("/")}.`,
+      (r.gravados === 0
+        ? `Conectou no Meta (${contas}), mas não há gasto nos últimos 90 dias.`
+        : `Pronto: ${r.gravados} registros de anúncio por dia (${contas}), ${periodo}.`) + falhou,
   };
+}
+
+/**
+ * Token do Meta da agência: um só, testado no Meta antes de guardar. Token
+ * errado não substitui o que está funcionando.
+ */
+export async function acaoSalvarTokenAgencia(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirAdmin();
+  const token = String(formData.get("token") ?? "").trim();
+  if (token.length < 20) return { erro: "Cole o token inteiro." };
+  if (!chaveValida()) {
+    return { erro: "CHAVE_CRIPTOGRAFIA não está configurada ou está com valor errado na Vercel. Nada foi salvo." };
+  }
+
+  const teste = await testarToken(token);
+  if ("erro" in teste) return { erro: `O Meta recusou o token: ${teste.erro}` };
+
+  await prisma.agencia.update({ where: { id: sessao.agenciaId }, data: { metaToken: cifrar(token) } });
+  revalidatePath("/ajustes");
+  return {
+    ok: `Conectado como ${teste.nome}. ${teste.contas} ${teste.contas === 1 ? "conta de anúncios visível" : "contas de anúncios visíveis"}.`,
+  };
+}
+
+/** Liga uma conta de anúncios ao cliente. Valor do formulário: "act_123|Nome" ou só o ID digitado. */
+export async function acaoVincularConta(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirAdmin();
+  const clienteId = String(formData.get("clienteId") ?? "");
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
+
+  const [escolhida, nomeEscolhido] = String(formData.get("conta") ?? "").split("|");
+  const contaId = normalizarContaAnuncios(escolhida || String(formData.get("contaDigitada") ?? ""));
+  if (!contaId) return { erro: "Escolha a conta na lista ou digite o número dela." };
+
+  // A mesma conta em dois clientes somaria o gasto duas vezes na visão geral.
+  const emUso = await prisma.contaAnuncios.findFirst({
+    where: { contaId, cliente: { agenciaId: sessao.agenciaId } },
+    select: { clienteId: true, cliente: { select: { nome: true } } },
+  });
+  if (emUso) {
+    return {
+      erro:
+        emUso.clienteId === clienteId
+          ? "Essa conta já está neste cliente."
+          : `Essa conta já está ligada a ${emUso.cliente.nome}.`,
+    };
+  }
+
+  await prisma.contaAnuncios.create({ data: { clienteId, contaId, nome: nomeEscolhido?.trim() || null } });
+  revalidatePath("/ajustes");
+  return { ok: "Conta ligada. Puxe os dados do Meta para trazer o histórico dela." };
+}
+
+export async function acaoDesvincularConta(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const id = String(formData.get("id") ?? "");
+  const conta = await prisma.contaAnuncios.findFirst({
+    where: { id, cliente: { agenciaId: sessao.agenciaId } },
+    select: { id: true },
+  });
+  if (!conta) return;
+  // O gasto já gravado fica: é histórico do cliente, e some sozinho do período.
+  await prisma.contaAnuncios.delete({ where: { id: conta.id } });
+  revalidatePath("/ajustes");
 }

@@ -106,7 +106,7 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
                 <Selo tom="alerta">cliente parou de confirmar</Selo>
               )}
               {l.roas != null && <Selo tom="ok">ROAS {l.roas.toFixed(2)}x</Selo>}
-              {!l.temCredenciaisMeta && <Selo tom="alerta">sem credenciais do Meta</Selo>}
+              {!l.temContaAnuncios && <Selo tom="alerta">sem conta de anúncios</Selo>}
               {l.semResposta === 0 && l.followUp === 0 && <Selo tom="ok">fila em dia</Selo>}
             </div>
 

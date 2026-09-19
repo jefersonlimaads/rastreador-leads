@@ -64,18 +64,67 @@ function dataISO(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) {
-  const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
-  if (!cliente) return { erro: "Cliente não encontrado" };
-  const token = decifrar(cliente.marketingToken);
-  if (!cliente.contaAnunciosId || !token) {
-    return { erro: "Cliente sem conta de anúncios ou token da API de Marketing" };
+/** "123" ou "act_123" → "act_123". */
+export function formatoConta(conta: string) {
+  return conta.startsWith("act_") ? conta : `act_${conta}`;
+}
+
+/**
+ * Token e contas de um cliente. O token próprio do cliente, se houver, vale
+ * mais que o da agência — é o caso raro da conta que não pode ser compartilhada
+ * com a BM da agência. O token decifrado nunca sai deste arquivo.
+ */
+async function credenciaisMeta(clienteId: string) {
+  const cliente = await prisma.cliente.findUnique({
+    where: { id: clienteId },
+    select: {
+      marketingToken: true,
+      agencia: { select: { metaToken: true } },
+      contas: { select: { contaId: true }, orderBy: { criadoEm: "asc" } },
+    },
+  });
+  if (!cliente) return null;
+  let token: string | null = null;
+  try {
+    token = decifrar(cliente.marketingToken) ?? decifrar(cliente.agencia.metaToken);
+  } catch {
+    token = null;
   }
+  return { token, contas: cliente.contas.map((c) => formatoConta(c.contaId)) };
+}
+
+export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) {
+  const cred = await credenciaisMeta(clienteId);
+  if (!cred) return { erro: "Cliente não encontrado" };
+  if (!cred.token) return { erro: "Meta não conectado: cadastre o token da agência em Ajustes" };
+  if (cred.contas.length === 0) return { erro: "Cliente sem conta de anúncios" };
 
   const ate = new Date();
   const de = new Date();
   de.setDate(de.getDate() - (dias - 1));
 
+  let gravados = 0;
+  const falhas: { conta: string; erro: string; detalhe?: string }[] = [];
+  for (const conta of cred.contas) {
+    const r = await sincronizarConta(clienteId, conta, cred.token, de, ate);
+    if ("erro" in r) falhas.push({ conta, ...r });
+    else gravados += r.gravados;
+  }
+
+  // Todas falharam: devolve o erro da primeira, que é o que a tela mostra.
+  if (falhas.length === cred.contas.length) {
+    return { erro: `${falhas[0].conta}: ${falhas[0].erro}`, detalhe: falhas[0].detalhe };
+  }
+  return { gravados, de: dataISO(de), ate: dataISO(ate), contas: cred.contas.length, falhas };
+}
+
+async function sincronizarConta(
+  clienteId: string,
+  conta: string,
+  token: string,
+  de: Date,
+  ate: Date,
+): Promise<{ gravados: number } | { erro: string; detalhe?: string }> {
   const params = new URLSearchParams({
     level: "ad",
     fields: CAMPOS,
@@ -84,10 +133,6 @@ export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) 
     limit: "500",
     access_token: token,
   });
-
-  const conta = cliente.contaAnunciosId.startsWith("act_")
-    ? cliente.contaAnunciosId
-    : `act_${cliente.contaAnunciosId}`;
 
   let url: string | null = `https://graph.facebook.com/${VERSAO_API}/${conta}/insights?${params}`;
   let gravados = 0;
@@ -159,7 +204,7 @@ export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) 
     return { erro: "Falha ao falar com o Meta", detalhe: String(erro).slice(0, 300) };
   }
 
-  return { gravados, de: dataISO(de), ate: dataISO(ate) };
+  return { gravados };
 }
 
 /**
@@ -176,28 +221,17 @@ export async function alcancePorCampanha(
   ate: string,
 ): Promise<{ total: number | null; porCampanha: Map<string, { alcance: number; frequencia: number }> }> {
   const vazio = { total: null, porCampanha: new Map() };
-  const cliente = await prisma.cliente.findUnique({
-    where: { id: clienteId },
-    select: { contaAnunciosId: true, marketingToken: true },
-  });
-  let token: string | null = null;
-  try {
-    token = decifrar(cliente?.marketingToken);
-  } catch {
-    return vazio;
-  }
-  if (!cliente?.contaAnunciosId || !token) return vazio;
-  const conta = cliente.contaAnunciosId.startsWith("act_")
-    ? cliente.contaAnunciosId
-    : `act_${cliente.contaAnunciosId}`;
+  const cred = await credenciaisMeta(clienteId);
+  if (!cred?.token || cred.contas.length === 0) return vazio;
+  const token = cred.token;
 
-  const pedir = async (nivel: "campaign" | "account") => {
+  const pedir = async (conta: string, nivel: "campaign" | "account") => {
     const params = new URLSearchParams({
       level: nivel,
       fields: nivel === "campaign" ? "campaign_id,reach,frequency" : "reach",
       time_range: JSON.stringify({ since: de, until: ate }),
       limit: "200",
-      access_token: token!,
+      access_token: token,
     });
     const r = await fetch(`https://graph.facebook.com/${VERSAO_API}/${conta}/insights?${params}`, {
       next: { revalidate: 6 * 60 * 60 },
@@ -211,20 +245,100 @@ export async function alcancePorCampanha(
   };
 
   try {
-    const [campanhas, contaToda] = await Promise.all([pedir("campaign"), pedir("account")]);
     const porCampanha = new Map<string, { alcance: number; frequencia: number }>();
-    for (const c of campanhas) {
-      if (c.campaign_id) {
-        porCampanha.set(c.campaign_id, {
-          alcance: Number(c.reach ?? 0),
-          frequencia: Number(c.frequency ?? 0),
-        });
+    let total: number | null = null;
+    const respostas = await Promise.all(
+      cred.contas.map(async (conta) => ({
+        campanhas: await pedir(conta, "campaign"),
+        contaToda: await pedir(conta, "account"),
+      })),
+    );
+    for (const { campanhas, contaToda } of respostas) {
+      for (const c of campanhas) {
+        if (c.campaign_id) {
+          porCampanha.set(c.campaign_id, {
+            alcance: Number(c.reach ?? 0),
+            frequencia: Number(c.frequency ?? 0),
+          });
+        }
       }
+      if (contaToda[0]?.reach != null) total = Number(contaToda[0].reach);
     }
-    const total = contaToda[0]?.reach != null ? Number(contaToda[0].reach) : null;
-    return { total, porCampanha };
+    // Pessoas de contas diferentes se repetem: com mais de uma conta, o total
+    // único não existe pronto no Meta, e somar enganaria. Fica sem o número.
+    return { total: cred.contas.length === 1 ? total : null, porCampanha };
   } catch (erro) {
     console.error("[meta/alcance] falha", String(erro).slice(0, 200));
     return vazio;
+  }
+}
+
+export type ContaDisponivel = { contaId: string; nome: string; negocio: string | null; ativa: boolean };
+
+/**
+ * Contas de anúncios que o token da agência enxerga: as da própria BM e as
+ * compartilhadas pelos clientes (como parceira) e atribuídas ao usuário do
+ * sistema. É a lista de onde se escolhe a conta de cada cliente.
+ */
+export async function contasDisponiveis(
+  agenciaId: string,
+): Promise<{ contas: ContaDisponivel[]; erro?: string }> {
+  const agencia = await prisma.agencia.findUnique({ where: { id: agenciaId }, select: { metaToken: true } });
+  let token: string | null = null;
+  try {
+    token = decifrar(agencia?.metaToken);
+  } catch {
+    return { contas: [], erro: "Token da agência ilegível: cadastre de novo" };
+  }
+  if (!token) return { contas: [], erro: "Meta não conectado" };
+  return listarContas(token);
+}
+
+async function listarContas(token: string): Promise<{ contas: ContaDisponivel[]; erro?: string }> {
+  const params = new URLSearchParams({
+    fields: "name,account_id,account_status,business{name}",
+    limit: "200",
+    access_token: token,
+  });
+  try {
+    const r = await fetch(`https://graph.facebook.com/${VERSAO_API}/me/adaccounts?${params}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8000),
+    });
+    const json = (await r.json()) as {
+      data?: { name: string; account_id: string; account_status: number; business?: { name: string } }[];
+      error?: { message: string };
+    };
+    if (!r.ok || !json.data) return { contas: [], erro: json.error?.message ?? `Meta respondeu ${r.status}` };
+    return {
+      contas: json.data
+        .map((c) => ({
+          contaId: `act_${c.account_id}`,
+          nome: c.name,
+          negocio: c.business?.name ?? null,
+          // 1 = ativa; os outros estados são desativada, em análise, com pendência.
+          ativa: c.account_status === 1,
+        }))
+        .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")),
+    };
+  } catch (erro) {
+    return { contas: [], erro: `Falha ao falar com o Meta: ${String(erro).slice(0, 120)}` };
+  }
+}
+
+/** Confere um token antes de guardar: quem é e quantas contas enxerga. */
+export async function testarToken(token: string) {
+  try {
+    const r = await fetch(
+      `https://graph.facebook.com/${VERSAO_API}/me?fields=name&access_token=${encodeURIComponent(token)}`,
+      { cache: "no-store", signal: AbortSignal.timeout(8000) },
+    );
+    const json = (await r.json()) as { name?: string; error?: { message: string } };
+    if (!r.ok) return { erro: json.error?.message ?? `Meta respondeu ${r.status}` };
+    const { contas, erro } = await listarContas(token);
+    if (erro) return { erro };
+    return { nome: json.name ?? "usuário do sistema", contas: contas.length };
+  } catch (erro) {
+    return { erro: `Falha ao falar com o Meta: ${String(erro).slice(0, 120)}` };
   }
 }

@@ -4,6 +4,9 @@ import { formatarTelefone } from "@/lib/telefone";
 import { Selo } from "../componentes";
 import { PARAMETROS_URL_META, ROTULO_FUNIL } from "@/lib/regras";
 import { BlocoCopiavel } from "./copiar";
+import { ConexaoMeta, ContasDoCliente, type ContaListada } from "./meta";
+import { contasDisponiveis } from "@/lib/meta/marketing";
+import { mascarar } from "@/lib/cripto";
 import { FormulariosAjustes } from "./formularios";
 
 // "Puxar dados do Meta agora" busca 90 dias e pode passar de um minuto.
@@ -18,12 +21,20 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
     sessao.papel === "ADMIN"
       ? await prisma.cliente.findMany({
           where: { agenciaId: sessao.agenciaId },
-          include: { numeros: true, _count: { select: { leads: true, cliques: true } } },
+          include: {
+            numeros: true,
+            contas: { orderBy: { criadoEm: "asc" } },
+            _count: { select: { leads: true, cliques: true } },
+          },
           orderBy: { nome: "asc" },
         })
       : await prisma.cliente.findMany({
           where: { id: sessao.clienteId ?? "" },
-          include: { numeros: true, _count: { select: { leads: true, cliques: true } } },
+          include: {
+            numeros: true,
+            contas: { orderBy: { criadoEm: "asc" } },
+            _count: { select: { leads: true, cliques: true } },
+          },
         });
 
   const usuarios = await prisma.usuario.findMany({
@@ -36,6 +47,25 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
   });
 
   const emFoco = clientes.find((c) => c.id === clienteId) ?? clientes[0];
+
+  // Conexão da agência com o Meta e as contas que ela enxerga (só administrador).
+  const ehAdmin = sessao.papel === "ADMIN";
+  const agencia = ehAdmin
+    ? await prisma.agencia.findUnique({ where: { id: sessao.agenciaId }, select: { metaToken: true } })
+    : null;
+  let mascara: string | null = null;
+  try {
+    mascara = mascarar(agencia?.metaToken);
+  } catch {
+    mascara = "(ilegível)";
+  }
+  const lista = ehAdmin && agencia?.metaToken ? await contasDisponiveis(sessao.agenciaId) : { contas: [] };
+  const donoDaConta = new Map<string, string>();
+  for (const c of clientes) for (const conta of c.contas) donoDaConta.set(conta.contaId, c.nome);
+  const disponiveis: ContaListada[] = lista.contas.map((c) => ({
+    ...c,
+    usadaPor: donoDaConta.get(c.contaId) ?? null,
+  }));
   const appUrl = process.env.APP_URL ?? "https://painel.jlads.com.br";
 
   return (
@@ -61,10 +91,14 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
                 <Selo>{c._count.leads} leads</Selo>
                 <Selo>{c._count.cliques} cliques</Selo>
                 <Selo tom={c.pixelId && c.capiToken ? "ok" : "alerta"}>
-                  {c.pixelId && c.capiToken ? "Conversões configurada" : "Sem credenciais do Meta"}
+                  {c.pixelId && c.capiToken ? "API de Conversões ligada" : "API de Conversões desligada"}
                 </Selo>
-                <Selo tom={c.contaAnunciosId ? "ok" : "alerta"}>
-                  {c.contaAnunciosId ?? "sem conta de anúncios"}
+                <Selo tom={c.contas.length ? "ok" : "alerta"}>
+                  {c.contas.length === 0
+                    ? "sem conta de anúncios"
+                    : c.contas.length === 1
+                      ? c.contas[0].contaId
+                      : `${c.contas.length} contas de anúncios`}
                 </Selo>
                 <Selo>{ROTULO_FUNIL[c.funil]}</Selo>
               </div>
@@ -93,6 +127,24 @@ export default async function PaginaAjustes({ searchParams }: PageProps<"/ajuste
           ))}
         </div>
       </section>
+
+      {ehAdmin && (
+        <ConexaoMeta
+          mascara={mascara}
+          contasVisiveis={lista.contas.length}
+          erroLista={agencia?.metaToken ? (lista.erro ?? null) : null}
+        />
+      )}
+
+      {ehAdmin && emFoco && (
+        <ContasDoCliente
+          key={emFoco.id}
+          clienteId={emFoco.id}
+          nomeCliente={emFoco.nome}
+          ligadas={emFoco.contas.map((c) => ({ id: c.id, contaId: c.contaId, nome: c.nome }))}
+          disponiveis={disponiveis}
+        />
+      )}
 
       <FormulariosAjustes
         papel={sessao.papel}

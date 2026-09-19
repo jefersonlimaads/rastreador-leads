@@ -173,7 +173,8 @@ const NovoClienteAtivo = z.object({
   diaVencimento: z.string().optional(),
   inicioContrato: z.string().optional(),
   funil: z.enum(["SIMPLES", "COMPLETO"]),
-  contaAnunciosId: z.string().max(40).optional(),
+  conta: z.string().max(200).optional(),
+  contaDigitada: z.string().max(60).optional(),
 });
 
 /**
@@ -205,6 +206,18 @@ export async function acaoNovoClienteAtivo(
   const atendimento = d.numeroAtendimento ? normalizarTelefone(d.numeroAtendimento) : null;
   if (d.numeroAtendimento && !atendimento) return { erro: "WhatsApp de atendimento inválido." };
 
+  // Conta escolhida na lista ("act_123|Nome") ou digitada.
+  const [escolhida, nomeConta] = (d.conta ?? "").split("|");
+  const contaId = normalizarContaAnuncios(escolhida || d.contaDigitada);
+  if (d.contaDigitada?.trim() && !escolhida && !contaId) return { erro: "Número da conta de anúncios inválido." };
+  if (contaId) {
+    const emUso = await prisma.contaAnuncios.findFirst({
+      where: { contaId, cliente: { agenciaId: sessao.agenciaId } },
+      select: { cliente: { select: { nome: true } } },
+    });
+    if (emUso) return { erro: `Essa conta de anúncios já está ligada a ${emUso.cliente.nome}.` };
+  }
+
   const cliente = await prisma.cliente.create({
     data: {
       agenciaId: sessao.agenciaId,
@@ -219,7 +232,7 @@ export async function acaoNovoClienteAtivo(
       diaVencimento: dia,
       // Data pura: guardada em UTC para o dia não andar para trás.
       inicioContrato: d.inicioContrato ? new Date(d.inicioContrato + "T00:00:00Z") : null,
-      contaAnunciosId: normalizarContaAnuncios(d.contaAnunciosId),
+      ...(contaId ? { contas: { create: { contaId, nome: nomeConta?.trim() || null } } } : {}),
       ...(atendimento ? { numeros: { create: { numero: atendimento, rotulo: "Atendimento" } } } : {}),
     },
   });

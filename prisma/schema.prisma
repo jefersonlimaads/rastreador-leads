@@ -133,6 +133,13 @@ model Agencia {
   ativa    Boolean  @default(true)
   criadoEm DateTime @default(now())
 
+  /*
+   * Token do usuário do sistema da BM da agência, cifrado. Um só para todos
+   * os clientes: cada cliente compartilha a conta de anúncios com a BM da
+   * agência, e este token enxerga todas.
+   */
+  metaToken String?
+
   clientes Cliente[]
   usuarios Usuario[]
   tarefas  Tarefa[]
@@ -144,7 +151,7 @@ model Cliente {
   // um padrão jogaria em silêncio o dado de uma agência dentro de outra.
   agenciaId       String
   nome            String
-  contaAnunciosId String?
+  contaAnunciosId String? // legado: as contas agora ficam em ContaAnuncios
   fuso            String    @default("America/Sao_Paulo")
   ativo           Boolean   @default(true)
   funil           TipoFunil @default(COMPLETO)
@@ -173,7 +180,8 @@ model Cliente {
   motivoPerda    String?
   reuniaoEm      DateTime? // data e hora da reunião agendada
 
-  // Credenciais do Meta por cliente. Token de usuário do sistema da BM da JL Ads.
+  // Credenciais do Meta por cliente. marketingToken é opcional: sem ele, vale
+  // o token da agência (Agencia.metaToken).
   pixelId        String?
   capiToken      String?
   marketingToken String?
@@ -196,6 +204,7 @@ model Cliente {
   propostas  Proposta[]
   interacoes Interacao[]
   relatorios Relatorio[]
+  contas     ContaAnuncios[]
 
   agencia Agencia @relation(fields: [agenciaId], references: [id])
 
@@ -536,4 +545,22 @@ model Relatorio {
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
   @@index([clienteId, criadoEm])
+}
+
+/*
+ * Contas de anúncios do Meta de um cliente. Pode ser mais de uma (campanhas
+ * de conversão numa, de alcance em outra). contaId no formato "act_123".
+ * Substitui Cliente.contaAnunciosId, que fica só por compatibilidade.
+ */
+model ContaAnuncios {
+  id        String   @id @default(cuid())
+  clienteId String
+  contaId   String
+  nome      String?
+  criadoEm  DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, contaId])
+  @@index([contaId])
 }

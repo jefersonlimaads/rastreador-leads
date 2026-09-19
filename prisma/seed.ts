@@ -35,9 +35,14 @@ async function main() {
       id: "cliente-demo",
       agenciaId: agencia.id,
       nome: "Cliente Demo",
-      contaAnunciosId: "act_000000000000000",
       fuso: "America/Sao_Paulo",
     },
+  });
+
+  await prisma.contaAnuncios.upsert({
+    where: { clienteId_contaId: { clienteId: cliente.id, contaId: "act_000000000000000" } },
+    update: {},
+    create: { clienteId: cliente.id, contaId: "act_000000000000000", nome: "Conta de teste" },
   });
 
   await prisma.numeroWhatsapp.deleteMany({ where: { clienteId: cliente.id } });

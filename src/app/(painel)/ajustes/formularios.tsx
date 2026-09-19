@@ -66,7 +66,7 @@ export function FormulariosAjustes({
       {papel === "ADMIN" && clienteEmFoco && (
         <section className="mt-6">
           <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
-            Credenciais do Meta — {clienteEmFoco.nome}
+            API de Conversões — {clienteEmFoco.nome}
           </h2>
           <Formulario
             key={chaveCred}
@@ -81,19 +81,13 @@ export function FormulariosAjustes({
               placeholder="Token da API de Conversões"
               className={campo}
             />
-            <input
-              name="marketingToken"
-              type="password"
-              placeholder="Token da API de Marketing"
-              className={campo}
-            />
-            <input name="contaAnunciosId" placeholder="ID da conta de anúncios (só o número já basta)" className={campo} />
             <p className="text-xs text-suave">
-              Campo em branco mantém o valor atual. Use token de usuário do sistema da BM da JL Ads.
+              Para a plataforma avisar o Meta de cada lead e venda pelo servidor. Pixel e token vêm
+              do Gerenciador de Eventos do cliente. Campo em branco mantém o valor atual.
             </p>
             <Aviso estado={estadoCred} />
             <button type="submit" disabled={salvandoCred} className={botao}>
-              {salvandoCred ? "Salvando..." : "Salvar credenciais"}
+              {salvandoCred ? "Salvando..." : "Salvar API de Conversões"}
             </button>
           </Formulario>
           <Formulario
@@ -102,8 +96,8 @@ export function FormulariosAjustes({
           >
             <input type="hidden" name="clienteId" value={clienteEmFoco.id} />
             <p className="text-sm text-suave">
-              O gasto é atualizado sozinho todo dia de manhã. Depois de cadastrar o token, puxe
-              os últimos 90 dias agora para já ter histórico no relatório.
+              O gasto é atualizado sozinho todo dia de manhã. Depois de ligar uma conta, puxe os
+              últimos 90 dias agora para já ter histórico no relatório.
             </p>
             <Aviso estado={estadoSync} />
             <button

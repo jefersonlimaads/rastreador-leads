@@ -4,6 +4,7 @@ import { Formulario } from "@/app/formulario";
 import { useActionState } from "react";
 import { acaoNovoClienteAtivo, type EstadoNegocio } from "../acoes";
 import { ROTULO_FUNIL } from "@/lib/regras";
+import type { ContaDisponivel } from "@/lib/meta/marketing";
 
 const vazio: EstadoNegocio = {};
 const campo =
@@ -32,7 +33,7 @@ function Campo({ rotulo, ajuda, children }: { rotulo: string; ajuda?: string; ch
  * Só o nome é obrigatório: dá para cadastrar a carteira inteira rápido e
  * completar depois. O que falta aparece como pendência no cadastro do cliente.
  */
-export function FormularioNovoCliente() {
+export function FormularioNovoCliente({ contas }: { contas: ContaDisponivel[] }) {
   const [estado, criar, criando] = useActionState(acaoNovoClienteAtivo, vazio);
 
   return (
@@ -87,8 +88,26 @@ export function FormularioNovoCliente() {
       </Grupo>
 
       <Grupo titulo="Mídia (opcional)">
-        <Campo rotulo="Conta de anúncios do Meta" ajuda="Os tokens se cadastram depois, dentro do cliente, em Ajustes.">
-          <input name="contaAnunciosId" placeholder="ID da conta de anúncios (só o número já basta)" className={campo} />
+        <Campo
+          rotulo="Conta de anúncios do Meta"
+          ajuda="A lista mostra as contas compartilhadas com a BM da agência. Outras contas se ligam depois, em Ajustes."
+        >
+          {contas.length > 0 && (
+            <select name="conta" defaultValue="" className={campo}>
+              <option value="">Nenhuma por enquanto</option>
+              {contas.map((c) => (
+                <option key={c.contaId} value={`${c.contaId}|${c.nome}`}>
+                  {c.nome}
+                  {c.negocio ? ` — ${c.negocio}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+          <input
+            name="contaDigitada"
+            placeholder={contas.length > 0 ? "ou digite o número da conta" : "Número da conta de anúncios"}
+            className={campo}
+          />
         </Campo>
       </Grupo>
 

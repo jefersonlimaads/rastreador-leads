@@ -28,7 +28,8 @@ export type LinhaCliente = {
   /** Muito clique sem resposta = ninguém está confirmando do outro lado. */
   registroAbandonado: boolean;
   numero: string | null;
-  temCredenciaisMeta: boolean;
+  /** Tem conta de anúncios ligada: sem ela, não há gasto e o CPL fica vazio. */
+  temContaAnuncios: boolean;
   gastoSincronizadoEm: Date | null;
 };
 
@@ -36,7 +37,7 @@ export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaClie
   const clientes = await prisma.cliente.findMany({
     where: { agenciaId, ativo: true, ciclo: { in: ["ATIVO", "PAUSADO"] } },
     orderBy: { nome: "asc" },
-    include: { numeros: { where: { ativo: true }, take: 1 } },
+    include: { numeros: { where: { ativo: true }, take: 1 }, _count: { select: { contas: true } } },
   });
   if (clientes.length === 0) return [];
 
@@ -146,7 +147,7 @@ export async function visaoGeral(agenciaId: string, dias = 7): Promise<LinhaClie
       pendentesConfirmacao: aguardando + abertos,
       registroAbandonado: recentes >= 5 && respondidos / recentes < 0.3,
       numero: cliente.numeros[0]?.numero ?? null,
-      temCredenciaisMeta: Boolean(cliente.pixelId && cliente.capiToken && cliente.marketingToken),
+      temContaAnuncios: cliente._count.contas > 0,
       gastoSincronizadoEm:
         ultimasSyncs.find((s) => s.clienteId === cliente.id)?._max.atualizadoEm ?? null,
     };
