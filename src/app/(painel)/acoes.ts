@@ -16,6 +16,7 @@ import { cadastrarLead, sugerirClique } from "@/lib/atribuicao";
 import { normalizarTelefone } from "@/lib/telefone";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
 import { garantirToken } from "@/lib/confirmacao";
+import { OPCOES_COOKIE_CLIENTE } from "@/lib/cookies";
 import { ETAPAS } from "@/lib/regras";
 import type { StatusLead } from "@prisma/client";
 
@@ -277,12 +278,7 @@ export async function acaoTrocarCliente(formData: FormData) {
   });
   if (!cliente) return;
 
-  (await cookies()).set(COOKIE_CLIENTE, cliente.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 90,
-  });
+  (await cookies()).set(COOKIE_CLIENTE, cliente.id, OPCOES_COOKIE_CLIENTE);
 
   revalidatePath("/", "layout");
 }
@@ -305,4 +301,38 @@ export async function acaoAdicionarNota(formData: FormData) {
   });
 
   revalidarPainel(lead.id);
+}
+
+/**
+ * Tira um lead de todos os números: teste, cadastro duplicado ou errado. Não
+ * apaga — fica guardado para auditoria —, mas some das listas, do pipeline e
+ * dos relatórios, e o que estava esperando para ir ao Meta não vai mais.
+ * Diferente de "Perdido", que é um contato real que não fechou.
+ */
+export async function acaoArquivarLead(formData: FormData) {
+  const sessao = await exigirSessao();
+  if (!podeVerDinheiro(sessao.papel)) return;
+  const leadId = String(formData.get("leadId") ?? "");
+  const motivo = String(formData.get("motivo") ?? "").trim().slice(0, 200) || "Excluído da contagem";
+
+  const lead = await leadPermitido(leadId, sessao);
+  await prisma.$transaction([
+    prisma.lead.update({ where: { id: lead.id }, data: { arquivadoEm: new Date() } }),
+    prisma.evento.create({
+      data: {
+        clienteId: lead.clienteId,
+        leadId: lead.id,
+        tipo: "NOTA",
+        descricao: `Excluído da contagem: ${motivo}`,
+        usuarioId: sessao.usuarioId,
+      },
+    }),
+    prisma.envioCapi.updateMany({
+      where: { leadId: lead.id, enviadoEm: null },
+      data: { tentativas: 5, resposta: "Lead excluído da contagem: não enviado" },
+    }),
+  ]);
+
+  revalidarPainel(lead.id);
+  redirect("/leads");
 }

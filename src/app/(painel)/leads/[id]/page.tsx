@@ -7,6 +7,7 @@ import { formatarDataHora } from "@/lib/datas";
 import { etapasVisiveis } from "@/lib/regras";
 import { Selo, moeda, tempoRelativo } from "../../componentes";
 import { PainelStatus } from "./status";
+import { ArquivarLead } from "./arquivar";
 import { acaoAdicionarNota, acaoRegistrarContato } from "../../acoes";
 
 export default async function PaginaLead({ params, searchParams }: PageProps<"/leads/[id]">) {
@@ -154,6 +155,12 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
             ))}
           </ul>
         </section>
+      )}
+
+      {mostrarDinheiro && (
+        <div className="mt-8">
+          <ArquivarLead leadId={lead.id} />
+        </div>
       )}
     </>
   );

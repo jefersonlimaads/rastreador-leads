@@ -43,6 +43,28 @@ export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
   // Fora da janela de 7 dias o Meta recusa a requisição inteira. Mandamos com a
   // hora atual e registramos o ajuste, em vez de perder o evento em silêncio.
   const forcado = quando < limite;
+
+  /*
+   * Lead cadastrado mais de 7 dias depois da mensagem é histórico (lançamento
+   * dos leads antigos de um cliente novo, por exemplo). Mandar com a hora de
+   * agora diria ao Meta que é um lead de hoje e bagunçaria a otimização da
+   * campanha. Fica registrado como não enviado, com o motivo.
+   */
+  if (tipo === "LEAD" && forcado) {
+    return prisma.envioCapi.upsert({
+      where: { eventId },
+      update: {},
+      create: {
+        clienteId: lead.clienteId,
+        leadId: lead.id,
+        eventId,
+        tipo,
+        payload: {},
+        tentativas: 5,
+        resposta: "Mensagem com mais de 7 dias: lead histórico, não enviado ao Meta",
+      },
+    });
+  }
   const eventTime = forcado ? agora : quando;
 
   /*
@@ -157,8 +179,11 @@ async function enviarAoMeta(
 
 /** Reenvia o que falhou. Chamado pela rotina diária. */
 export async function reenviarFalhas(clienteId: string, limite = 50) {
+  // Evento parado há mais de 6 dias já passou da janela do Meta: reenviar só
+  // geraria recusa, ou um lead velho contado como novo.
+  const recente = new Date(Date.now() - (JANELA_DIAS - 1) * 24 * 60 * 60 * 1000);
   const pendentes = await prisma.envioCapi.findMany({
-    where: { clienteId, enviadoEm: null, tentativas: { lt: 5 } },
+    where: { clienteId, enviadoEm: null, tentativas: { lt: 5 }, criadoEm: { gte: recente } },
     orderBy: { criadoEm: "asc" },
     take: limite,
     include: { cliente: true },

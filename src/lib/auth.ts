@@ -131,7 +131,8 @@ export async function exigirClienteDaAgencia(clienteId: string, sessao: Sessao) 
   return cliente;
 }
 
-export const COOKIE_CLIENTE = "jl_cliente";
+export { COOKIE_CLIENTE } from "./cookies";
+import { COOKIE_CLIENTE } from "./cookies";
 
 /**
  * Cliente cujos dados a sessão pode ver. Admin escolhe pelo seletor, que grava a
