@@ -4,7 +4,9 @@ import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
 import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
-import { Inteligencia, PorVenda } from "./inteligencia";
+import { Comparacao, Diario, Inteligencia, PorVenda } from "./inteligencia";
+import { diarioDoCliente } from "@/lib/diario";
+import { compararComACarteira } from "@/lib/benchmark";
 import { MesEAtendimento } from "./mes";
 import { ritmoDoMes } from "@/lib/metas";
 import { tempoDeResposta } from "@/lib/atendimento";
@@ -37,13 +39,16 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia, ritmo, atendimento] = await Promise.all([
-    metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
-    campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
-    inteligenciaDoCliente(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso), fuso),
-    ritmoDoMes(clienteId),
-    tempoDeResposta(clienteId, de, ate),
-  ]);
+  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia, ritmo, atendimento, diario, comparacao] =
+    await Promise.all([
+      metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
+      campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
+      inteligenciaDoCliente(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso), fuso),
+      ritmoDoMes(clienteId),
+      tempoDeResposta(clienteId, de, ate),
+      diarioDoCliente(clienteId, fuso),
+      compararComACarteira(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
+    ]);
 
   const ultimaSync = await prisma.gasto.findFirst({
     where: { clienteId },
@@ -116,7 +121,11 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         dias={inteligencia.dias}
       />
 
+      {comparacao && <Comparacao b={comparacao} />}
+
       {inteligencia.vendas && <PorVenda vendas={inteligencia.vendas} />}
+
+      <Diario mudancas={diario} />
 
       {doMeta.campanhas.length > 0 && (
         <section className="mt-5">

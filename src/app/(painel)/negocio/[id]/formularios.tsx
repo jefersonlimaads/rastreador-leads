@@ -31,6 +31,8 @@ export function FormularioComercial({
     feeMensal: number | null;
     diaVencimento: number | null;
     inicioContrato: string;
+    fimContrato: string;
+    custoMensal: number | null;
     documento: string;
     contatoNome: string;
     contatoEmail: string;
@@ -79,14 +81,38 @@ export function FormularioComercial({
         </label>
       </div>
 
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm text-suave">Início do contrato</span>
+          <input
+            name="inicioContrato"
+            type="date"
+            defaultValue={cliente.inicioContrato}
+            className={campo}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm text-suave">Fim do contrato</span>
+          <input name="fimContrato" type="date" defaultValue={cliente.fimContrato} className={campo} />
+          <span className="text-xs text-suave">
+            A tarefa de renovação abre sozinha 30 dias antes.
+          </span>
+        </label>
+      </div>
+
       <label className="flex flex-col gap-1.5">
-        <span className="text-sm text-suave">Início do contrato</span>
+        <span className="text-sm text-suave">Custo direto por mês</span>
         <input
-          name="inicioContrato"
-          type="date"
-          defaultValue={cliente.inicioContrato}
+          name="custoMensal"
+          inputMode="decimal"
+          defaultValue={cliente.custoMensal ?? ""}
+          placeholder="0,00"
           className={campo}
         />
+        <span className="text-xs text-suave">
+          Freelancer, edição, ferramenta: o que sai do seu bolso por esse cliente. É o que
+          transforma fee em margem.
+        </span>
       </label>
 
       <label className="flex flex-col gap-1.5">

@@ -7,6 +7,7 @@ import {
   CICLOS_EM_PROSPECCAO,
 } from "@/lib/financeiro";
 import { formatarDataPura } from "@/lib/datas";
+import { riscosDaCarteira } from "@/lib/risco";
 import { moeda, Selo, Vazio } from "../componentes";
 import { BotaoGerarFaturas, BotaoPagar } from "./botoes";
 
@@ -17,10 +18,12 @@ import { BotaoGerarFaturas, BotaoPagar } from "./botoes";
 export default async function PaginaNegocio() {
   const sessao = await exigirAdmin();
 
-  const [resumo, clientes] = await Promise.all([
+  const [resumo, clientes, riscos] = await Promise.all([
     resumoFinanceiro(sessao.agenciaId),
     carteiraComercial(sessao.agenciaId),
+    riscosDaCarteira(sessao.agenciaId),
   ]);
+  const porRisco = new Map(riscos.map((r) => [r.clienteId, r]));
   const emCarteira = clientes.filter(
     (c) => !(CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo) && c.ciclo !== "PERDIDO",
   );
@@ -52,7 +55,15 @@ export default async function PaginaNegocio() {
       <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Indicador titulo="Receita recorrente" valor={moeda(resumo.receitaRecorrente)} nota="por mês" />
         <Indicador titulo="Recebido no mês" valor={moeda(resumo.recebidoNoMes)} nota={`de ${moeda(resumo.faturadoNoMes)}`} />
-        <Indicador titulo="Em aberto" valor={moeda(resumo.emAberto)} />
+        <Indicador
+          titulo="Margem"
+          valor={moeda(resumo.margem)}
+          nota={
+            resumo.custoDireto > 0
+              ? `${Math.round((resumo.margemPct ?? 0) * 100)}% · custo ${moeda(resumo.custoDireto)}`
+              : "sem custo lançado"
+          }
+        />
         <Indicador
           titulo="Atrasado"
           valor={moeda(resumo.atrasado)}
@@ -60,6 +71,41 @@ export default async function PaginaNegocio() {
           alerta={resumo.atrasado > 0}
         />
       </section>
+
+      {riscos.length > 0 && (
+        <section className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+            Atenção à relação
+          </h2>
+          <div className="flex flex-col gap-2">
+            {riscos.map((r) => (
+              <article
+                key={r.clienteId}
+                className={`rounded-2xl border p-4 ${
+                  r.nivel === "alto" ? "border-alerta bg-alerta-suave" : "border-borda bg-superficie"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <Link href={`/negocio/${r.clienteId}`} className="truncate font-medium">
+                    {r.nome}
+                  </Link>
+                  <Selo tom={r.nivel === "alto" ? "alerta" : "neutro"}>
+                    {r.nivel === "alto" ? "risco alto" : r.nivel === "atencao" ? "atenção" : "de olho"}
+                  </Selo>
+                </div>
+                <ul className="mt-2 flex flex-col gap-1.5">
+                  {r.sinais.map((s) => (
+                    <li key={s.chave} className="text-sm">
+                      <span className="[overflow-wrap:anywhere]">{s.texto}</span>{" "}
+                      <span className="text-suave">{s.acao}</span>
+                    </li>
+                  ))}
+                </ul>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-6">
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
@@ -82,6 +128,7 @@ export default async function PaginaNegocio() {
                   <p className="mt-0.5 text-sm text-suave">
                     {[
                       c.feeMensal ? `${moeda(c.feeMensal)}/mês` : "sem fee definido",
+                      c.custoMensal ? `margem ${moeda(c.margem ?? 0)}` : null,
                       c.diaVencimento ? `vence dia ${c.diaVencimento}` : null,
                       c.contatoNome,
                     ]
@@ -130,6 +177,7 @@ export default async function PaginaNegocio() {
                   <Selo>sem fatura neste mês</Selo>
                 )}
                 {c.atrasadas > 0 && <Selo tom="alerta">{c.atrasadas} em atraso</Selo>}
+                {porRisco.get(c.id)?.nivel === "alto" && <Selo tom="alerta">risco de saída</Selo>}
               </div>
             </article>
           ))}

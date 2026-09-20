@@ -1,6 +1,8 @@
 import Link from "next/link";
 import type { AlertaCampanha, RankingVendas, Recomendacao } from "@/lib/inteligencia";
 import { RESULTADO, type TipoResultado } from "@/lib/resultados";
+import type { MudancaDiario } from "@/lib/diario";
+import type { Benchmark } from "@/lib/benchmark";
 
 /**
  * O que fazer agora, antes das tabelas: cada recomendação traz o motivo em
@@ -172,6 +174,80 @@ export function PorVenda({ vendas }: { vendas: RankingVendas }) {
           Só conta a venda marcada no funil: contato sem etapa atualizada não aparece aqui.
         </p>
       )}
+    </section>
+  );
+}
+
+/**
+ * Diário de otimização: a linha do tempo do que foi mexido e o que veio depois.
+ * A comparação é 7 dias antes contra 7 dias depois — não prova causa, mas tira
+ * a conversa do "acho que melhorou".
+ */
+export function Diario({ mudancas }: { mudancas: MudancaDiario[] }) {
+  if (mudancas.length === 0) return null;
+
+  return (
+    <section className="mt-6">
+      <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">
+        Diário de otimização
+      </h2>
+      <p className="mt-0.5 text-xs text-suave">
+        Sete dias antes contra sete dias depois de cada mudança registrada.
+      </p>
+
+      <ol className="mt-2 flex flex-col gap-2">
+        {mudancas.map((m) => (
+          <li key={m.id} className="rounded-2xl border border-borda bg-superficie p-3.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-marca-suave px-2 py-0.5 text-xs font-medium text-marca-texto">
+                {m.tipo}
+              </span>
+              <span className="text-xs text-suave">
+                {m.em.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+              </span>
+            </div>
+            <p className="mt-1 text-sm [overflow-wrap:anywhere]">{m.descricao}</p>
+            <p
+              className={`mt-1 text-sm ${
+                m.efeito?.variacao != null && m.efeito.variacao <= -0.1
+                  ? "text-ok"
+                  : m.efeito?.variacao != null && m.efeito.variacao >= 0.1
+                    ? "text-alerta"
+                    : "text-suave"
+              }`}
+            >
+              {m.efeito ? m.efeito.resumo : "Ainda dentro dos 7 dias: o efeito aparece depois."}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** O cliente contra o resto da carteira, sem média de internet. */
+export function Comparacao({ b }: { b: Benchmark }) {
+  return (
+    <section className="mt-4">
+      <div
+        className={`rounded-2xl border px-3.5 py-3 ${
+          b.posicao === "melhor"
+            ? "border-ok bg-ok-suave"
+            : b.posicao === "pior"
+              ? "border-alerta bg-alerta-suave"
+              : "border-borda bg-superficie"
+        }`}
+      >
+        <p className="text-sm font-medium">
+          {b.posicao === "melhor"
+            ? "Melhor que a média da carteira"
+            : b.posicao === "pior"
+              ? "Acima da média da carteira"
+              : "Na média da carteira"}
+          {b.nicho ? ` · ${b.nicho}` : ""}
+        </p>
+        <p className="mt-0.5 text-sm text-texto">{b.resumo}</p>
+      </div>
     </section>
   );
 }

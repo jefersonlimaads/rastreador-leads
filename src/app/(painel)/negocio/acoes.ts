@@ -42,6 +42,8 @@ const Comercial = z.object({
   feeMensal: z.string().optional(),
   diaVencimento: z.string().optional(),
   inicioContrato: z.string().optional(),
+  fimContrato: z.string().optional(),
+  custoMensal: z.string().optional(),
   documento: z.string().max(20).optional(),
   contatoNome: z.string().max(120).optional(),
   contatoEmail: z.string().max(160).optional(),
@@ -64,6 +66,9 @@ export async function acaoSalvarComercial(
   const fee = d.feeMensal ? dinheiro(d.feeMensal) : null;
   if (d.feeMensal && fee === null) return { erro: "Valor do fee inválido." };
 
+  const custo = d.custoMensal ? dinheiro(d.custoMensal) : null;
+  if (d.custoMensal && (custo === null || custo < 0)) return { erro: "Custo mensal inválido." };
+
   const dia = d.diaVencimento ? Number(d.diaVencimento) : null;
   if (dia !== null && (Number.isNaN(dia) || dia < 1 || dia > 28)) {
     // Acima de 28 não existe em fevereiro, e fatura sem data é fatura esquecida.
@@ -77,6 +82,9 @@ export async function acaoSalvarComercial(
       feeMensal: fee,
       diaVencimento: dia,
       inicioContrato: d.inicioContrato ? new Date(d.inicioContrato) : null,
+      // Data pura em UTC: fim de contrato é dia de calendário, não instante.
+      fimContrato: d.fimContrato ? new Date(d.fimContrato + "T00:00:00Z") : null,
+      custoMensal: custo,
       documento: d.documento?.trim() || null,
       contatoNome: d.contatoNome?.trim() || null,
       contatoEmail: d.contatoEmail?.trim().toLowerCase() || null,

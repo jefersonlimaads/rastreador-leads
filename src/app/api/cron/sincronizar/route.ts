@@ -4,7 +4,7 @@ import { sincronizarGastos } from "@/lib/meta/marketing";
 import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
 import { aplicarRetencao } from "@/lib/retencao";
-import { gerarFaturasDoMes } from "@/lib/financeiro";
+import { abrirTarefasDeRenovacao, gerarFaturasDoMes } from "@/lib/financeiro";
 import { gerarRelatoriosDoMesPassado } from "@/lib/relatorio";
 
 // Roda em São Paulo, junto do banco.
@@ -33,6 +33,9 @@ export async function GET(request: NextRequest) {
   // Dia 1: relatório do mês fechado já gerado, com a tarefa de envio na agenda.
   const relatorios = await gerarRelatoriosDoMesPassado();
 
+  // Contrato vencendo: a conversa de renovação entra na agenda 30 dias antes.
+  const renovacoes = await abrirTarefasDeRenovacao();
+
   const clientes = await prisma.cliente.findMany({ where: { ativo: true } });
   const resultado = [];
 
@@ -54,6 +57,7 @@ export async function GET(request: NextRequest) {
     rodadoEm: new Date().toISOString(),
     faturas,
     relatorios: relatorios.length,
+    renovacoes,
     resultado,
   });
 }

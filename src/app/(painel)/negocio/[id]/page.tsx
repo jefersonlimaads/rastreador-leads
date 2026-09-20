@@ -70,6 +70,8 @@ export default async function PaginaClienteComercial({
           inicioContrato: cliente.inicioContrato
             ? cliente.inicioContrato.toISOString().slice(0, 10)
             : "",
+          fimContrato: cliente.fimContrato ? cliente.fimContrato.toISOString().slice(0, 10) : "",
+          custoMensal: cliente.custoMensal ? Number(cliente.custoMensal) : null,
           documento: cliente.documento ?? "",
           contatoNome: cliente.contatoNome ?? "",
           contatoEmail: cliente.contatoEmail ?? "",
