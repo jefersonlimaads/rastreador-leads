@@ -50,12 +50,17 @@ export default async function PaginaPropostas() {
               .join(" · ")}
           </p>
         </div>
-        <Link
-          href="/propostas/nova"
-          className="shrink-0 rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
-        >
-          Nova
-        </Link>
+        <div className="flex shrink-0 gap-2">
+          <Link href="/propostas/servicos" className="rounded-xl border border-borda px-3 py-2.5 text-sm">
+            Serviços
+          </Link>
+          <Link
+            href="/propostas/nova"
+            className="rounded-xl bg-marca px-4 py-2.5 text-sm font-medium text-sobre-marca"
+          >
+            Nova
+          </Link>
+        </div>
       </div>
 
       {contatosVencidos.length > 0 && (

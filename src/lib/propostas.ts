@@ -14,13 +14,22 @@ import { aoMudarEtapa } from "./automacoes";
  * que foi fechado.
  */
 
-export type ItemEscopo = { titulo: string; detalhe?: string };
+/**
+ * Item do escopo. `servicoId` diz de qual serviço do catálogo ele veio, o que
+ * permite remarcar as caixinhas certas ao editar. O título e o detalhe são
+ * cópia: mexer no catálogo depois não reescreve proposta já enviada.
+ */
+export type ItemEscopo = { titulo: string; detalhe?: string; servicoId?: string };
 
 export function lerEscopo(bruto: unknown): ItemEscopo[] {
   if (!Array.isArray(bruto)) return [];
   return bruto
     .filter((i): i is ItemEscopo => typeof i === "object" && i !== null && "titulo" in i)
-    .map((i) => ({ titulo: String(i.titulo), detalhe: i.detalhe ? String(i.detalhe) : undefined }));
+    .map((i) => ({
+      titulo: String(i.titulo),
+      detalhe: i.detalhe ? String(i.detalhe) : undefined,
+      servicoId: i.servicoId ? String(i.servicoId) : undefined,
+    }));
 }
 
 /**
@@ -44,6 +53,43 @@ export function escopoDoTexto(texto: string): ItemEscopo[] {
 
 export function escopoParaTexto(itens: ItemEscopo[]): string {
   return itens.map((i) => (i.detalhe ? `${i.titulo}: ${i.detalhe}` : i.titulo)).join("\n");
+}
+
+/**
+ * Desconto: o que o serviço custa e o que esse cliente vai pagar.
+ *
+ * Só existe quando o valor cheio é maior que o cobrado. Desconto de R$ 0 ou
+ * negativo não vira selo nenhum — "de R$ 1.800 por R$ 1.800" faz o cliente
+ * desconfiar do resto da proposta.
+ */
+export function desconto(cheio: number | null, cobrado: number | null) {
+  if (cheio == null || cobrado == null) return null;
+  if (cheio <= cobrado) return null;
+  const valor = cheio - cobrado;
+  return { valor, pct: valor / cheio };
+}
+
+/** Períodos que a proposta oferece. Null é contrato sem prazo mínimo. */
+export const PERIODOS: (number | null)[] = [null, 3, 6, 12];
+
+export function rotuloPeriodo(meses: number | null): string {
+  if (!meses) return "Sem prazo mínimo";
+  if (meses === 12) return "12 meses";
+  return `${meses} meses`;
+}
+
+/**
+ * Quanto o desconto vale no contrato inteiro. É o número que fecha venda:
+ * "R$ 200 por mês" é abstrato, "R$ 2.400 no ano" é dinheiro.
+ */
+export function economiaDoPeriodo(
+  cheio: number | null,
+  cobrado: number | null,
+  meses: number | null,
+): number | null {
+  const d = desconto(cheio, cobrado);
+  if (!d || !meses || meses < 2) return null;
+  return d.valor * meses;
 }
 
 export type Situacao =
@@ -150,6 +196,11 @@ export async function aceitarProposta(token: string, nome: string) {
     return { erro: "Essa proposta não está mais aberta para aceite." };
   }
 
+  const inicio = hojeComoDataPura();
+  const fim = p.meses
+    ? new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth() + p.meses, inicio.getUTCDate()))
+    : null;
+
   await prisma.$transaction(async (tx) => {
     await tx.proposta.update({
       where: { id: p.id },
@@ -161,7 +212,10 @@ export async function aceitarProposta(token: string, nome: string) {
       data: {
         ciclo: "ATIVO",
         feeMensal: p.feeMensal ?? undefined,
-        inicioContrato: hojeComoDataPura(),
+        inicioContrato: inicio,
+        // Com prazo combinado, a renovação já entra no calendário: a tarefa
+        // abre sozinha 30 dias antes, sem ninguém precisar lembrar.
+        fimContrato: fim,
       },
     });
 

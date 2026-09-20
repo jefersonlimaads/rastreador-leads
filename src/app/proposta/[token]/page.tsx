@@ -1,6 +1,14 @@
 import { notFound } from "next/navigation";
 import { sessaoAtual } from "@/lib/auth";
-import { lerEscopo, propostaPublica, registrarVisualizacao, situacao } from "@/lib/propostas";
+import {
+  desconto,
+  economiaDoPeriodo,
+  lerEscopo,
+  propostaPublica,
+  registrarVisualizacao,
+  rotuloPeriodo,
+  situacao,
+} from "@/lib/propostas";
 import { formatarDataPura } from "@/lib/datas";
 import { Resposta } from "./resposta";
 
@@ -42,7 +50,12 @@ export default async function PaginaPropostaPublica({
   const agora = situacao(proposta);
   const escopo = lerEscopo(proposta.escopo);
   const fee = proposta.feeMensal ? Number(proposta.feeMensal) : null;
+  const feeCheio = proposta.feeCheio ? Number(proposta.feeCheio) : null;
   const setup = proposta.setup ? Number(proposta.setup) : null;
+  const setupCheio = proposta.setupCheio ? Number(proposta.setupCheio) : null;
+  const descontoFee = desconto(feeCheio, fee);
+  const descontoSetup = desconto(setupCheio, setup);
+  const noPeriodo = economiaDoPeriodo(feeCheio, fee, proposta.meses);
 
   return (
     <main className="min-h-dvh bg-fundo">
@@ -93,13 +106,38 @@ export default async function PaginaPropostaPublica({
             </h2>
             <div className="mt-4 rounded-2xl border border-borda bg-superficie p-5">
               {fee && (
-                <p>
-                  <span className="font-titulo text-3xl font-bold">{moeda(fee)}</span>
-                  <span className="text-suave"> por mês</span>
+                <>
+                  {descontoFee && (
+                    <p className="text-suave">
+                      De <span className="line-through">{moeda(feeCheio!)}</span> por mês
+                    </p>
+                  )}
+                  <p className={descontoFee ? "mt-1" : undefined}>
+                    <span className="font-titulo text-3xl font-bold">{moeda(fee)}</span>
+                    <span className="text-suave"> por mês</span>
+                  </p>
+                </>
+              )}
+
+              {setup && (
+                <p className="mt-2 text-suave">
+                  + {moeda(setup)} de implantação, uma vez
+                  {descontoSetup && (
+                    <span> (de <span className="line-through">{moeda(setupCheio!)}</span>)</span>
+                  )}
                 </p>
               )}
-              {setup && (
-                <p className="mt-2 text-suave">+ {moeda(setup)} de implantação, uma vez</p>
+
+              {proposta.meses && (
+                <p className="mt-2 text-suave">Contrato de {rotuloPeriodo(proposta.meses)}</p>
+              )}
+
+              {descontoFee && (
+                <p className="mt-4 rounded-xl bg-[#d8f34f] px-3 py-2 text-sm font-medium text-[#141414]">
+                  Você economiza {moeda(descontoFee.valor)} por mês
+                  {noPeriodo ? ` — ${moeda(noPeriodo)} no período do contrato` : ""}
+                  {" "}({Math.round(descontoFee.pct * 100)}% de desconto)
+                </p>
               )}
             </div>
           </section>

@@ -29,9 +29,12 @@ const Dados = z.object({
   novoProspect: z.string().max(120).optional(),
   titulo: z.string().min(3).max(160),
   apresentacao: z.string().max(3000).optional(),
-  escopo: z.string().min(3).max(6000),
+  extras: z.string().max(6000).optional(),
+  feeCheio: z.string().optional(),
   feeMensal: z.string().optional(),
+  setupCheio: z.string().optional(),
   setup: z.string().optional(),
+  meses: z.string().optional(),
   condicoes: z.string().max(3000).optional(),
   validade: z.string().min(10),
 });
@@ -47,8 +50,9 @@ export async function acaoSalvarProposta(
   const sessao = await exigirAdmin();
 
   const dados = Dados.safeParse(Object.fromEntries(formData));
-  if (!dados.success) return { erro: "Preencha título, escopo e validade." };
+  if (!dados.success) return { erro: "Preencha título e validade." };
   const d = dados.data;
+  const marcados = formData.getAll("servicos").map(String).filter(Boolean);
 
   let clienteId = d.clienteId || null;
   if (clienteId && !(await clienteDaAgencia(clienteId, sessao.agenciaId))) {
@@ -66,20 +70,56 @@ export async function acaoSalvarProposta(
   }
 
   const fee = d.feeMensal ? dinheiro(d.feeMensal) : null;
+  const feeCheio = d.feeCheio ? dinheiro(d.feeCheio) : null;
   const setup = d.setup ? dinheiro(d.setup) : null;
+  const setupCheio = d.setupCheio ? dinheiro(d.setupCheio) : null;
   if (d.feeMensal && fee === null) return { erro: "Valor mensal inválido." };
+  if (d.feeCheio && feeCheio === null) return { erro: "Valor mensal de tabela inválido." };
   if (d.setup && setup === null) return { erro: "Valor de implantação inválido." };
+  if (d.setupCheio && setupCheio === null) return { erro: "Implantação de tabela inválida." };
+  // Preço de tabela abaixo do cobrado viraria "desconto negativo" na proposta.
+  if (feeCheio != null && fee != null && feeCheio < fee) {
+    return { erro: "O valor de tabela não pode ser menor que o valor desta proposta." };
+  }
+  if (setupCheio != null && setup != null && setupCheio < setup) {
+    return { erro: "A implantação de tabela não pode ser menor que a desta proposta." };
+  }
 
-  const escopo = escopoDoTexto(d.escopo);
-  if (escopo.length === 0) return { erro: "Descreva pelo menos um item do escopo." };
+  const meses = d.meses ? Number(d.meses) : null;
+  if (meses !== null && (Number.isNaN(meses) || meses < 1 || meses > 60)) {
+    return { erro: "Período de contrato inválido." };
+  }
+
+  // Serviços marcados viram cópia; o catálogo pode mudar depois sem reescrever
+  // o que já foi enviado.
+  const doCatalogo = marcados.length
+    ? await prisma.servicoProposta.findMany({
+        where: { id: { in: marcados }, agenciaId: sessao.agenciaId },
+        orderBy: [{ ordem: "asc" }, { criadoEm: "asc" }],
+        select: { id: true, nome: true, detalhe: true },
+      })
+    : [];
+
+  const escopo = [
+    ...doCatalogo.map((s) => ({
+      titulo: s.nome,
+      ...(s.detalhe ? { detalhe: s.detalhe } : {}),
+      servicoId: s.id,
+    })),
+    ...escopoDoTexto(d.extras ?? ""),
+  ];
+  if (escopo.length === 0) return { erro: "Marque pelo menos um serviço." };
 
   const dadosProposta = {
     clienteId,
     titulo: d.titulo.trim(),
     apresentacao: d.apresentacao?.trim() || null,
     escopo,
+    feeCheio,
     feeMensal: fee,
+    setupCheio,
     setup,
+    meses,
     condicoes: d.condicoes?.trim() || null,
     validade: new Date(d.validade + "T00:00:00Z"),
   };

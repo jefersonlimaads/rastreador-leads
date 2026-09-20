@@ -1,5 +1,6 @@
 import { exigirAdmin } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { servicosDaAgencia } from "@/lib/servicos";
 import { FormularioProposta } from "../formulario";
 
 export default async function PaginaNovaProposta({
@@ -9,6 +10,8 @@ export default async function PaginaNovaProposta({
 }) {
   const sessao = await exigirAdmin();
   const { cliente } = await searchParams;
+
+  const servicos = (await servicosDaAgencia(sessao.agenciaId)).filter((s) => s.ativo);
 
   const clientes = await prisma.cliente.findMany({
     where: { agenciaId: sessao.agenciaId, ativo: true },
@@ -24,17 +27,22 @@ export default async function PaginaNovaProposta({
     <>
       <h1 className="text-xl font-semibold tracking-tight">Nova proposta</h1>
       <p className="mt-1 text-sm text-suave">
-        Começa com o seu escopo padrão. Ajuste para esse lead antes de enviar.
+        Marque os serviços que entram, ajuste o valor e escolha o período.
       </p>
       <FormularioProposta
         clientes={clientes}
+        servicos={servicos}
         valores={{
           clienteId: typeof cliente === "string" ? cliente : "",
           titulo: "",
           apresentacao: "",
-          escopo: "",
+          servicos: [],
+          extras: "",
+          feeCheio: "",
           feeMensal: "",
+          setupCheio: "",
           setup: "",
+          meses: "",
           condicoes: "",
           validade: validade.toISOString().slice(0, 10),
         }}

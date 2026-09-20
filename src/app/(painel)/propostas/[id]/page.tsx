@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { escopoParaTexto, lerEscopo, ROTULO_SITUACAO, situacao } from "@/lib/propostas";
 import { formatarDataHora } from "@/lib/datas";
 import { Selo } from "../../componentes";
+import { servicosDaAgencia } from "@/lib/servicos";
 import { FormularioProposta } from "../formulario";
 import { EnviarProposta } from "./enviar";
 import { Acompanhamento, ExcluirProposta } from "./acompanhamento";
@@ -23,6 +24,11 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
     orderBy: { nome: "asc" },
     select: { id: true, nome: true },
   });
+
+  const servicos = (await servicosDaAgencia(sessao.agenciaId)).filter((s) => s.ativo);
+  const itens = lerEscopo(proposta.escopo);
+  // Itens sem servicoId são os digitados à mão, e voltam para o campo de texto.
+  const extras = itens.filter((i) => !i.servicoId);
 
   const agora = situacao(proposta);
   const respondida = agora === "aceita" || agora === "recusada";
@@ -96,14 +102,19 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
       ) : (
         <FormularioProposta
           clientes={clientes}
+          servicos={servicos}
           valores={{
             propostaId: proposta.id,
             clienteId: proposta.clienteId,
             titulo: proposta.titulo,
             apresentacao: proposta.apresentacao ?? "",
-            escopo: escopoParaTexto(lerEscopo(proposta.escopo)),
+            servicos: itens.map((i) => i.servicoId).filter((x): x is string => !!x),
+            extras: escopoParaTexto(extras),
+            feeCheio: proposta.feeCheio ? String(proposta.feeCheio).replace(".", ",") : "",
             feeMensal: proposta.feeMensal ? String(proposta.feeMensal).replace(".", ",") : "",
+            setupCheio: proposta.setupCheio ? String(proposta.setupCheio).replace(".", ",") : "",
             setup: proposta.setup ? String(proposta.setup).replace(".", ",") : "",
+            meses: proposta.meses ? String(proposta.meses) : "",
             condicoes: proposta.condicoes ?? "",
             validade: proposta.validade.toISOString().slice(0, 10),
           }}

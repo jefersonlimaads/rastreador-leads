@@ -10,6 +10,8 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import {
   aceitarProposta,
   alternarNegociacao,
+  desconto,
+  economiaDoPeriodo,
   escopoDoTexto,
   excluirProposta,
   gerarToken,
@@ -39,8 +41,10 @@ async function novaProposta() {
       token: gerarToken(),
       titulo: "Teste",
       escopo: [{ titulo: "Gestão de campanhas" }],
+      feeCheio: 2400,
       feeMensal: 1800,
       setup: 500,
+      meses: 6,
       validade: new Date(validade.toISOString().slice(0, 10) + "T00:00:00Z"),
     },
   });
@@ -60,6 +64,23 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+describe("desconto e período", () => {
+  it("só existe desconto quando o de tabela é maior que o cobrado", () => {
+    expect(desconto(2400, 1800)).toEqual({ valor: 600, pct: 0.25 });
+    expect(desconto(1800, 1800)).toBeNull();
+    expect(desconto(1500, 1800)).toBeNull();
+    expect(desconto(null, 1800)).toBeNull();
+    expect(desconto(2400, null)).toBeNull();
+  });
+
+  it("economia do período só faz sentido com prazo de 2 meses ou mais", () => {
+    expect(economiaDoPeriodo(2400, 1800, 12)).toBe(7200);
+    expect(economiaDoPeriodo(2400, 1800, null)).toBeNull();
+    expect(economiaDoPeriodo(2400, 1800, 1)).toBeNull();
+    expect(economiaDoPeriodo(1800, 1800, 12)).toBeNull();
+  });
+});
+
 describe("propostas", () => {
   it("escopo em texto vira lista de itens", () => {
     expect(escopoDoTexto("- Gestão: no Meta\nCriativos\n\n")).toEqual([
@@ -72,6 +93,17 @@ describe("propostas", () => {
     await novaProposta();
     const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
     expect(c.ciclo).toBe("PROPOSTA_ENVIADA");
+  });
+
+  it("aceite marca o fim do contrato pelo período combinado", async () => {
+    const p = await novaProposta();
+    await aceitarProposta(p.token, "Carolina Mendes");
+    const c = await prisma.cliente.findUniqueOrThrow({ where: { id: CLIENTE } });
+    expect(c.fimContrato).not.toBeNull();
+    const meses =
+      (c.fimContrato!.getUTCFullYear() - c.inicioContrato!.getUTCFullYear()) * 12 +
+      (c.fimContrato!.getUTCMonth() - c.inicioContrato!.getUTCMonth());
+    expect(meses).toBe(6);
   });
 
   it("aceite torna o cliente ativo com o fee e abre as tarefas", async () => {
