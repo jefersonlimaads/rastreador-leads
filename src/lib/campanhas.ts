@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { dataPuraDe, FUSO_PADRAO, instanteLocal } from "./datas";
 import { quantidade, tipoDoResultado, type Acoes } from "./resultados";
-import { recomendar, type AnuncioPeriodo } from "./inteligencia";
+import { rankingPorVenda, recomendar, type AnuncioPeriodo } from "./inteligencia";
 
 /**
  * Números por anúncio, do jeito que a inteligência precisa: o período pedido e
@@ -151,7 +151,12 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
     anunciosDoPeriodo(clienteId, antesDe, antesAte, fuso),
   ]);
 
-  return { ...recomendar(atual, anterior), anuncios: atual.length, dias };
+  return {
+    ...recomendar(atual, anterior),
+    vendas: rankingPorVenda(atual),
+    anuncios: atual.length,
+    dias,
+  };
 }
 
 /** Datas puras do período a partir dos instantes que a tela já calcula. */

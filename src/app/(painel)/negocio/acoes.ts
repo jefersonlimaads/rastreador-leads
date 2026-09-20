@@ -8,6 +8,7 @@ import { exigirAdmin, clienteDaAgencia } from "@/lib/auth";
 import { normalizarTelefone } from "@/lib/telefone";
 import { competenciaDe, gerarFaturasDoMes } from "@/lib/financeiro";
 import { aoMudarEtapa } from "@/lib/automacoes";
+import { TIPOS_DE_ENTREGA } from "@/lib/entregas";
 import { redirect } from "next/navigation";
 
 /**
@@ -240,4 +241,49 @@ export async function acaoNovoClienteAtivo(
   revalidatePath("/negocio");
   revalidatePath("/carteira");
   redirect(`/negocio/${cliente.id}`);
+}
+
+/**
+ * Entrega do mês: o que a agência fez por esse cliente. Entra no relatório,
+ * para responder ao "o que vocês fizeram esse mês?" com uma lista, e não com
+ * uma tentativa de lembrar.
+ */
+export async function acaoRegistrarEntrega(
+  _estado: EstadoNegocio,
+  formData: FormData,
+): Promise<EstadoNegocio> {
+  const sessao = await exigirAdmin();
+  const clienteId = String(formData.get("clienteId") ?? "");
+  if (!(await clienteDaAgencia(clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
+
+  const tipo = String(formData.get("tipo") ?? "Outro");
+  const descricao = String(formData.get("descricao") ?? "").trim().slice(0, 300);
+  if (descricao.length < 3) return { erro: "Escreva o que foi entregue." };
+  if (!(TIPOS_DE_ENTREGA as readonly string[]).includes(tipo)) return { erro: "Tipo inválido." };
+
+  // Competência é o mês informado, ou o mês corrente.
+  const mes = String(formData.get("competencia") ?? "").trim();
+  const competencia = /^\d{4}-\d{2}$/.test(mes)
+    ? new Date(`${mes}-01T00:00:00Z`)
+    : (() => {
+        const hoje = new Date();
+        return new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1));
+      })();
+
+  await prisma.entrega.create({ data: { clienteId, tipo, descricao, competencia } });
+  revalidatePath(`/negocio/${clienteId}`);
+  revalidatePath("/relatorios");
+  return { ok: "Entrega registrada." };
+}
+
+export async function acaoApagarEntrega(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const id = String(formData.get("id") ?? "");
+  const entrega = await prisma.entrega.findFirst({
+    where: { id, cliente: { agenciaId: sessao.agenciaId } },
+    select: { id: true, clienteId: true },
+  });
+  if (!entrega) return;
+  await prisma.entrega.delete({ where: { id: entrega.id } });
+  revalidatePath(`/negocio/${entrega.clienteId}`);
 }

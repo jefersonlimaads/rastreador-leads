@@ -164,7 +164,7 @@ export async function montarRelatorio(clienteId: string, de: Date, ate: Date) {
   const antesDe = somarDias(de, -dias);
   const { inicio, fim } = instantes(de, ate, fuso);
 
-  const [atual, anterior, gastosDia, leads, campanhas, anuncios, doMeta] = await Promise.all([
+  const [atual, anterior, gastosDia, leads, campanhas, anuncios, doMeta, entregas] = await Promise.all([
     totais(clienteId, de, ate, fuso),
     totais(clienteId, antesDe, antesAte, fuso),
     prisma.gasto.findMany({
@@ -178,6 +178,18 @@ export async function montarRelatorio(clienteId: string, de: Date, ate: Date) {
     metricasPorAnuncio({ clienteId, de: inicio, ate: fim, nivel: "campaign", fuso }),
     metricasPorAnuncio({ clienteId, de: inicio, ate: fim, nivel: "ad", fuso }),
     campanhasDoMeta(clienteId, de, ate),
+    // Entregas dos meses que o período cobre: o que a agência fez, não só o que a mídia deu.
+    prisma.entrega.findMany({
+      where: {
+        clienteId,
+        competencia: {
+          gte: new Date(Date.UTC(de.getUTCFullYear(), de.getUTCMonth(), 1)),
+          lte: new Date(Date.UTC(ate.getUTCFullYear(), ate.getUTCMonth(), 1)),
+        },
+      },
+      orderBy: [{ competencia: "asc" }, { criadoEm: "asc" }],
+      select: { tipo: true, descricao: true },
+    }),
   ]);
 
   // Série diária: um ponto por dia do período, mesmo sem movimento.
@@ -222,6 +234,7 @@ export async function montarRelatorio(clienteId: string, de: Date, ate: Date) {
     campanhas: principais(campanhas.linhas, 8),
     resultados: doMeta.campanhas,
     alcanceTotal: doMeta.alcanceTotal,
+    entregas,
     anuncios: principais(anuncios.linhas, 5),
     semAtribuicao: campanhas.semAtribuicao,
   };
@@ -291,8 +304,21 @@ export async function criarLinkRelatorio(dados: {
   ate: Date;
   comentario: string | null;
   criadoPor: string;
+  /** Link vivo: sempre os últimos N dias, em vez do período fixo. */
+  diasMoveis?: number | null;
 }) {
   return prisma.relatorio.create({ data: { ...dados, token: gerarToken() } });
+}
+
+/**
+ * Período que um relatório salvo mostra. No link vivo, é sempre a janela de N
+ * dias terminando hoje — por isso o cliente pode guardar o link e voltar.
+ */
+export async function periodoDoRelatorio(rel: { clienteId: string; de: Date; ate: Date; diasMoveis: number | null }) {
+  if (!rel.diasMoveis) return { de: rel.de, ate: rel.ate };
+  const cliente = await prisma.cliente.findUnique({ where: { id: rel.clienteId }, select: { fuso: true } });
+  const hoje = hojeComoDataPura(cliente?.fuso ?? FUSO_PADRAO);
+  return { de: somarDias(hoje, -(rel.diasMoveis - 1)), ate: hoje };
 }
 
 export async function relatoriosDoCliente(clienteId: string) {
@@ -313,4 +339,78 @@ export async function registrarVisualizacaoRelatorio(id: string) {
     where: { id },
     data: { visualizacoes: { increment: 1 }, visualizadoEm: new Date() },
   });
+}
+
+// ——— Fechamento do mês ———
+
+/**
+ * Relatório do mês que acabou, pronto antes de o cliente pedir.
+ *
+ * Todo dia 1 a rotina diária deixa o link gerado e uma tarefa de envio na
+ * agenda. O relatório continua sendo enviado por uma pessoa — o que some é o
+ * "esqueci de mandar", que é onde a percepção de valor costuma vazar.
+ *
+ * Idempotente: roda todo dia sem duplicar, porque procura pelo período exato.
+ */
+export async function gerarRelatoriosDoMesPassado(hoje = new Date()) {
+  const clientes = await prisma.cliente.findMany({
+    where: { ativo: true },
+    select: { id: true, nome: true, agenciaId: true, fuso: true },
+  });
+
+  const criados: { cliente: string; token: string }[] = [];
+
+  for (const cliente of clientes) {
+    const hojeLocal = dataPuraDe(hoje, cliente.fuso ?? FUSO_PADRAO);
+    if (hojeLocal.getUTCDate() !== 1) continue;
+
+    const ano = hojeLocal.getUTCFullYear();
+    const mes = hojeLocal.getUTCMonth();
+    const de = new Date(Date.UTC(ano, mes - 1, 1));
+    const ate = new Date(Date.UTC(ano, mes, 0));
+
+    const existente = await prisma.relatorio.findFirst({
+      where: { clienteId: cliente.id, de, ate, diasMoveis: null },
+      select: { id: true },
+    });
+    if (existente) continue;
+
+    // Mês sem investimento nenhum não vira relatório: não há o que contar.
+    const gasto = await prisma.gasto.aggregate({
+      where: { clienteId: cliente.id, dia: { gte: de, lte: ate } },
+      _sum: { valor: true },
+    });
+    const leads = await prisma.lead.count({
+      where: { clienteId: cliente.id, arquivadoEm: null, criadoEm: { gte: de, lte: ate } },
+    });
+    if (Number(gasto._sum.valor ?? 0) <= 0 && leads === 0) continue;
+
+    const rel = await prisma.relatorio.create({
+      data: { clienteId: cliente.id, de, ate, criadoPor: "Rotina diária", token: gerarToken() },
+    });
+
+    const mesPorExtenso = de.toLocaleDateString("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+    const chave = `relatorio-${diaISO(de)}`;
+    const jaTem = await prisma.tarefa.findFirst({
+      where: { clienteId: cliente.id, chave, automatica: true },
+      select: { id: true },
+    });
+    if (!jaTem) {
+      await prisma.tarefa.create({
+        data: {
+          agenciaId: cliente.agenciaId,
+          clienteId: cliente.id,
+          titulo: `Enviar relatório de ${mesPorExtenso} para ${cliente.nome}`,
+          descricao: "O link já está gerado em Relatórios. Confira, escreva o comentário e mande.",
+          prazo: hojeLocal,
+          automatica: true,
+          chave,
+        },
+      });
+    }
+
+    criados.push({ cliente: cliente.nome, token: rel.token });
+  }
+
+  return criados;
 }

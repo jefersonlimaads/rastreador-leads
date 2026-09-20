@@ -3,7 +3,7 @@
  * Funções puras: rodam sem banco e sem internet.
  */
 import { describe, expect, it } from "vitest";
-import { custoMedio, recomendar, type AnuncioPeriodo } from "../src/lib/inteligencia";
+import { custoMedio, rankingPorVenda, recomendar, type AnuncioPeriodo } from "../src/lib/inteligencia";
 
 const anuncio = (p: Partial<AnuncioPeriodo> & { adId: string }): AnuncioPeriodo => ({
   nome: `Anúncio ${p.adId}`,
@@ -164,5 +164,28 @@ describe("inteligência das campanhas", () => {
   it("campanha de impressões não gera alerta de divergência com a página", () => {
     const atual = [anuncio({ adId: "a", tipo: "impressoes", resultados: 20000, impressoes: 20000, contatosPainel: 5 })];
     expect(recomendar(atual, atual).alertas.some((a) => a.titulo.includes("Meta conta mais"))).toBe(false);
+  });
+});
+
+describe("ranking por custo por venda", () => {
+  it("não existe sem venda marcada no funil", () => {
+    expect(rankingPorVenda(base())).toBeNull();
+  });
+
+  it("ordena do mais barato por venda, e o que não vendeu fica no fim", () => {
+    const r = rankingPorVenda([
+      anuncio({ adId: "caro", gasto: 600, contatosPainel: 10, fechados: 2, receita: 4000 }),
+      anuncio({ adId: "barato", gasto: 200, contatosPainel: 8, fechados: 4, receita: 6000 }),
+      anuncio({ adId: "nada", gasto: 300, contatosPainel: 5, fechados: 0, receita: 0 }),
+    ]);
+    expect(r).not.toBeNull();
+    expect(r!.linhas.map((l) => l.adId)).toEqual(["barato", "caro", "nada"]);
+    expect(r!.linhas[0].cac).toBe(50);
+    expect(r!.linhas[0].conversao).toBe(0.5);
+    expect(r!.linhas[2].cac).toBeNull();
+    // R$ 1.100 investidos, 6 vendas, R$ 10.000 de receita.
+    expect(r!.cac).toBeCloseTo(1100 / 6);
+    expect(r!.roas).toBeCloseTo(10000 / 1100);
+    expect(r!.gastoSemVenda).toBe(300);
   });
 });

@@ -222,6 +222,7 @@ model Cliente {
   propostas  Proposta[]
   interacoes Interacao[]
   relatorios Relatorio[]
+  entregas   Entrega[]
   contas     ContaAnuncios[]
   diagnostico Diagnostico?
 
@@ -555,6 +556,11 @@ model Relatorio {
   token         String    @unique
   de            DateTime  @db.Date
   ate           DateTime  @db.Date
+  /*
+   * Link vivo: em vez de um período fixo, mostra sempre os últimos N dias.
+   * É o link que o cliente guarda e abre quando quiser.
+   */
+  diasMoveis    Int?
   comentario    String?
   criadoPor     String?
   criadoEm      DateTime  @default(now())
@@ -655,4 +661,22 @@ model Diagnostico {
 
   @@unique([agenciaId, placeId])
   @@index([buscaId, status])
+}
+
+/*
+ * O que a agência entregou no mês: criativos gravados, campanhas subidas,
+ * ajustes feitos. Responde ao "o que vocês fizeram esse mês?" — a pergunta
+ * que costuma vir junto com o pedido de desconto ou de cancelamento.
+ */
+model Entrega {
+  id          String   @id @default(cuid())
+  clienteId   String
+  competencia DateTime @db.Date // primeiro dia do mês
+  tipo        String // criativo, campanha, otimização, reunião, outro
+  descricao   String
+  criadoEm    DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, competencia])
 }

@@ -35,6 +35,7 @@ export function EnviarRelatorio({
   const atual = `${de}|${ate}`;
   const mostrarLink = link && periodoDoLink === atual;
 
+  const dias = Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86_400_000) + 1;
   const saudacao = contato ? `Oi, ${contato.split(" ")[0]}!` : "Oi!";
   const texto = `${saudacao} Segue o relatório de resultados de ${rotuloPeriodo}: ${link ?? ""}`;
 
@@ -62,6 +63,16 @@ export function EnviarRelatorio({
             className="w-full rounded-xl border border-borda bg-fundo px-3 py-2.5 text-sm outline-none focus:border-marca"
           />
         </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="vivo" value="1" className="mt-1" />
+          <span>
+            Link vivo: sempre os últimos {dias} dias
+            <span className="block text-xs text-suave">
+              Em vez de congelar este período, o link se atualiza sozinho. O cliente guarda e abre quando quiser.
+            </span>
+          </span>
+        </label>
+
         {estado.erro && (
           <p className="rounded-lg bg-alerta-suave px-3 py-2 text-sm text-alerta">{estado.erro}</p>
         )}

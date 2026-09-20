@@ -25,12 +25,16 @@ export async function acaoCriarRelatorio(
   if ("erro" in periodo) return { erro: periodo.erro };
 
   const comentario = String(formData.get("comentario") ?? "").trim().slice(0, 3000) || null;
+  // Link vivo: o cliente guarda o link e sempre vê os últimos N dias.
+  const vivo = String(formData.get("vivo") ?? "") === "1";
+  const dias = Math.round((periodo.ate.getTime() - periodo.de.getTime()) / 86_400_000) + 1;
   const rel = await criarLinkRelatorio({
     clienteId,
     de: periodo.de,
     ate: periodo.ate,
     comentario,
     criadoPor: sessao.nome,
+    diasMoveis: vivo ? dias : null,
   });
 
   revalidatePath("/relatorios");

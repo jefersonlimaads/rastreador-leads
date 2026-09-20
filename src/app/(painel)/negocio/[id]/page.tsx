@@ -6,7 +6,9 @@ import { formatarDataPura, formatarMesPuro } from "@/lib/datas";
 import { formatarTelefone } from "@/lib/telefone";
 import { moeda, Selo } from "../../componentes";
 import { BotaoPagar } from "../botoes";
+import { acaoApagarEntrega } from "../acoes";
 import { FormularioComercial, FormularioFatura } from "./formularios";
+import { NovaEntrega } from "./entregas";
 
 export default async function PaginaClienteComercial({
   params,
@@ -20,6 +22,7 @@ export default async function PaginaClienteComercial({
   if (!cliente) notFound();
 
   const hoje = new Date();
+  const mesCorrente = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
 
   return (
     <>
@@ -125,6 +128,49 @@ export default async function PaginaClienteComercial({
         </div>
 
         <FormularioFatura clienteId={cliente.id} />
+      </section>
+
+      <section className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">
+          Entregas do mês
+        </h2>
+        <p className="mt-0.5 text-xs text-suave">
+          O que a agência fez por esse cliente. Entra no relatório dele, em “O que fizemos no
+          período”.
+        </p>
+
+        {cliente.entregas.length > 0 && (
+          <ul className="mt-3 flex flex-col gap-2">
+            {cliente.entregas.map((e) => (
+              <li
+                key={e.id}
+                className="flex items-center justify-between gap-3 rounded-xl border border-borda bg-superficie px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm [overflow-wrap:anywhere]">
+                    <span className="mr-2 rounded-full bg-marca-suave px-2 py-0.5 text-xs font-medium text-marca-texto">
+                      {e.tipo}
+                    </span>
+                    {e.descricao}
+                  </p>
+                  <p className="mt-0.5 text-xs text-suave">{formatarMesPuro(e.competencia)}</p>
+                </div>
+                <form action={acaoApagarEntrega}>
+                  <input type="hidden" name="id" value={e.id} />
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-lg border border-borda px-2 py-1 text-xs text-alerta"
+                    title="Apagar entrega"
+                  >
+                    Apagar
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <NovaEntrega clienteId={cliente.id} competencia={mesCorrente} />
       </section>
     </>
   );

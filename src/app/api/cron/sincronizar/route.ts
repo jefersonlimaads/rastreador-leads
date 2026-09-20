@@ -5,6 +5,7 @@ import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
 import { aplicarRetencao } from "@/lib/retencao";
 import { gerarFaturasDoMes } from "@/lib/financeiro";
+import { gerarRelatoriosDoMesPassado } from "@/lib/relatorio";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -29,6 +30,9 @@ export async function GET(request: NextRequest) {
   // Faturas do mês: idempotente, então rodar todo dia não duplica nada.
   const faturas = await gerarFaturasDoMes();
 
+  // Dia 1: relatório do mês fechado já gerado, com a tarefa de envio na agenda.
+  const relatorios = await gerarRelatoriosDoMesPassado();
+
   const clientes = await prisma.cliente.findMany({ where: { ativo: true } });
   const resultado = [];
 
@@ -46,5 +50,10 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return NextResponse.json({ rodadoEm: new Date().toISOString(), faturas, resultado });
+  return NextResponse.json({
+    rodadoEm: new Date().toISOString(),
+    faturas,
+    relatorios: relatorios.length,
+    resultado,
+  });
 }

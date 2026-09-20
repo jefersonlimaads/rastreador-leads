@@ -146,7 +146,7 @@ export default async function PaginaRelatorios({
                 >
                   <div className="min-w-0">
                     <p className="font-medium">
-                      {br(de)} a {br(ate)}
+                      {e.diasMoveis ? `Link vivo · últimos ${e.diasMoveis} dias` : `${br(de)} a ${br(ate)}`}
                     </p>
                     <p className="text-xs text-suave">
                       Gerado {formatarDataHora(e.criadoEm, cliente?.fuso)}

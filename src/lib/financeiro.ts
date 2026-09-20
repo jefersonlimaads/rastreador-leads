@@ -166,6 +166,7 @@ export async function detalheComercial(clienteId: string, agenciaId: string) {
     where: { id: clienteId, agenciaId },
     include: {
       faturas: { orderBy: { competencia: "desc" }, take: 24 },
+      entregas: { orderBy: [{ competencia: "desc" }, { criadoEm: "desc" }], take: 40 },
       numeros: true,
       _count: { select: { leads: true, cliques: true } },
     },

@@ -4,7 +4,7 @@ import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
 import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
-import { Inteligencia } from "./inteligencia";
+import { Inteligencia, PorVenda } from "./inteligencia";
 import { MesEAtendimento } from "./mes";
 import { ritmoDoMes } from "@/lib/metas";
 import { tempoDeResposta } from "@/lib/atendimento";
@@ -115,6 +115,8 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         tipoMediano={inteligencia.tipoMediano}
         dias={inteligencia.dias}
       />
+
+      {inteligencia.vendas && <PorVenda vendas={inteligencia.vendas} />}
 
       {doMeta.campanhas.length > 0 && (
         <section className="mt-5">

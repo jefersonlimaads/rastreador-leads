@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { AlertaCampanha, Recomendacao } from "@/lib/inteligencia";
+import type { AlertaCampanha, RankingVendas, Recomendacao } from "@/lib/inteligencia";
 import { RESULTADO, type TipoResultado } from "@/lib/resultados";
 
 /**
@@ -93,6 +93,85 @@ export function Inteligencia({
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+/**
+ * Ranking por custo por venda.
+ *
+ * O custo por lead diz quem é barato; esse diz quem é lucrativo. Só aparece
+ * quando há venda marcada no funil — sem isso o número não existiria, e chutar
+ * seria pior do que não mostrar nada.
+ */
+export function PorVenda({ vendas }: { vendas: RankingVendas }) {
+  return (
+    <section className="mt-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Custo por venda</h2>
+        <p className="text-xs text-suave">
+          {brl(vendas.gasto)} investidos · {vendas.fechados}{" "}
+          {vendas.fechados === 1 ? "venda" : "vendas"}
+          {vendas.cac != null ? ` · ${brl(vendas.cac)} por venda` : ""}
+          {vendas.roas != null
+            ? ` · ${vendas.roas.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}x de retorno`
+            : ""}
+        </p>
+      </div>
+
+      <div className="mt-2 overflow-x-auto rounded-2xl border border-borda bg-superficie">
+        <table className="w-full min-w-[34rem] text-sm">
+          <thead className="text-left text-xs text-suave">
+            <tr className="border-b border-borda">
+              <th className="px-3 py-2 font-medium">Anúncio</th>
+              <th className="px-3 py-2 text-right font-medium">Investido</th>
+              <th className="px-3 py-2 text-right font-medium">Contatos</th>
+              <th className="px-3 py-2 text-right font-medium">Vendas</th>
+              <th className="px-3 py-2 text-right font-medium">Custo/venda</th>
+              <th className="px-3 py-2 text-right font-medium">Receita</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vendas.linhas.map((l) => (
+              <tr key={l.adId} className="border-b border-borda last:border-0">
+                <td className="max-w-[16rem] px-3 py-2">
+                  <p className="truncate">{l.nome}</p>
+                  {l.campanha && <p className="truncate text-xs text-suave">{l.campanha}</p>}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">{brl(l.gasto)}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {l.contatos}
+                  {l.conversao != null && l.fechados > 0 && (
+                    <span className="ml-1 text-xs text-suave">
+                      ({Math.round(l.conversao * 100)}%)
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums font-medium">{l.fechados}</td>
+                <td
+                  className={`px-3 py-2 text-right tabular-nums ${
+                    l.cac == null ? "text-suave" : l.roas != null && l.roas >= 1 ? "text-ok" : ""
+                  }`}
+                >
+                  {l.cac != null ? brl(l.cac) : "sem venda"}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {l.receita > 0 ? brl(l.receita) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {vendas.gastoSemVenda > 0 && (
+        <p className="mt-2 text-xs text-suave">
+          {brl(vendas.gastoSemVenda)} foram para anúncios que ainda não fecharam venda no período.
+          Só conta a venda marcada no funil: contato sem etapa atualizada não aparece aqui.
+        </p>
+      )}
     </section>
   );
 }

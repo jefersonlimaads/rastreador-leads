@@ -322,6 +322,82 @@ export function recomendar(
   };
 }
 
+export type LinhaVenda = {
+  adId: string;
+  nome: string;
+  campanha: string | null;
+  gasto: number;
+  contatos: number;
+  fechados: number;
+  receita: number;
+  /** Custo por venda: o número que decide orçamento quando há venda registrada. */
+  cac: number | null;
+  /** Retorno sobre o investido: receita dividida pelo gasto. */
+  roas: number | null;
+  /** Contatos que viraram venda (0 a 1). */
+  conversao: number | null;
+};
+
+export type RankingVendas = {
+  linhas: LinhaVenda[];
+  gasto: number;
+  fechados: number;
+  receita: number;
+  cac: number | null;
+  roas: number | null;
+  /** Quanto do investimento foi para anúncio que não fechou nenhuma venda. */
+  gastoSemVenda: number;
+};
+
+/**
+ * Ranking por custo por venda.
+ *
+ * Custo por lead engana: o anúncio barato costuma trazer contato que não compra.
+ * Aqui a régua é a venda fechada no funil — o único número que o dono do
+ * negócio reconhece como dinheiro. Só faz sentido quando alguém já marcou
+ * venda no painel; sem isso, devolve null e a tela nem mostra o bloco.
+ */
+export function rankingPorVenda(anuncios: AnuncioPeriodo[]): RankingVendas | null {
+  const comGasto = anuncios.filter((a) => a.gasto > 0 || a.fechados > 0);
+  if (!comGasto.some((a) => a.fechados > 0)) return null;
+
+  const linhas: LinhaVenda[] = comGasto
+    .map((a) => ({
+      adId: a.adId,
+      nome: a.nome,
+      campanha: a.campanha,
+      gasto: a.gasto,
+      contatos: a.contatosPainel,
+      fechados: a.fechados,
+      receita: a.receita,
+      cac: a.fechados > 0 ? a.gasto / a.fechados : null,
+      roas: a.gasto > 0 && a.receita > 0 ? a.receita / a.gasto : null,
+      conversao: a.contatosPainel > 0 ? a.fechados / a.contatosPainel : null,
+    }))
+    // Quem vendeu vem primeiro, do mais barato por venda para o mais caro;
+    // quem não vendeu fica no fim, do que mais gastou para o que menos gastou.
+    .sort((x, y) => {
+      if (x.cac != null && y.cac != null) return x.cac - y.cac;
+      if (x.cac != null) return -1;
+      if (y.cac != null) return 1;
+      return y.gasto - x.gasto;
+    });
+
+  const gasto = linhas.reduce((s, l) => s + l.gasto, 0);
+  const fechados = linhas.reduce((s, l) => s + l.fechados, 0);
+  const receita = linhas.reduce((s, l) => s + l.receita, 0);
+
+  return {
+    linhas,
+    gasto,
+    fechados,
+    receita,
+    cac: fechados > 0 ? gasto / fechados : null,
+    roas: gasto > 0 && receita > 0 ? receita / gasto : null,
+    gastoSemVenda: linhas.filter((l) => l.fechados === 0).reduce((s, l) => s + l.gasto, 0),
+  };
+}
+
 function porCampanha(anuncios: AnuncioPeriodo[]) {
   const mapa = new Map<string, AnuncioPeriodo[]>();
   for (const a of anuncios) {

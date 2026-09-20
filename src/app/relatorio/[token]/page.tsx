@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { sessaoAtual } from "@/lib/auth";
-import { montarRelatorio, registrarVisualizacaoRelatorio, relatorioPorToken } from "@/lib/relatorio";
+import { montarRelatorio, periodoDoRelatorio, registrarVisualizacaoRelatorio, relatorioPorToken } from "@/lib/relatorio";
 import { DocumentoRelatorio } from "../documento";
 import { BotaoImprimir } from "../imprimir";
 
@@ -9,7 +9,8 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const rel = await relatorioPorToken(token);
-  const r = rel ? await montarRelatorio(rel.clienteId, rel.de, rel.ate) : null;
+  const periodo = rel ? await periodoDoRelatorio(rel) : null;
+  const r = rel && periodo ? await montarRelatorio(rel.clienteId, periodo.de, periodo.ate) : null;
   return {
     title: r ? `Relatório — ${r.cliente.nome}` : "Relatório",
     description: r ? `Resultados de ${r.periodo.de.split("-").reverse().join("/")} a ${r.periodo.ate.split("-").reverse().join("/")}` : undefined,
@@ -31,7 +32,8 @@ export default async function PaginaRelatorioPublico({
   const { token } = await params;
   const rel = await relatorioPorToken(token);
   if (!rel) notFound();
-  const r = await montarRelatorio(rel.clienteId, rel.de, rel.ate);
+  const periodo = await periodoDoRelatorio(rel);
+  const r = await montarRelatorio(rel.clienteId, periodo.de, periodo.ate);
   if (!r) notFound();
 
   // Você conferindo não conta como o cliente abrindo.

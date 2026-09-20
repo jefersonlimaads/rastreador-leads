@@ -167,6 +167,21 @@ export function DocumentoRelatorio({
           </Bloco>
         )}
 
+        {r.entregas.length > 0 && (
+          <Bloco titulo="O que fizemos no período">
+            <ul className="flex flex-col gap-2">
+              {r.entregas.map((e, i) => (
+                <li key={i} className="flex gap-3 text-sm">
+                  <span className="shrink-0 rounded-full bg-marca-suave px-2 py-0.5 text-xs font-medium text-marca-texto">
+                    {e.tipo}
+                  </span>
+                  <span className="[overflow-wrap:anywhere]">{e.descricao}</span>
+                </li>
+              ))}
+            </ul>
+          </Bloco>
+        )}
+
         <footer className="mt-4 border-t border-borda pt-5 text-xs leading-relaxed text-suave">
           Contatos contam no dia em que chegaram, e vendas no período do contato que as gerou.
           Investimento, impressões, cliques e conversas iniciadas no WhatsApp vêm do Meta Ads;
