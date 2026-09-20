@@ -5,6 +5,9 @@ import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
 import { Inteligencia } from "./inteligencia";
+import { MesEAtendimento } from "./mes";
+import { ritmoDoMes } from "@/lib/metas";
+import { tempoDeResposta } from "@/lib/atendimento";
 import { ResultadosCampanhas } from "@/app/relatorio/documento";
 import { prisma } from "@/lib/prisma";
 import { moeda, Selo, Vazio } from "../componentes";
@@ -34,10 +37,12 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia] = await Promise.all([
+  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia, ritmo, atendimento] = await Promise.all([
     metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
     campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
     inteligenciaDoCliente(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso), fuso),
+    ritmoDoMes(clienteId),
+    tempoDeResposta(clienteId, de, ate),
   ]);
 
   const ultimaSync = await prisma.gasto.findFirst({
@@ -100,6 +105,8 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
           nota={moeda(total.receita)}
         />
       </section>
+
+      <MesEAtendimento ritmo={ritmo} atendimento={atendimento} clienteId={clienteId} />
 
       <Inteligencia
         recomendacoes={inteligencia.recomendacoes}

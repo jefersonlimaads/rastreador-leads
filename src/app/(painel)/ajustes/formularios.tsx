@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import {
   acaoCriarUsuario,
   acaoSalvarCredenciais,
+  acaoSalvarMetas,
   acaoSalvarNumero,
   acaoSincronizarMeta,
   acaoTrocarFunil,
@@ -229,6 +230,45 @@ export function FormNumero({ clienteId, atual }: { clienteId: string; atual: str
       <div className="w-full empty:hidden">
         <Aviso estado={estado} />
       </div>
+    </Formulario>
+  );
+}
+
+/** Meta do mês: o que foi combinado com o cliente, usado no ritmo de gasto. */
+export function FormMetas({
+  clienteId,
+  orcamento,
+  contatos,
+  cpl,
+}: {
+  clienteId: string;
+  orcamento: string;
+  contatos: string;
+  cpl: string;
+}) {
+  const [estado, salvar, salvando] = useActionState(acaoSalvarMetas, vazio);
+  return (
+    <Formulario acao={salvar} className="flex flex-col gap-3">
+      <input type="hidden" name="clienteId" value={clienteId} />
+      <div className="grid gap-3 sm:grid-cols-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-suave">Orçamento do mês (R$)</span>
+          <input name="orcamentoMensal" defaultValue={orcamento} inputMode="decimal" placeholder="1500,00" className={campo} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-suave">Meta de contatos</span>
+          <input name="metaContatos" defaultValue={contatos} inputMode="numeric" placeholder="40" className={campo} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="text-suave">Custo por contato desejado (R$)</span>
+          <input name="metaCpl" defaultValue={cpl} inputMode="decimal" placeholder="35,00" className={campo} />
+        </label>
+      </div>
+      <p className="text-xs text-suave">Campo vazio limpa a meta. O ritmo do mês aparece em Anúncios e na carteira.</p>
+      <Aviso estado={estado} />
+      <button type="submit" disabled={salvando} className={botao}>
+        {salvando ? "Salvando..." : "Salvar metas"}
+      </button>
     </Formulario>
   );
 }

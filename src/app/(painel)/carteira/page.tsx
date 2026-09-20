@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { exigirAdmin } from "@/lib/auth";
 import { visaoGeral } from "@/lib/visaoGeral";
+import { saudeDoCliente, type SaudeCliente } from "@/lib/saude-cliente";
 import { formatarDataHora } from "@/lib/datas";
 import { moeda, Selo, Vazio } from "../componentes";
 import { AbrirCliente } from "./abrir-cliente";
@@ -17,6 +18,10 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
   const dias = Number(filtros.dias ?? 7) || 7;
 
   const linhas = await visaoGeral(sessao.agenciaId, dias);
+  // Saúde da implantação de cada cliente: o selo e o alarme da carteira.
+  const saude = new Map<string, SaudeCliente>(
+    await Promise.all(linhas.map(async (l) => [l.id, await saudeDoCliente(l.id)] as const)),
+  );
 
   const totais = linhas.reduce(
     (acc, l) => ({
@@ -94,6 +99,13 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
               <Celula rotulo="CAC" valor={l.cac != null ? moeda(l.cac) : "—"} />
             </dl>
 
+            {saude.get(l.id)?.rastreamentoParado && (
+              <p className="mt-3 rounded-xl bg-alerta-suave px-3 py-2 text-sm text-alerta">
+                Rastreamento parado: {moeda(saude.get(l.id)!.rastreamentoParado!.gasto)} em anúncios nas últimas 48h
+                sem nenhuma visita registrada. Confira o script na página.
+              </p>
+            )}
+
             <div className="mt-3 flex flex-wrap gap-2">
               {l.semResposta > 0 && <Selo tom="alerta">{l.semResposta} sem resposta</Selo>}
               {l.followUp > 0 && <Selo tom="alerta">{l.followUp} em follow-up</Selo>}
@@ -107,6 +119,11 @@ export default async function PaginaCarteira({ searchParams }: PageProps<"/carte
               )}
               {l.roas != null && <Selo tom="ok">ROAS {l.roas.toFixed(2)}x</Selo>}
               {!l.temContaAnuncios && <Selo tom="alerta">sem conta de anúncios</Selo>}
+              {(saude.get(l.id)?.pendencias ?? 0) > 0 && (
+                <Selo tom="alerta">
+                  {saude.get(l.id)!.pendencias} na implantação
+                </Selo>
+              )}
               {l.semResposta === 0 && l.followUp === 0 && <Selo tom="ok">fila em dia</Selo>}
             </div>
 

@@ -7,7 +7,9 @@ import { contasDisponiveis } from "@/lib/meta/marketing";
 import { Selo } from "../componentes";
 import { BlocoCopiavel } from "./copiar";
 import { ContasDoCliente, type ContaListada } from "./meta";
-import { Bloco, FormApiConversoes, FormFunil, FormNovoUsuario, FormNumero, FormPuxarMeta } from "./formularios";
+import { Bloco, FormApiConversoes, FormFunil, FormMetas, FormNovoUsuario, FormNumero, FormPuxarMeta } from "./formularios";
+import { PainelSaude } from "./saude";
+import { saudeDoCliente } from "@/lib/saude-cliente";
 
 // "Puxar dados do Meta agora" busca 90 dias e pode passar de um minuto.
 export const maxDuration = 300;
@@ -50,6 +52,7 @@ export default async function PaginaAjustes({
     disponiveis = lista.contas.map((c) => ({ ...c, usadaPor: dono.get(c.contaId) ?? null }));
   }
 
+  const saude = ehAdmin ? await saudeDoCliente(cliente.id) : null;
   const appUrl = process.env.APP_URL ?? "https://painel.jlads.com.br";
   const numero = cliente.numeros[0]?.numero;
   const script = `<script async src="${appUrl}/jl.js"
@@ -64,6 +67,33 @@ export default async function PaginaAjustes({
         {cliente.nome}
         {numero ? ` · atendimento ${formatarTelefone(numero)}` : " · sem WhatsApp de atendimento"}
       </p>
+
+      {saude && (
+        <Bloco
+          titulo="Saúde da implantação"
+          descricao={
+            saude.pendencias === 0
+              ? "Tudo de pé: os números deste cliente são confiáveis."
+              : `${saude.pendencias} ${saude.pendencias === 1 ? "item pendente" : "itens pendentes"}. Enquanto faltar, algum número fica torto.`
+          }
+        >
+          <PainelSaude saude={saude} />
+        </Bloco>
+      )}
+
+      {ehAdmin && (
+        <Bloco
+          titulo="Meta do mês"
+          descricao="O que foi combinado com o cliente. É a régua do ritmo de gasto, em Anúncios e na carteira."
+        >
+          <FormMetas
+            clienteId={cliente.id}
+            orcamento={cliente.orcamentoMensal ? String(cliente.orcamentoMensal).replace(".", ",") : ""}
+            contatos={cliente.metaContatos ? String(cliente.metaContatos) : ""}
+            cpl={cliente.metaCpl ? String(cliente.metaCpl).replace(".", ",") : ""}
+          />
+        </Bloco>
+      )}
 
       {ehAdmin && (
         <Bloco

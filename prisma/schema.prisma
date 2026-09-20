@@ -181,6 +181,14 @@ model Cliente {
   linkPagamento  String? // link fixo de cobrança, enquanto não houver provedor
   observacoes    String?
 
+  /*
+   * Meta do mês, combinada com o cliente. Sem isso, ninguém sabe no dia 20 se
+   * o mês vai fechar acima ou abaixo do combinado.
+   */
+  orcamentoMensal Decimal? @db.Decimal(12, 2)
+  metaContatos    Int?
+  metaCpl         Decimal? @db.Decimal(12, 2)
+
   // Prospecção: de onde veio, o que faz, quando retomar e por que foi perdido.
   nicho          String?
   origem         String? // indicação, Instagram, abordagem fria, evento

@@ -289,3 +289,45 @@ export async function acaoSalvarNumero(
   revalidatePath("/ajustes");
   return { ok: "Número salvo. Se o script já está na página, atualize o data-numero dele também." };
 }
+
+const Metas = z.object({
+  clienteId: z.string().min(1),
+  orcamentoMensal: z.string().optional(),
+  metaContatos: z.string().optional(),
+  metaCpl: z.string().optional(),
+});
+
+/** Meta do mês combinada com o cliente: orçamento, contatos e custo por contato. */
+export async function acaoSalvarMetas(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const sessao = await exigirAdmin();
+  const dados = Metas.safeParse(Object.fromEntries(formData));
+  if (!dados.success) return { erro: "Dados inválidos." };
+  if (!(await clienteDaAgencia(dados.data.clienteId, sessao.agenciaId))) return { erro: "Cliente inválido." };
+
+  // Campo vazio limpa a meta; número inválido não passa.
+  const numero = (bruto: string | undefined, inteiro = false) => {
+    const texto = (bruto ?? "").trim();
+    if (!texto) return null;
+    const n = Number(texto.replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(n) || n < 0) return undefined;
+    return inteiro ? Math.round(n) : n;
+  };
+  const orcamento = numero(dados.data.orcamentoMensal);
+  const contatos = numero(dados.data.metaContatos, true);
+  const cpl = numero(dados.data.metaCpl);
+  if (orcamento === undefined || contatos === undefined || cpl === undefined) {
+    return { erro: "Confira os valores: use números, com vírgula para centavos." };
+  }
+
+  await prisma.cliente.update({
+    where: { id: dados.data.clienteId },
+    data: { orcamentoMensal: orcamento, metaContatos: contatos, metaCpl: cpl },
+  });
+  revalidatePath("/ajustes");
+  revalidatePath("/anuncios");
+  revalidatePath("/carteira");
+  return { ok: "Metas salvas." };
+}
