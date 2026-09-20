@@ -134,9 +134,31 @@ describe("inteligência das campanhas", () => {
     expect(recomendar(atual, atual).alertas.some((a) => a.titulo.includes("concentrado"))).toBe(true);
   });
 
+  it("divergência pequena não vira alerta: 2 contra 1 é ruído do dia a dia", () => {
+    const atual = [anuncio({ adId: "a", tipo: "leads_site", resultados: 2, contatosPainel: 1 })];
+    expect(recomendar(atual, atual).alertas.some((x) => x.titulo.includes("Meta conta mais"))).toBe(false);
+  });
+
   it("alerta quando o Meta conta muito mais do que chega na página", () => {
     const atual = [anuncio({ adId: "a", tipo: "leads_site", resultados: 20, contatosPainel: 5 })];
-    expect(recomendar(atual, atual).alertas.some((a) => a.titulo.includes("Meta conta mais"))).toBe(true);
+    const alerta = recomendar(atual, atual).alertas.find((x) => x.titulo.includes("Meta conta mais"));
+    expect(alerta).toBeTruthy();
+    expect(alerta?.motivo).toContain("20 resultados");
+    expect(alerta?.motivo).toContain("5 contatos registrados");
+  });
+
+  it("anúncio único do tipo é comparado com ele mesmo", () => {
+    const antes = [anuncio({ adId: "so", tipo: "leads_site", gasto: 100, resultados: 20 })]; // R$ 5
+    const piorou = [anuncio({ adId: "so", tipo: "leads_site", gasto: 100, resultados: 10 })]; // R$ 10
+    const r1 = recomendar(piorou, antes).recomendacoes.find((x) => x.adId === "so");
+    expect(r1?.categoria).toBe("atencao");
+    expect(r1?.titulo).toBe("Custo subindo");
+    expect(r1?.acao).toMatch(/segundo criativo/);
+
+    const melhorou = [anuncio({ adId: "so", tipo: "leads_site", gasto: 100, resultados: 40 })]; // R$ 2,50
+    const r2 = recomendar(melhorou, antes).recomendacoes.find((x) => x.adId === "so");
+    expect(r2?.categoria).toBe("escalar");
+    expect(r2?.titulo).toBe("Melhorando");
   });
 
   it("campanha de impressões não gera alerta de divergência com a página", () => {

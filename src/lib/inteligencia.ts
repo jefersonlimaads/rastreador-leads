@@ -59,10 +59,14 @@ const QUEDA_CTR = 0.25; // queda de 25% no clique por impressão
 const ALTA_CUSTO = 0.25;
 const IMPRESSOES_PARA_CANSAR = 5000;
 const CONCENTRACAO = 0.7; // um anúncio com 70% do gasto da campanha
+/* Divergência entre Meta e página só vira alerta com volume: 2 contra 1 é
+ * ruído do dia a dia, não sinal de rastreamento quebrado. */
+const MIN_PARA_DIVERGENCIA = 8;
 
 const moeda = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const inteiro = (v: number) => v.toLocaleString("pt-BR");
 const pct = (v: number) => `${v > 0 ? "+" : ""}${Math.round(v * 100)}%`;
+const plural = (n: number, um: string, varios: string) => `${inteiro(n)} ${n === 1 ? um : varios}`;
 
 /** Tipos cujo custo se lê por mil, como no Gerenciador (CPM). */
 const POR_MIL = new Set<TipoResultado>(["alcance", "impressoes"]);
@@ -242,6 +246,38 @@ export function recomendar(
       }
     }
 
+    // 6b. Sem régua de conta (um anúncio só daquele tipo): compara com ele mesmo.
+    if (mediana == null && custo != null && variacaoCusto != null) {
+      if (variacaoCusto >= 0.3) {
+        recomendacoes.push({
+          adId: a.adId,
+          nome: a.nome,
+          campanha: a.campanha,
+          categoria: "atencao",
+          titulo: "Custo subindo",
+          motivo: `${moeda(custo)} ${rotulo.custo} agora contra ${moeda(custoAntes!)} no período anterior (${pct(variacaoCusto)}).${reforco}`,
+          numeros,
+          acao: "Ainda não há outro anúncio do mesmo tipo para comparar. Suba um segundo criativo: além de segurar o custo, ele vira sua régua.",
+          peso: 55 + a.gasto + empurrao,
+        });
+        continue;
+      }
+      if (variacaoCusto <= -0.25 && a.resultados >= 3) {
+        recomendacoes.push({
+          adId: a.adId,
+          nome: a.nome,
+          campanha: a.campanha,
+          categoria: "escalar",
+          titulo: "Melhorando",
+          motivo: `${moeda(custo)} ${rotulo.custo} agora contra ${moeda(custoAntes!)} no período anterior (${pct(variacaoCusto)}).${reforco}`,
+          numeros,
+          acao: "Aumente o orçamento em 20% a 30% e confira de novo em 3 dias.",
+          peso: 75 + a.resultados + empurrao,
+        });
+        continue;
+      }
+    }
+
     // 7. Vendeu e não caiu em nenhum caso acima: está saudável.
     if (vendeu) {
       recomendacoes.push({
@@ -259,14 +295,17 @@ export function recomendar(
     }
 
     // 8. Pouco investido para concluir qualquer coisa.
-    if (mediana != null && a.gasto < mediana && a.resultados === 0) {
+    if (a.resultados === 0 && (mediana == null || a.gasto < mediana)) {
       recomendacoes.push({
         adId: a.adId,
         nome: a.nome,
         campanha: a.campanha,
         categoria: "sem_dados",
         titulo: "Ainda sem dados",
-        motivo: `${moeda(a.gasto)} investidos, abaixo do custo médio de um resultado (${moeda(mediana)}). Ainda não dá para concluir nada.`,
+        motivo:
+          mediana != null
+            ? `${moeda(a.gasto)} investidos, abaixo do custo médio de um resultado (${moeda(mediana)}). Ainda não dá para concluir nada.`
+            : `${moeda(a.gasto)} investidos e nenhum resultado ainda, sem outro anúncio do mesmo tipo para comparar.`,
         numeros,
         acao: "Deixe rodar até gastar pelo menos o custo de um resultado antes de decidir.",
         peso: 10,
@@ -342,11 +381,11 @@ function alertasDeCampanha(atual: AnuncioPeriodo[], anterior: AnuncioPeriodo[]):
     const rastreaveis = anuncios.filter((a) => RASTREAVEIS.has(a.tipo));
     const doMeta = rastreaveis.reduce((s, a) => s + a.resultados, 0);
     const doPainel = rastreaveis.reduce((s, a) => s + a.contatosPainel, 0);
-    if (doPainel > 0 && doMeta > 0 && doPainel <= doMeta * 0.5) {
+    if (doMeta >= MIN_PARA_DIVERGENCIA && doPainel <= doMeta * 0.5) {
       alertas.push({
         campanha,
         titulo: "Meta conta mais do que chega na página",
-        motivo: `${inteiro(doMeta)} resultados pelo Meta contra ${inteiro(doPainel)} contatos registrados pela página.`,
+        motivo: `${plural(doMeta, "resultado", "resultados")} pelo Meta contra ${plural(doPainel, "contato registrado", "contatos registrados")} pela página.`,
         acao: "Confira se o script está em todas as páginas e se os anúncios usam os parâmetros de URL.",
       });
     }
