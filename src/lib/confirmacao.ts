@@ -82,6 +82,7 @@ export async function pendencias(clienteId: string) {
           interesse: true,
           nomeVisitante: true,
           telefoneVisitante: true,
+          campos: true,
         },
       },
     },

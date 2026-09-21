@@ -459,6 +459,16 @@ model Clique {
   nomeVisitante     String?
   telefoneVisitante String?
 
+  /*
+   * Os outros campos do formulário, do jeito que a página perguntou: empresa,
+   * evento, data, cidade, o que for. Lista de { rotulo, valor }.
+   *
+   * Guardado assim, sem coluna por campo, porque cada cliente pergunta uma
+   * coisa diferente — e é justamente isso que faz quem atende reconhecer a
+   * pessoa em vez de olhar para um telefone solto.
+   */
+  campos Json?
+
   status   StatusClique @default(PENDENTE)
   criadoEm DateTime     @default(now())
 

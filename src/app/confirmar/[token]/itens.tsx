@@ -9,6 +9,7 @@ import {
   type EstadoConfirmacao,
 } from "./acoes";
 import { ROTULO_STATUS } from "@/lib/regras";
+import type { CampoFormulario } from "@/lib/campos";
 
 const vazio: EstadoConfirmacao = {};
 
@@ -16,6 +17,27 @@ const cartao = "rounded-2xl border border-borda bg-superficie p-4";
 const botaoPrimario = "rounded-xl bg-marca px-3 py-2.5 text-sm font-medium text-sobre-marca disabled:opacity-60";
 const botaoSecundario = "rounded-xl border border-borda px-3 py-2.5 text-sm font-medium disabled:opacity-60";
 const campo = "w-full rounded-xl border border-borda bg-fundo px-3 py-2.5 text-base outline-none focus:border-marca";
+
+/**
+ * O que a pessoa respondeu no formulário, com o rótulo que ela leu na página.
+ * É isso que responde ao "quem é essa pessoa?" — sem, sobra nome e telefone,
+ * que não dizem nada quando chegam dez no mesmo dia.
+ */
+function Campos({ campos }: { campos: CampoFormulario[] }) {
+  if (campos.length === 0) return null;
+  return (
+    /* Rótulo em cima, resposta embaixo: com pergunta longa, duas colunas
+       espremem a resposta contra a borda no celular, que é onde isso é lido. */
+    <dl className="mt-3 flex flex-col gap-2 border-t border-borda pt-3">
+      {campos.map((c) => (
+        <div key={c.rotulo}>
+          <dt className="text-xs text-suave">{c.rotulo}</dt>
+          <dd className="text-sm font-medium [overflow-wrap:anywhere]">{c.valor}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
 
 function Resposta({ estado }: { estado: EstadoConfirmacao }) {
   if (estado.erro) {
@@ -35,6 +57,7 @@ export function ItemClique({
   interesse,
   nome,
   telefone,
+  campos,
   quando,
 }: {
   token: string;
@@ -43,6 +66,7 @@ export function ItemClique({
   interesse: string | null;
   nome: string | null;
   telefone: string | null;
+  campos: CampoFormulario[];
   quando: string;
 }) {
   const [confirmado, confirmar, confirmando] = useActionState(acaoConfirmarConversa, vazio);
@@ -72,6 +96,8 @@ export function ItemClique({
           .filter(Boolean)
           .join(" · ")}
       </p>
+
+      <Campos campos={campos} />
 
       {abrirTelefone ? (
         <Formulario acao={confirmar} className="mt-3 flex flex-col gap-2">
@@ -142,6 +168,7 @@ export function ItemLead({
   telefone,
   codigo,
   interesse,
+  campos,
   etapaAtual,
   etapas,
   quando,
@@ -152,6 +179,7 @@ export function ItemLead({
   telefone: string | null;
   codigo: string | null;
   interesse: string | null;
+  campos: CampoFormulario[];
   etapaAtual: string;
   etapas: string[];
   quando: string;
@@ -182,6 +210,8 @@ export function ItemLead({
           .filter(Boolean)
           .join(" · ")}
       </p>
+
+      <Campos campos={campos} />
 
       {escolha === "" && (
         <div className="mt-4 flex flex-col gap-2">

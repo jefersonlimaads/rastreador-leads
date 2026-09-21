@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
@@ -5,6 +6,7 @@ import { detalheLead } from "@/lib/consultas";
 import { formatarTelefone, linkWhatsapp } from "@/lib/telefone";
 import { ROTULO_ATRIBUICAO, ROTULO_EVENTO, ROTULO_STATUS } from "@/lib/regras";
 import { formatarDataHora } from "@/lib/datas";
+import { lerCampos } from "@/lib/campos";
 import { etapasVisiveis } from "@/lib/regras";
 import { Selo, moeda, tempoRelativo } from "../../componentes";
 import { PainelStatus } from "./status";
@@ -84,6 +86,13 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
                 <dd className="font-medium">{lead.clique.interesse}</dd>
               </>
             )}
+            {/* O que a pessoa respondeu no formulário, com o rótulo que ela leu. */}
+            {lerCampos(lead.clique.campos).map((c) => (
+              <Fragment key={c.rotulo}>
+                <dt className="text-suave">{c.rotulo}</dt>
+                <dd className="font-medium">{c.valor}</dd>
+              </Fragment>
+            ))}
             <dt className="text-suave">Anúncio</dt>
             <dd>{nomes?.adNome ?? lead.clique.utmContent ?? lead.clique.adId ?? "sem anúncio (visita direta)"}</dd>
             {(nomes?.adsetNome || lead.clique.adsetId) && (

@@ -3,6 +3,7 @@ import { clientePorToken, pendencias } from "@/lib/confirmacao";
 import { formatarDataHora } from "@/lib/datas";
 import { formatarTelefone } from "@/lib/telefone";
 import { ETAPAS_DO_FUNIL } from "@/lib/regras";
+import { lerCampos } from "@/lib/campos";
 import { ItemClique, ItemLead } from "./itens";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,7 @@ export default async function PaginaConfirmar({
                 cliqueId={c.id}
                 codigo={c.codigo}
                 interesse={c.interesse}
+                campos={lerCampos(c.campos)}
                 nome={c.nomeVisitante}
                 telefone={c.telefoneVisitante ? formatarTelefone(c.telefoneVisitante) : null}
                 quando={formatarDataHora(c.criadoEm, cliente.fuso)}
@@ -93,6 +95,7 @@ export default async function PaginaConfirmar({
                       : null
                 }
                 interesse={l.clique?.interesse ?? null}
+                campos={lerCampos(l.clique?.campos)}
                 etapaAtual={l.status}
                 etapas={[...ETAPAS_DO_FUNIL[cliente.funil]]}
                 codigo={l.clique?.codigo ?? null}

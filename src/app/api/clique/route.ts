@@ -5,6 +5,7 @@ import { normalizarCodigo } from "@/lib/codigo";
 import { normalizarTelefone } from "@/lib/telefone";
 import { cadastrarLead } from "@/lib/atribuicao";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
+import { lerCampos, MAX_CAMPOS, resumoDosCampos } from "@/lib/campos";
 
 // Roda em São Paulo, junto do banco.
 export const preferredRegion = "gru1";
@@ -36,6 +37,11 @@ const Entrada = z.object({
   interesse: z.string().trim().max(80).nullish(),
   nomeVisitante: z.string().trim().max(120).nullish(),
   telefoneVisitante: z.string().trim().max(40).nullish(),
+  // Os outros campos do formulário. A limpeza fina fica em lerCampos.
+  campos: z
+    .array(z.object({ rotulo: z.string().max(200), valor: z.string().max(1000) }))
+    .max(MAX_CAMPOS * 3)
+    .nullish(),
   url: z.string().trim().max(2000).nullish(),
 });
 
@@ -67,6 +73,7 @@ export async function POST(request: NextRequest) {
   }
 
   const codigo = normalizarCodigo(d.codigo);
+  const campos = lerCampos(d.campos);
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
     request.headers.get("x-real-ip") ??
@@ -100,6 +107,7 @@ export async function POST(request: NextRequest) {
           ? (normalizarTelefone(d.telefoneVisitante) ?? d.telefoneVisitante)
           : null,
         url: d.url ?? null,
+        campos: campos.length > 0 ? campos : undefined,
       },
     });
   } catch (erro) {
@@ -120,9 +128,16 @@ export async function POST(request: NextRequest) {
         clienteId: cliente.id,
         telefone,
         nome: d.nomeVisitante ?? null,
-        mensagem: d.interesse
-          ? `Preencheu o formulário da página: ${d.interesse}`
-          : "Preencheu o formulário da página",
+        // O resumo entra na mensagem para quem lê o lead no painel já saber de
+        // quem se trata, sem precisar abrir o detalhe.
+        mensagem: [
+          d.interesse
+            ? `Preencheu o formulário da página: ${d.interesse}`
+            : "Preencheu o formulário da página",
+          campos.length > 0 ? resumoDosCampos(campos) : null,
+        ]
+          .filter(Boolean)
+          .join(" — "),
         mensagemEm: new Date(),
         usuarioId: null,
         cliqueIdEscolhido: clique.id,

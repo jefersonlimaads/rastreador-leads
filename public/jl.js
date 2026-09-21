@@ -108,6 +108,7 @@
     interesse: null,
     nomeVisitante: null,
     telefoneVisitante: null,
+    campos: null,
   };
 
   /*
@@ -158,6 +159,81 @@
     var porTipo = valorDoCampo("data-jl-telefone", /telefone|celular|whats|fone|phone|tel\b/, "tel");
     if (porTipo) return porTipo;
     return valorDoCampo("data-jl-telefone", /telefone|celular|whats|fone|phone|tel\b/, null);
+  }
+
+  /*
+   * Os outros campos do formulário: empresa, evento, data, cidade, o que a
+   * página perguntar. Quem atende precisa saber de quem se trata — telefone e
+   * nome sozinhos não dizem nada quando chegam dez no mesmo dia.
+   *
+   * O rótulo sai do <label>, que é o texto que a pessoa leu ao responder. Sem
+   * label, vale o placeholder e depois o name.
+   *
+   * O que já foi capturado em campo próprio — nome, telefone, interesse — sai
+   * fora por VALOR, não por rótulo: "Qual o nome do evento?" tem a palavra
+   * nome e não é o nome de ninguém.
+   */
+  var IGNORAR_CAMPO = /^(nome|name|telefone|celular|whats(app)?|fone|phone|tel|e-?mail)$/i;
+
+  function rotuloDoCampo(campo) {
+    var porId = campo.id ? document.querySelector('label[for="' + campo.id + '"]') : null;
+    var proximo = campo.closest ? campo.closest("label") : null;
+    var texto = limpar((porId && porId.textContent) || (proximo && proximo.textContent) || "");
+    // Label que engloba o campo traz junto o valor digitado: fica só o começo.
+    if (texto && campo.value && texto.indexOf(campo.value) !== -1) {
+      texto = limpar(texto.replace(campo.value, ""));
+    }
+    return texto || limpar(campo.placeholder || "") || limpar(campo.name || "");
+  }
+
+  function camposDoFormulario(form) {
+    if (!form) return null;
+    var elementos = form.querySelectorAll("input, select, textarea");
+    var lista = [];
+    var jaCapturado = [dados.nomeVisitante, dados.telefoneVisitante, dados.interesse];
+
+    function repetido(valor) {
+      for (var j = 0; j < jaCapturado.length; j++) {
+        var outro = jaCapturado[j];
+        if (!outro) continue;
+        if (outro === valor) return true;
+        // Telefone vai normalizado no campo próprio: compara só os dígitos.
+        if (/\d/.test(valor) && outro.replace(/\D/g, "") === valor.replace(/\D/g, "")) {
+          if (valor.replace(/\D/g, "").length >= 8) return true;
+        }
+      }
+      return false;
+    }
+
+    for (var i = 0; i < elementos.length && lista.length < 12; i++) {
+      var campo = elementos[i];
+      var tipo = (campo.type || "").toLowerCase();
+      if (tipo === "hidden" || tipo === "submit" || tipo === "button" || tipo === "password") continue;
+      if (campo.disabled) continue;
+
+      var valor = "";
+      if (tipo === "checkbox" || tipo === "radio") {
+        if (!campo.checked) continue;
+        valor = limpar(campo.value) || "Sim";
+      } else if (campo.tagName === "SELECT") {
+        var op = campo.options[campo.selectedIndex];
+        if (!op || !op.value) continue;
+        valor = limpar(op.textContent);
+      } else {
+        valor = limpar(campo.value || "");
+      }
+      if (!valor) continue;
+
+      if (repetido(valor)) continue;
+
+      var rotulo = rotuloDoCampo(campo);
+      if (!rotulo) continue;
+      if (IGNORAR_CAMPO.test(campo.name || "") || IGNORAR_CAMPO.test(campo.id || "")) continue;
+
+      lista.push({ rotulo: rotulo.slice(0, 60), valor: valor.slice(0, 300) });
+    }
+
+    return lista.length ? lista : null;
   }
 
   function interesseDoCampo() {
@@ -341,6 +417,7 @@
         descobrirInteresse(null);
       dados.nomeVisitante = nomeDoVisitante();
       dados.telefoneVisitante = telefoneDoVisitante();
+      dados.campos = camposDoFormulario(form);
       registrar();
     },
     true,
@@ -376,6 +453,7 @@
     dados.interesse = interesseDoCampo() || (form && interesseDoFormulario(form)) || dados.interesse;
     dados.nomeVisitante = nomeDoVisitante();
     dados.telefoneVisitante = telefoneDoVisitante();
+    dados.campos = camposDoFormulario(form) || dados.campos;
     registrar();
   }
 
