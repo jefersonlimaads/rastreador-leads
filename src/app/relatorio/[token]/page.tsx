@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { sessaoAtual } from "@/lib/auth";
+import { ehRobo } from "@/lib/robo";
 import { montarRelatorio, periodoDoRelatorio, registrarVisualizacaoRelatorio, relatorioPorToken } from "@/lib/relatorio";
 import { DocumentoRelatorio } from "../documento";
 import { BotaoImprimir } from "../imprimir";
@@ -26,8 +28,10 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
  */
 export default async function PaginaRelatorioPublico({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
   const rel = await relatorioPorToken(token);
@@ -36,8 +40,11 @@ export default async function PaginaRelatorioPublico({
   const r = await montarRelatorio(rel.clienteId, periodo.de, periodo.ate);
   if (!r) notFound();
 
-  // Você conferindo não conta como o cliente abrindo.
-  if (!(await sessaoAtual())) await registrarVisualizacaoRelatorio(rel.id);
+  /* Você conferindo não conta como o cliente abrindo — nem a prévia de link
+     que o WhatsApp busca sozinho ao você colar o endereço na conversa. */
+  const { previa } = await searchParams;
+  const robo = ehRobo((await headers()).get("user-agent"));
+  if (!previa && !robo && !(await sessaoAtual())) await registrarVisualizacaoRelatorio(rel.id);
 
   return (
     <main className="min-h-dvh bg-fundo px-3 py-5 sm:px-5 sm:py-8">

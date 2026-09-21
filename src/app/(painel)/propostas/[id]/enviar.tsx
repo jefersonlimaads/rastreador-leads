@@ -78,8 +78,10 @@ export function EnviarProposta({
                 Mandar no WhatsApp
               </a>
             )}
+            {/* ?previa=1 abre sem contar como visita do lead — dá para conferir
+                do celular, fora do painel, sem sujar o "aberta". */}
             <a
-              href={link}
+              href={`${link}?previa=1`}
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-xl border border-borda px-3 py-2 text-sm"

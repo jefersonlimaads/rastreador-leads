@@ -158,7 +158,7 @@ export default async function PaginaRelatorios({
                   </div>
                   <div className="flex gap-2">
                     <a
-                      href={`/relatorio/${e.token}`}
+                      href={`/relatorio/${e.token}?previa=1`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded-xl border border-borda px-3 py-1.5 text-sm"

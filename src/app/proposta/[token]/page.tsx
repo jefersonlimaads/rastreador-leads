@@ -1,5 +1,7 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { sessaoAtual } from "@/lib/auth";
+import { ehRobo } from "@/lib/robo";
 import {
   desconto,
   economiaDoPeriodo,
@@ -36,16 +38,26 @@ function moeda(valor: number) {
  */
 export default async function PaginaPropostaPublica({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
   const proposta = await propostaPublica(token);
   if (!proposta || proposta.status === "RASCUNHO") notFound();
 
-  // Você abrindo para conferir não conta como o lead abrindo.
+  /*
+   * "Aberta" é sinal de venda: é o que faz você ligar. Três coisas não contam
+   * como o lead abrindo — você logado no painel, a prévia com ?previa=1 (para
+   * conferir do celular), e robô. O robô é o caso que mais engana: colar o
+   * link no WhatsApp faz o próprio WhatsApp buscar a página para montar o
+   * cartão de prévia, antes de qualquer pessoa tocar nele.
+   */
+  const { previa } = await searchParams;
   const sessao = await sessaoAtual();
-  if (!sessao) await registrarVisualizacao(proposta.id);
+  const robo = ehRobo((await headers()).get("user-agent"));
+  if (!sessao && !previa && !robo) await registrarVisualizacao(proposta.id);
 
   const agora = situacao(proposta);
   const escopo = lerEscopo(proposta.escopo);
