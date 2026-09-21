@@ -5,6 +5,7 @@ import { escopoParaTexto, lerEscopo, ROTULO_SITUACAO, situacao } from "@/lib/pro
 import { formatarDataHora } from "@/lib/datas";
 import { Selo } from "../../componentes";
 import { servicosDaAgencia } from "@/lib/servicos";
+import { aberturaSugerida } from "@/lib/abertura";
 import { FormularioProposta } from "../formulario";
 import { EnviarProposta } from "./enviar";
 import { Acompanhamento, ExcluirProposta } from "./acompanhamento";
@@ -29,6 +30,8 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
   const itens = lerEscopo(proposta.escopo);
   // Itens sem servicoId são os digitados à mão, e voltam para o campo de texto.
   const extras = itens.filter((i) => !i.servicoId);
+
+  const sugestao = await aberturaSugerida(proposta.clienteId);
 
   const agora = situacao(proposta);
   const respondida = agora === "aceita" || agora === "recusada";
@@ -103,6 +106,7 @@ export default async function PaginaProposta({ params }: { params: Promise<{ id:
         <FormularioProposta
           clientes={clientes}
           servicos={servicos}
+          sugestao={sugestao}
           valores={{
             propostaId: proposta.id,
             clienteId: proposta.clienteId,

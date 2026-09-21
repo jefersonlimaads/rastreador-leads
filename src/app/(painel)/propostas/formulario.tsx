@@ -26,6 +26,12 @@ export type ValoresProposta = {
   validade: string;
 };
 
+export type Sugestao = {
+  texto: string;
+  historico: { quando: string; tipo: string; descricao: string }[];
+  pontos: string[];
+};
+
 const CONDICOES_PADRAO = `Verba de anúncios paga direto ao Meta pelo cliente, à parte do valor mensal.
 Pagamento mensal até o dia 10.`;
 
@@ -50,10 +56,12 @@ export function FormularioProposta({
   valores,
   clientes,
   servicos,
+  sugestao,
 }: {
   valores: ValoresProposta;
   clientes: { id: string; nome: string }[];
   servicos: { id: string; nome: string; detalhe: string | null }[];
+  sugestao: Sugestao | null;
 }) {
   const [estado, salvar, salvando] = useActionState(acaoSalvarProposta, vazio);
   const nova = !valores.propostaId;
@@ -62,6 +70,12 @@ export function FormularioProposta({
   const [cheio, setCheio] = useState(valores.feeCheio);
   const [cobrado, setCobrado] = useState(valores.feeMensal);
   const [meses, setMeses] = useState(valores.meses);
+
+  /* A abertura já nasce escrita com o que ficou registrado da conversa. É
+     rascunho: quem manda a proposta corrige antes de enviar. */
+  const [abertura, setAbertura] = useState(valores.apresentacao || sugestao?.texto || "");
+  const [verHistorico, setVerHistorico] = useState(false);
+  const podeRestaurar = Boolean(sugestao?.texto) && abertura !== sugestao?.texto;
   const de = numero(cheio);
   const por = numero(cobrado);
   const economia = de != null && por != null && de > por ? de - por : null;
@@ -73,7 +87,16 @@ export function FormularioProposta({
 
       <label className="flex flex-col gap-1.5">
         <span className="text-sm text-suave">Para quem</span>
-        <select name="clienteId" defaultValue={valores.clienteId} className={campo}>
+        {/* Recarrega com o cliente escolhido: a sugestão de abertura sai do
+            histórico dele, e o histórico vem do servidor. */}
+        <select
+          name="clienteId"
+          defaultValue={valores.clienteId}
+          onChange={(e) => {
+            if (nova && e.target.value) window.location.href = `/propostas/nova?cliente=${e.target.value}`;
+          }}
+          className={campo}
+        >
           <option value="">Prospect novo (digite abaixo)</option>
           {clientes.map((c) => (
             <option key={c.id} value={c.id}>
@@ -102,16 +125,66 @@ export function FormularioProposta({
         />
       </label>
 
-      <label className="flex flex-col gap-1.5">
-        <span className="text-sm text-suave">Abertura</span>
+      <div className="flex flex-col gap-1.5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <span className="text-sm text-suave">Abertura</span>
+          {podeRestaurar && (
+            <button
+              type="button"
+              onClick={() => setAbertura(sugestao!.texto)}
+              className="text-xs text-marca-texto"
+            >
+              Voltar para a sugestão
+            </button>
+          )}
+        </div>
         <textarea
           name="apresentacao"
-          rows={4}
-          defaultValue={valores.apresentacao}
+          rows={8}
+          value={abertura}
+          onChange={(e) => setAbertura(e.target.value)}
           placeholder="O problema que você entendeu na conversa, em duas ou três frases. É o que prova que a proposta foi escrita para ele."
           className={campo}
         />
-      </label>
+        {sugestao?.texto && abertura === sugestao.texto && (
+          <span className="text-xs text-suave">
+            Rascunho montado com o que está registrado da conversa. Leia e ajuste: é o parágrafo
+            que prova que a proposta foi escrita para ele.
+          </span>
+        )}
+
+        {sugestao && (sugestao.historico.length > 0 || sugestao.pontos.length > 0) && (
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setVerHistorico(!verHistorico)}
+              className="text-xs text-marca-texto"
+            >
+              {verHistorico ? "Esconder" : "Ver"} o que já foi conversado
+            </button>
+            {verHistorico && (
+              <div className="mt-2 flex flex-col gap-2 rounded-xl border border-borda bg-fundo p-3">
+                {sugestao.historico.map((h, i) => (
+                  <p key={i} className="text-xs">
+                    <span className="text-suave">
+                      {h.tipo} · {h.quando}
+                    </span>
+                    <br />
+                    <span className="[overflow-wrap:anywhere]">{h.descricao}</span>
+                  </p>
+                ))}
+                {sugestao.pontos.length > 0 && (
+                  <p className="text-xs">
+                    <span className="text-suave">Do diagnóstico</span>
+                    <br />
+                    {sugestao.pontos.join(" · ")}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       <fieldset className="flex flex-col gap-1.5">
         <legend className="text-sm text-suave">O que está incluído</legend>
