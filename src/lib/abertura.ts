@@ -5,19 +5,23 @@ import { FUSO_PADRAO } from "./datas";
 /**
  * Rascunho da abertura da proposta.
  *
- * A abertura é o que prova que a proposta foi escrita para aquela pessoa, e
- * não copiada. Mas quem escreve chega nela depois da reunião, com a conversa
- * ainda fresca e nenhuma vontade de redigir parágrafo — e aí ou sai genérica,
- * ou a proposta demora dias.
+ * A proposta sai depois da reunião de diagnóstico, com a conversa fresca e
+ * nenhuma vontade de redigir parágrafo — e aí ou a abertura sai genérica, ou a
+ * proposta demora dias. O histórico já está no sistema: interações do
+ * prospect, observações e o diagnóstico da prospecção.
  *
- * Então o sistema monta um rascunho com o que já está registrado: a data da
- * conversa, o que foi anotado nela, e o que o diagnóstico apontou. Nada é
- * inventado: cada frase sai de um registro que existe. O texto entra no campo
- * como ponto de partida, para ser corrigido — é rascunho, não resposta final.
+ * O rascunho tem três partes, na ordem em que a pessoa precisa ler:
+ *   1. o que ela trouxe, nas palavras dela;
+ *   2. onde está a oportunidade — o problema e o que muda quando se resolve;
+ *   3. como o trabalho acontece, para ela saber o que esperar.
+ *
+ * Nada é inventado sobre o cliente: as partes 1 e 2 saem de registro que
+ * existe, e sem registro a seção não aparece. A parte 3 é como a agência
+ * trabalha, que é fato sobre nós, não sobre ele.
  */
 
 export type AberturaSugerida = {
-  /** O rascunho pronto para o campo. Vazio quando não há o que dizer. */
+  /** O rascunho pronto para o campo. */
   texto: string;
   /** O material cru, para quem quiser completar à mão. */
   historico: { quando: string; tipo: string; descricao: string }[];
@@ -33,16 +37,73 @@ const ROTULO: Record<string, string> = {
   NOTA: "Nota",
 };
 
+/**
+ * O que muda quando cada gap é resolvido.
+ *
+ * O diagnóstico já escreve o problema ("Site sem Pixel do Meta: não sabe quem
+ * visita"); o que falta na proposta é o outro lado. Casado por palavra-chave
+ * porque o gap é guardado como texto, não como código.
+ */
+const OPORTUNIDADE: { quando: RegExp; ganho: string }[] = [
+  {
+    quando: /pixel/i,
+    ganho:
+      "Com o Pixel e a API de Conversões ligados, o Meta passa a aprender com quem virou cliente de verdade — o custo por contato cai sem aumentar a verba.",
+  },
+  {
+    quando: /tag do google|mede conversõ/i,
+    ganho: "Medindo a conversão, dá para saber qual campanha traz cliente e qual só gasta.",
+  },
+  {
+    quando: /não tem site/i,
+    ganho:
+      "Uma página de captura feita para um serviço só costuma converter mais do que mandar todo mundo para o perfil.",
+  },
+  {
+    quando: /fora do ar|lento/i,
+    ganho: "Página que abre rápido é a diferença entre o clique virar conversa e virar nada.",
+  },
+  {
+    quando: /whatsapp nem formulário|botão de whatsapp/i,
+    ganho:
+      "Com botão de WhatsApp e formulário na página, a pessoa pede orçamento no impulso — que é quando ela decide.",
+  },
+  {
+    quando: /página de links/i,
+    ganho: "Um site próprio libera rastreamento e remarketing, que a página de links não permite.",
+  },
+  {
+    quando: /cadeado|https/i,
+    ganho: "Com o certificado resolvido, o navegador para de espantar quem chega.",
+  },
+  {
+    quando: /nota .* no google|avaliaçõ/i,
+    ganho:
+      "Esse é o caso mais fácil: a prova social já existe, falta gente ver. Anúncio aqui só acelera o que a reputação já sustenta.",
+  },
+];
+
+/**
+ * Como o trabalho acontece. É o mesmo para todo cliente porque é o nosso
+ * método, não o problema dele — e é o que responde à pergunta que vem logo
+ * depois do preço: "e aí, o que acontece na prática?".
+ */
+const COMO_FUNCIONA = [
+  "Primeiras duas semanas: rastreamento instalado na página, campanhas no ar e a primeira leitura de quanto custa cada contato.",
+  "Do primeiro mês em diante: teste de criativo e de público, cortando o que sai caro e reforçando o que traz contato.",
+  "Todo mês: relatório com quanto foi investido, quantos contatos chegaram, quanto custou cada um — e a conversa do que muda no mês seguinte.",
+];
+
 /** "12 de novembro", do jeito que se escreve numa carta. */
 function porExtenso(data: Date, fuso: string) {
   return data.toLocaleDateString("pt-BR", { day: "numeric", month: "long", timeZone: fuso });
 }
 
-/** Primeira letra minúscula: a frase continua, não recomeça. */
-const emenda = (texto: string) => texto.charAt(0).toLowerCase() + texto.slice(1);
-
-/** Tira o ponto final para a frase poder continuar. */
-const semPonto = (texto: string) => texto.replace(/[.;]+\s*$/, "");
+/** Termina em ponto, sem duplicar o que já tinha. */
+const frase = (texto: string) => {
+  const limpo = texto.trim().replace(/[;,]+$/, "");
+  return /[.!?]$/.test(limpo) ? limpo : `${limpo}.`;
+};
 
 export async function aberturaSugerida(clienteId: string): Promise<AberturaSugerida> {
   const cliente = await prisma.cliente.findUnique({
@@ -50,7 +111,6 @@ export async function aberturaSugerida(clienteId: string): Promise<AberturaSuger
     select: {
       nome: true,
       fuso: true,
-      nicho: true,
       contatoNome: true,
       observacoes: true,
       reuniaoEm: true,
@@ -59,7 +119,7 @@ export async function aberturaSugerida(clienteId: string): Promise<AberturaSuger
         take: 8,
         select: { tipo: true, descricao: true, criadoEm: true },
       },
-      diagnostico: { select: { resumo: true, gaps: true, briefing: true } },
+      diagnostico: { select: { resumo: true, gaps: true } },
     },
   });
   if (!cliente) return { texto: "", historico: [], pontos: [] };
@@ -72,7 +132,6 @@ export async function aberturaSugerida(clienteId: string): Promise<AberturaSuger
     descricao: i.descricao,
   }));
 
-  // Gaps do diagnóstico: o que falta no marketing dele, achado na prospecção.
   const gaps = Array.isArray(cliente.diagnostico?.gaps)
     ? (cliente.diagnostico.gaps as unknown[])
         .map((g) =>
@@ -86,52 +145,47 @@ export async function aberturaSugerida(clienteId: string): Promise<AberturaSuger
     : [];
   const pontos = [...gaps, ...(cliente.diagnostico?.resumo ? [cliente.diagnostico.resumo] : [])];
 
-  const partes: string[] = [];
+  const blocos: string[] = [];
 
-  /* 1. Onde a conversa aconteceu. A reunião marcada é a referência mais forte;
-   *    sem ela, vale a última interação registrada. */
+  // ——— 1. O que foi levantado ———
   const reuniao = cliente.interacoes.find((i) => i.tipo === "REUNIAO");
-  const ultima = cliente.interacoes[0];
-  const dataDaConversa = cliente.reuniaoEm ?? reuniao?.criadoEm ?? ultima?.criadoEm ?? null;
+  const dataDaConversa = cliente.reuniaoEm ?? reuniao?.criadoEm ?? cliente.interacoes[0]?.criadoEm;
 
-  if (dataDaConversa) {
-    const tratamento = cliente.contatoNome ? `${cliente.contatoNome}, ` : "";
-    partes.push(
-      `${tratamento}${tratamento ? "n" : "N"}a nossa conversa do dia ${porExtenso(dataDaConversa, fuso)}, algumas coisas ficaram claras.`,
+  const levantado = cliente.interacoes
+    .filter((i) => i.descricao.trim().length > 15)
+    .slice(0, 5)
+    // Da mais antiga para a mais nova: é a ordem em que a conversa aconteceu.
+    .reverse()
+    .map((i) => `• ${frase(i.descricao)}`);
+
+  if (levantado.length === 0 && cliente.observacoes?.trim()) {
+    levantado.push(`• ${frase(cliente.observacoes)}`);
+  }
+
+  const tratamento = cliente.contatoNome ? `${cliente.contatoNome}, o` : "O";
+  if (levantado.length > 0) {
+    blocos.push(
+      `${tratamento} que ficou da nossa conversa${dataDaConversa ? ` do dia ${porExtenso(dataDaConversa, fuso)}` : ""}:\n\n${levantado.join("\n")}`,
     );
   } else {
-    partes.push(`${cliente.contatoNome ? `${cliente.contatoNome}, ` : ""}pelo que conversamos até aqui, algumas coisas ficaram claras.`);
-  }
-
-  /* 2. O que foi levantado. Sai das anotações da conversa, que é o que você
-   *    escreveu ouvindo a pessoa — e é literalmente a linguagem dela. */
-  const anotacoes = cliente.interacoes
-    .filter((i) => i.descricao.trim().length > 15)
-    .slice(0, 3)
-    .map((i) => semPonto(i.descricao.trim()));
-
-  if (anotacoes.length === 1) {
-    partes.push(`Você comentou que ${emenda(anotacoes[0])}.`);
-  } else if (anotacoes.length > 1) {
-    partes.push(
-      `Entre o que você trouxe: ${anotacoes.map(emenda).join("; ")}.`,
+    blocos.push(
+      `${tratamento} que conversamos até aqui está resumido abaixo. (Sem nada registrado ainda no histórico deste contato — escreva aqui os pontos da reunião.)`,
     );
-  } else if (cliente.observacoes?.trim()) {
-    partes.push(`Do que anotamos: ${emenda(semPonto(cliente.observacoes.trim()))}.`);
   }
 
-  /* 3. O que olhamos por fora. Só entra quando existe diagnóstico: é a parte
-   *    que mostra que houve trabalho antes da proposta. */
+  // ——— 2. Onde está a oportunidade ———
   if (gaps.length > 0) {
-    // Só o que o diagnóstico realmente olhou: o que está no ar do lado dele.
-    // Dizer "olhamos a concorrência" seria uma frase bonita e falsa.
-    partes.push(
-      `Olhando por fora o que hoje está no ar, ${gaps.length === 1 ? "um ponto chamou" : "alguns pontos chamaram"} atenção: ${gaps.slice(0, 3).map((g) => emenda(semPonto(g))).join("; ")}.`,
-    );
+    const linhas = gaps.slice(0, 4).map((g) => {
+      const ganho = OPORTUNIDADE.find((o) => o.quando.test(g))?.ganho;
+      return `• ${frase(g)}${ganho ? ` ${ganho}` : ""}`;
+    });
+    blocos.push(`Onde está a oportunidade:\n\n${linhas.join("\n")}`);
   }
 
-  /* 4. A ponte para o que vem abaixo, que é a proposta em si. */
-  partes.push("O que segue abaixo é o caminho que eu proponho para resolver isso.");
+  // ——— 3. Como o trabalho acontece ———
+  blocos.push(
+    `Como o trabalho acontece:\n\n${COMO_FUNCIONA.map((l, i) => `${i + 1}. ${l}`).join("\n")}`,
+  );
 
-  return { texto: partes.join("\n\n"), historico, pontos };
+  return { texto: blocos.join("\n\n"), historico, pontos };
 }
