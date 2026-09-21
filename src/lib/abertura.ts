@@ -89,9 +89,12 @@ const OPORTUNIDADE: { quando: RegExp; ganho: string }[] = [
  * depois do preço: "e aí, o que acontece na prática?".
  */
 const COMO_FUNCIONA = [
-  "Primeiras duas semanas: rastreamento instalado na página, campanhas no ar e a primeira leitura de quanto custa cada contato.",
-  "Do primeiro mês em diante: teste de criativo e de público, cortando o que sai caro e reforçando o que traz contato.",
-  "Todo mês: relatório com quanto foi investido, quantos contatos chegaram, quanto custou cada um — e a conversa do que muda no mês seguinte.",
+  "Primeiro entendemos o cenário atual: o que já funciona, o que precisa melhorar e o que precisa ser construído.",
+  "Fazemos a fundação, estruturamos as primeiras campanhas e começamos os testes.",
+  "Com os primeiros criativos validados, começamos a escalar.",
+  "Todo mês: relatório com quanto foi investido, quantos contatos chegaram, quanto custou cada um, e a conversa do que muda no mês seguinte.",
+  "Envio de link com os leads gerados e em que fase do funil cada um está.",
+  "Reunião quinzenal para alinhamento de expectativas e resultados.",
 ];
 
 /** "12 de novembro", do jeito que se escreve numa carta. */

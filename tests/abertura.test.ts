@@ -94,7 +94,8 @@ describe("abertura sugerida", () => {
 
     // 3. Como o trabalho acontece, que é fato sobre nós.
     expect(a.texto).toContain("Como o trabalho acontece:");
-    expect(a.texto).toMatch(/Primeiras duas semanas/);
+    expect(a.texto).toMatch(/entendemos o cenário atual/);
+    expect(a.texto).toMatch(/Reunião quinzenal/);
 
     // O material cru fica disponível para completar à mão.
     expect(a.historico).toHaveLength(2);
