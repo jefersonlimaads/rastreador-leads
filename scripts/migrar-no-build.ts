@@ -28,8 +28,24 @@ if (naVercel && !producao) {
 } else if (!direta) {
   console.log("[migrar] Sem DIRECT_URL: pulando as migrações.");
 } else {
+  /*
+   * Confere o valor antes de gastar um build inteiro para descobrir que ele
+   * está errado. O erro cru do Prisma ("scheme is not recognized") não diz o
+   * que fazer; esse diz — e sem imprimir a senha no log.
+   */
+  if (!/^postgres(ql)?:\/\//.test(direta)) {
+    console.error(
+      "[migrar] DIRECT_URL não parece uma conexão do Postgres: precisa começar com postgresql://",
+    );
+    console.error(
+      "[migrar] Confira a variável na Vercel. Cole só o valor, sem o nome, sem aspas e sem espaço antes.",
+    );
+    process.exit(1);
+  }
   if (!/:5432\//.test(direta)) {
-    console.warn("[migrar] Aviso: DIRECT_URL não está na porta 5432. Pode falhar no pooler.");
+    console.error("[migrar] DIRECT_URL não está na porta 5432 (conexão direta).");
+    console.error("[migrar] A porta 6543 é o pooler e não aceita criar tabela. Use a URL de 5432.");
+    process.exit(1);
   }
   console.log("[migrar] Aplicando migrações pendentes...");
   execFileSync("npx", ["prisma", "migrate", "deploy"], {
