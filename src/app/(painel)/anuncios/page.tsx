@@ -4,15 +4,15 @@ import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
 import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
-import { Comparacao, Diario, Inteligencia, PorVenda } from "./inteligencia";
+import { Comparacao, Diario, Inteligencia, TabelaAnuncios } from "./inteligencia";
 import { diarioDoCliente } from "@/lib/diario";
 import { compararComACarteira } from "@/lib/benchmark";
-import { MesEAtendimento } from "./mes";
+import { FaixaDoMes, TempoDeRespostaBloco } from "./mes";
 import { ritmoDoMes } from "@/lib/metas";
 import { tempoDeResposta } from "@/lib/atendimento";
 import { ResultadosCampanhas } from "@/app/relatorio/documento";
 import { prisma } from "@/lib/prisma";
-import { moeda, Selo, Vazio } from "../componentes";
+import { moeda, Vazio } from "../componentes";
 
 const NIVEIS: { valor: Nivel; rotulo: string }[] = [
   { valor: "ad", rotulo: "Anúncio" },
@@ -49,6 +49,10 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
       diarioDoCliente(clienteId, fuso),
       compararComACarteira(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
     ]);
+
+  /* O diagnóstico de cada anúncio vira selo na linha da tabela, em vez de
+     cartão próprio: "vendendo" não é ação, é estado. */
+  const diagnostico = new Map(inteligencia.recomendacoes.map((r) => [r.adId, r.categoria]));
 
   const ultimaSync = await prisma.gasto.findFirst({
     where: { clienteId },
@@ -100,18 +104,18 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         ))}
       </div>
 
+      <FaixaDoMes ritmo={ritmo} />
+
       <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Indicador titulo="Leads" valor={String(total.leads)} nota={`${total.leadsExatos} exatos`} />
-        <Indicador titulo="Fechados" valor={String(total.fechados)} />
-        <Indicador titulo="Gasto" valor={moeda(total.gasto)} />
+        <Indicador titulo="Contatos" valor={String(total.leads)} nota={`${total.leadsExatos} exatos`} />
+        <Indicador titulo="Vendas" valor={String(total.fechados)} />
+        <Indicador titulo="Investido" valor={moeda(total.gasto)} />
         <Indicador
-          titulo="ROAS"
-          valor={total.roas != null ? total.roas.toFixed(2) + "x" : "—"}
+          titulo="Retorno"
+          valor={total.roas != null ? total.roas.toFixed(1) + "x" : "—"}
           nota={moeda(total.receita)}
         />
       </section>
-
-      <MesEAtendimento ritmo={ritmo} atendimento={atendimento} clienteId={clienteId} />
 
       <Inteligencia
         recomendacoes={inteligencia.recomendacoes}
@@ -121,72 +125,53 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         dias={inteligencia.dias}
       />
 
-      {comparacao && <Comparacao b={comparacao} />}
-
-      {inteligencia.vendas && <PorVenda vendas={inteligencia.vendas} />}
-
-      <Diario mudancas={diario} />
-
-      {doMeta.campanhas.length > 0 && (
-        <section className="mt-5">
-          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
-            Resultado de cada campanha (Meta)
-          </h2>
-          <ResultadosCampanhas campanhas={doMeta.campanhas} />
-        </section>
+      {linhas.length === 0 ? (
+        <div className="mt-6">
+          <Vazio>
+            Nenhum contato atribuído no período. Se já houve cliques, confira se o script está
+            instalado na landing page.
+          </Vazio>
+        </div>
+      ) : (
+        <TabelaAnuncios
+          linhas={linhas}
+          diagnostico={diagnostico}
+          rotuloNivel={NIVEIS.find((n) => n.valor === nivel)?.rotulo ?? "Anúncio"}
+          vendas={inteligencia.vendas}
+        />
       )}
 
       {semAtribuicao > 0 && (
         <p className="mt-3 text-sm text-suave">
-          {semAtribuicao} {semAtribuicao === 1 ? "lead" : "leads"} sem anúncio identificado. Entram
-          no total do cliente, não nas linhas abaixo.
+          {semAtribuicao} {semAtribuicao === 1 ? "contato" : "contatos"} sem anúncio identificado.
+          Entram no total do cliente, não nas linhas acima.
         </p>
       )}
 
-      <section className="mt-5">
-        {linhas.length === 0 ? (
-          <Vazio>
-            Nenhum lead atribuído no período. Se já houve cliques, confira se o script está
-            instalado na landing page.
-          </Vazio>
-        ) : (
-          <div className="overflow-x-auto rounded-2xl border border-borda bg-superficie">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-borda text-left text-xs uppercase tracking-wide text-suave">
-                  <th className="px-3 py-2.5">{NIVEIS.find((n) => n.valor === nivel)?.rotulo}</th>
-                  <th className="px-3 py-2.5 text-right">Leads</th>
-                  <th className="px-3 py-2.5 text-right">Gasto</th>
-                  <th className="px-3 py-2.5 text-right">CPL</th>
-                  <th className="px-3 py-2.5 text-right">CAC</th>
-                  <th className="px-3 py-2.5 text-right">ROAS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {linhas.map((l) => (
-                  <tr key={l.chave} className="border-b border-borda last:border-0">
-                    <td className="px-3 py-2.5">
-                      <Link href={`/leads?ad=${l.chave}`} className="font-medium">
-                        {l.rotulo}
-                      </Link>
-                      <div className="mt-1 flex gap-1">
-                        <Selo>{l.fechados} fechados</Selo>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-right">{l.leads}</td>
-                    <td className="px-3 py-2.5 text-right">{moeda(l.gasto)}</td>
-                    <td className="px-3 py-2.5 text-right">{l.cpl != null ? moeda(l.cpl) : "—"}</td>
-                    <td className="px-3 py-2.5 text-right">{l.cac != null ? moeda(l.cac) : "—"}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {l.roas != null ? l.roas.toFixed(2) + "x" : "—"}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Detalhe: material de apoio, aberto por quem quiser. Fora do caminho de
+          quem abriu a tela para decidir o que mexer hoje. */}
+      <section className="mt-8 flex flex-col gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">Detalhe</h2>
+
+        {comparacao && <Comparacao b={comparacao} />}
+
+        <Detalhe titulo="Tempo de resposta" resumo="Quanto o contato espera para ser atendido">
+          <TempoDeRespostaBloco atendimento={atendimento} clienteId={clienteId} />
+        </Detalhe>
+
+        {doMeta.campanhas.length > 0 && (
+          <Detalhe titulo="Resultado de cada campanha" resumo="Como o Meta conta, por objetivo">
+            <ResultadosCampanhas campanhas={doMeta.campanhas} />
+          </Detalhe>
+        )}
+
+        {diario.length > 0 && (
+          <Detalhe titulo="Diário de otimização" resumo="O que foi mexido e o que veio depois">
+            <Diario mudancas={diario} />
+          </Detalhe>
         )}
       </section>
+
     </>
   );
 }
@@ -198,5 +183,27 @@ function Indicador({ titulo, valor, nota }: { titulo: string; valor: string; not
       <p className="mt-1 text-lg font-semibold">{valor}</p>
       {nota && <p className="text-xs text-suave">{nota}</p>}
     </div>
+  );
+}
+
+/** Seção recolhida: o conteúdo existe, mas não ocupa a tela de quem vem decidir. */
+function Detalhe({
+  titulo,
+  resumo,
+  children,
+}: {
+  titulo: string;
+  resumo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <details className="group rounded-2xl border border-borda bg-superficie">
+      <summary className="flex cursor-pointer items-baseline justify-between gap-3 px-4 py-3 text-sm">
+        <span className="font-medium">{titulo}</span>
+        <span className="text-xs text-suave group-open:hidden">{resumo}</span>
+        <span className="hidden text-xs text-suave group-open:inline">fechar</span>
+      </summary>
+      <div className="border-t border-borda px-4 py-4">{children}</div>
+    </details>
   );
 }

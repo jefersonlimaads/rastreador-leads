@@ -1,6 +1,8 @@
 "use client";
 
 import { Formulario } from "@/app/formulario";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useActionState, useState } from "react";
 import { acaoSalvarProposta, type EstadoProposta } from "./acoes";
 
@@ -64,6 +66,7 @@ export function FormularioProposta({
   sugestao: Sugestao | null;
 }) {
   const [estado, salvar, salvando] = useActionState(acaoSalvarProposta, vazio);
+  const router = useRouter();
   const nova = !valores.propostaId;
 
   // O desconto aparece enquanto você digita: é o que o cliente vai ler.
@@ -93,7 +96,7 @@ export function FormularioProposta({
           name="clienteId"
           defaultValue={valores.clienteId}
           onChange={(e) => {
-            if (nova && e.target.value) window.location.href = `/propostas/nova?cliente=${e.target.value}`;
+            if (nova && e.target.value) router.push(`/propostas/nova?cliente=${e.target.value}`);
           }}
           className={campo}
         >
@@ -208,9 +211,9 @@ export function FormularioProposta({
             </label>
           ))}
         </div>
-        <a href="/propostas/servicos" className="mt-1 text-xs text-marca-texto">
+        <Link href="/propostas/servicos" className="mt-1 text-xs text-marca-texto">
           Editar a lista de serviços
-        </a>
+        </Link>
       </fieldset>
 
       <label className="flex flex-col gap-1.5">
