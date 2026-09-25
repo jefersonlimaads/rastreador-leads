@@ -317,3 +317,52 @@ export async function excluirProposta(propostaId: string) {
 }
 
 export { gerarToken };
+
+/**
+ * Texto livre em blocos, para a proposta não virar parágrafo cinza único.
+ *
+ * Abertura e condições são digitadas num campo de texto, com linhas e tópicos.
+ * Jogar tudo em um <p> com quebra de linha preservada funciona tecnicamente e
+ * falha onde importa: o cliente bate o olho no preço, desce, vê um bloco
+ * denso e não lê. Aqui a lista vira lista e o parágrafo vira parágrafo.
+ */
+export type BlocoTexto = { tipo: "paragrafo"; texto: string } | { tipo: "lista"; itens: string[] };
+
+const MARCADOR = /^\s*[•\-*]\s+/;
+const NUMERADO = /^\s*\d+[.)]\s+/;
+
+export function blocosDeTexto(bruto: string): BlocoTexto[] {
+  const blocos: BlocoTexto[] = [];
+  let paragrafo: string[] = [];
+  let lista: string[] = [];
+
+  const fecharParagrafo = () => {
+    if (paragrafo.length) blocos.push({ tipo: "paragrafo", texto: paragrafo.join(" ") });
+    paragrafo = [];
+  };
+  const fecharLista = () => {
+    if (lista.length) blocos.push({ tipo: "lista", itens: lista });
+    lista = [];
+  };
+
+  for (const linha of bruto.split("\n")) {
+    const texto = linha.trim();
+    if (!texto) {
+      fecharParagrafo();
+      fecharLista();
+      continue;
+    }
+    if (MARCADOR.test(texto) || NUMERADO.test(texto)) {
+      fecharParagrafo();
+      // O número fica: "1." é ordem que a pessoa escreveu, não enfeite.
+      lista.push(texto.replace(MARCADOR, ""));
+      continue;
+    }
+    fecharLista();
+    paragrafo.push(texto);
+  }
+  fecharParagrafo();
+  fecharLista();
+
+  return blocos;
+}

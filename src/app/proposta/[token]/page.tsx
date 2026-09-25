@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { sessaoAtual } from "@/lib/auth";
 import { ehRobo } from "@/lib/robo";
 import {
+  blocosDeTexto,
   desconto,
   economiaDoPeriodo,
   lerEscopo,
@@ -87,8 +88,8 @@ export default async function PaginaPropostaPublica({
 
       <div className="mx-auto max-w-2xl px-5 py-10">
         {proposta.apresentacao && (
-          <section>
-            <p className="whitespace-pre-line text-lg leading-relaxed">{proposta.apresentacao}</p>
+          <section className="flex flex-col gap-4">
+            <Texto bruto={proposta.apresentacao} tamanho="grande" />
           </section>
         )}
 
@@ -116,42 +117,13 @@ export default async function PaginaPropostaPublica({
             <h2 className="text-sm font-semibold uppercase tracking-widest text-suave">
               Investimento
             </h2>
-            <div className="mt-4 rounded-2xl border border-borda bg-superficie p-5">
-              {fee && (
-                <>
-                  {descontoFee && (
-                    <p className="text-suave">
-                      De <span className="line-through">{moeda(feeCheio!)}</span> por mês
-                    </p>
-                  )}
-                  <p className={descontoFee ? "mt-1" : undefined}>
-                    <span className="font-titulo text-3xl font-bold">{moeda(fee)}</span>
-                    <span className="text-suave"> por mês</span>
-                  </p>
-                </>
-              )}
-
-              {setup && (
-                <p className="mt-2 text-suave">
-                  + {moeda(setup)} de implantação, uma vez
-                  {descontoSetup && (
-                    <span> (de <span className="line-through">{moeda(setupCheio!)}</span>)</span>
-                  )}
-                </p>
-              )}
-
-              {proposta.meses && (
-                <p className="mt-2 text-suave">Contrato de {rotuloPeriodo(proposta.meses)}</p>
-              )}
-
-              {descontoFee && (
-                <p className="mt-4 rounded-xl bg-[#d8f34f] px-3 py-2 text-sm font-medium text-[#141414]">
-                  Você economiza {moeda(descontoFee.valor)} por mês
-                  {noPeriodo ? ` — ${moeda(noPeriodo)} no período do contrato` : ""}
-                  {" "}({Math.round(descontoFee.pct * 100)}% de desconto)
-                </p>
-              )}
-            </div>
+            <PainelInvestimento
+              fee={fee}
+              feeCheio={feeCheio}
+              setup={setup}
+              setupCheio={setupCheio}
+              meses={proposta.meses}
+            />
           </section>
         )}
 
@@ -160,9 +132,9 @@ export default async function PaginaPropostaPublica({
             <h2 className="text-sm font-semibold uppercase tracking-widest text-suave">
               Condições
             </h2>
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-suave">
-              {proposta.condicoes}
-            </p>
+            <div className="mt-4 flex flex-col gap-3">
+              <Texto bruto={proposta.condicoes} />
+            </div>
           </section>
         )}
 
@@ -182,5 +154,113 @@ export default async function PaginaPropostaPublica({
         </footer>
       </div>
     </main>
+  );
+}
+
+/** Texto do campo livre, em blocos: lista vira lista, parágrafo vira parágrafo. */
+function Texto({ bruto, tamanho }: { bruto: string; tamanho?: "grande" }) {
+  const grande = tamanho === "grande";
+  return (
+    <>
+      {blocosDeTexto(bruto).map((b, i) =>
+        b.tipo === "paragrafo" ? (
+          <p key={i} className={grande ? "text-lg leading-relaxed" : "leading-relaxed"}>
+            {b.texto}
+          </p>
+        ) : (
+          <ul key={i} className="flex flex-col gap-2">
+            {b.itens.map((item, j) => (
+              <li key={j} className="flex gap-3 leading-relaxed">
+                <span aria-hidden className="mt-2 size-1.5 shrink-0 rounded-full bg-[#d8f34f]" />
+                <span className="[overflow-wrap:anywhere]">{item}</span>
+              </li>
+            ))}
+          </ul>
+        ),
+      )}
+    </>
+  );
+}
+
+/**
+ * O preço é a informação que o cliente procura primeiro e a que ele repete
+ * para o sócio depois. Por isso vem em cartão escuro, no tamanho maior da
+ * página inteira.
+ *
+ * Qual número é o principal depende do que foi vendido: com mensalidade, ela
+ * manda e a implantação é linha de apoio; sem mensalidade — projeto fechado —
+ * o valor único é que manda, e antes ele aparecia em cinza pequeno.
+ */
+function PainelInvestimento({
+  fee,
+  feeCheio,
+  setup,
+  setupCheio,
+  meses,
+}: {
+  fee: number | null;
+  feeCheio: number | null;
+  setup: number | null;
+  setupCheio: number | null;
+  meses: number | null;
+}) {
+  const recorrente = fee != null;
+  const principal = recorrente ? fee : setup!;
+  const cheio = recorrente ? feeCheio : setupCheio;
+  const sufixo = recorrente ? "por mês" : "pagamento único";
+  const abatimento = desconto(cheio, principal);
+  const noPeriodo = recorrente ? economiaDoPeriodo(feeCheio, fee, meses) : null;
+
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-borda">
+      <div className="bg-[#141414] px-5 py-7 text-[#f6f4ef] sm:px-7">
+        {abatimento && (
+          <p className="text-sm text-[#8a8a85]">
+            De <span className="line-through">{moeda(cheio!)}</span>
+            {/* "De X por mês" completa a frase; "De X pagamento único" repete
+                o que já vem escrito embaixo do valor. */}
+            {recorrente ? " por mês" : ""}
+          </p>
+        )}
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2">
+          <span className="font-titulo text-4xl font-bold tracking-tight sm:text-5xl">
+            {moeda(principal)}
+          </span>
+          <span className="text-[#8a8a85]">{sufixo}</span>
+        </p>
+
+        {abatimento && (
+          <p className="mt-4 inline-block rounded-xl bg-[#d8f34f] px-3.5 py-2 text-sm font-semibold text-[#141414]">
+            Você economiza {moeda(abatimento.valor)}
+            {recorrente ? " por mês" : ""}
+            {noPeriodo ? ` — ${moeda(noPeriodo)} no contrato` : ""} ({Math.round(abatimento.pct * 100)}%)
+          </p>
+        )}
+      </div>
+
+      {(meses || (recorrente && setup != null)) && (
+        <dl className="flex flex-col gap-2.5 bg-superficie px-5 py-4 sm:px-7">
+          {recorrente && setup != null && (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <dt className="text-sm text-suave">Implantação, uma vez</dt>
+              <dd className="font-medium">
+                {moeda(setup)}
+                {desconto(setupCheio, setup) && (
+                  <span className="ml-2 text-sm font-normal text-suave">
+                    de <span className="line-through">{moeda(setupCheio!)}</span>
+                  </span>
+                )}
+              </dd>
+            </div>
+          )}
+          {meses && (
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+              <dt className="text-sm text-suave">Contrato</dt>
+              <dd className="font-medium">{rotuloPeriodo(meses)}</dd>
+            </div>
+          )}
+        </dl>
+      )}
+    </div>
   );
 }
