@@ -5,6 +5,7 @@ import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
 import { Comparacao, Diario, Inteligencia, TabelaAnuncios } from "./inteligencia";
+import { Gargalos } from "./funil";
 import { diarioDoCliente } from "@/lib/diario";
 import { compararComACarteira } from "@/lib/benchmark";
 import { FaixaDoMes, TempoDeRespostaBloco } from "./mes";
@@ -124,6 +125,8 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         tipoMediano={inteligencia.tipoMediano}
         dias={inteligencia.dias}
       />
+
+      <Gargalos gargalos={inteligencia.gargalos} />
 
       {linhas.length === 0 ? (
         <div className="mt-6">

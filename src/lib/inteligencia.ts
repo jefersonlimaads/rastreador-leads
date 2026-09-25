@@ -23,6 +23,8 @@ export type AnuncioPeriodo = {
   impressoes: number;
   cliquesLink: number;
   resultados: number;
+  /** Visitas que o script registrou vindas deste anúncio. */
+  visitas: number;
   /** Contatos que a plataforma viu chegar deste anúncio (página rastreada). */
   contatosPainel: number;
   fechados: number;

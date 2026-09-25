@@ -13,6 +13,7 @@ const anuncio = (p: Partial<AnuncioPeriodo> & { adId: string }): AnuncioPeriodo 
   impressoes: 10000,
   cliquesLink: 200,
   resultados: 10,
+  visitas: 0,
   contatosPainel: 0,
   fechados: 0,
   receita: 0,

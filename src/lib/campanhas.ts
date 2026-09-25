@@ -3,6 +3,7 @@ import { prisma } from "./prisma";
 import { dataPuraDe, FUSO_PADRAO, instanteLocal } from "./datas";
 import { quantidade, tipoDoResultado, type Acoes } from "./resultados";
 import { rankingPorVenda, recomendar, type AnuncioPeriodo } from "./inteligencia";
+import { funilDoAnuncio, type DiagnosticoFunil } from "./funil-anuncio";
 
 /**
  * Números por anúncio, do jeito que a inteligência precisa: o período pedido e
@@ -26,7 +27,7 @@ export async function anunciosDoPeriodo(
   fuso: string,
 ): Promise<AnuncioPeriodo[]> {
   const { inicio, fim } = instantes(de, ate, fuso);
-  const [linhas, leads] = await Promise.all([
+  const [linhas, leads, visitas] = await Promise.all([
     prisma.gasto.findMany({
       where: { clienteId, dia: { gte: de, lte: ate } },
       select: {
@@ -52,7 +53,17 @@ export async function anunciosDoPeriodo(
       },
       select: { status: true, valorVenda: true, clique: { select: { adId: true } } },
     }),
+    /* Visitas que o script registrou por anúncio. É o elo que falta entre o
+       clique que o Meta cobra e o contato que chega: sem ele não dá para saber
+       se a perda foi no criativo, no caminho até a página, ou na página. */
+    prisma.clique.groupBy({
+      by: ["adId"],
+      where: { clienteId, adId: { not: null }, criadoEm: { gte: inicio, lte: fim } },
+      _count: { _all: true },
+    }),
   ]);
+
+  const visitasPorAnuncio = new Map(visitas.map((v) => [v.adId!, v._count._all]));
 
   const doPainel = new Map<string, { contatos: number; fechados: number; receita: number }>();
   for (const l of leads) {
@@ -133,6 +144,7 @@ export async function anunciosDoPeriodo(
         otimizacao,
         objetivo,
       }),
+      visitas: visitasPorAnuncio.get(adId) ?? 0,
       contatosPainel: painel?.contatos ?? 0,
       fechados: painel?.fechados ?? 0,
       receita: painel?.receita ?? 0,
@@ -151,9 +163,23 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
     anunciosDoPeriodo(clienteId, antesDe, antesAte, fuso),
   ]);
 
+  /* Se nenhum anúncio trouxe visita registrada, o script não está no ar: sem
+     isso o funil acusaria uma página que nunca foi medida. */
+  const paginaRastreada = atual.some((a) => a.visitas > 0);
+
+  const funis = new Map<string, DiagnosticoFunil>();
+  for (const a of atual) {
+    if (a.gasto > 0) funis.set(a.adId, funilDoAnuncio(a, paginaRastreada));
+  }
+
   return {
     ...recomendar(atual, anterior),
     vendas: rankingPorVenda(atual),
+    funis,
+    gargalos: atual
+      .filter((a) => funis.get(a.adId)?.gargalo)
+      .sort((x, y) => y.gasto - x.gasto)
+      .map((a) => ({ anuncio: a, funil: funis.get(a.adId)! })),
     anuncios: atual.length,
     dias,
   };
