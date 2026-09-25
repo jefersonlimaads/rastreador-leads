@@ -589,12 +589,35 @@ model Gasto {
   objetivo     String?
   otimizacao   String?
   cliquesLink  Int      @default(0)
+  /*
+   * Cliques de saída: quem de fato tentou sair do Meta. É a base mais honesta
+   * para CTR e custo por clique — cliquesLink conta interação que às vezes nem
+   * sai da plataforma. Zero quando a conta não reporta; aí vale cliquesLink.
+   */
+  cliquesSaida Int      @default(0)
+  /*
+   * Visualizações da página de destino, contadas pelo Meta. Vive também dentro
+   * de acoes; aqui em coluna própria porque é somada e ordenada o tempo todo,
+   * e extrair de JSON em agregação é caro.
+   */
+  visualizacoesPagina Int @default(0)
+  /*
+   * Alcance e frequência do dia. NÃO SOMAM entre dias: alcance é gente única, e
+   * somar sete dias contaria a mesma pessoa sete vezes. Servem para leitura do
+   * dia e para o período pedido de uma vez ao Meta.
+   */
+  alcanceDia  Int      @default(0)
+  frequencia  Decimal? @db.Decimal(6, 2)
+  /* Mesmo criativo roda em anúncios e campanhas diferentes: o id é o que
+     permite comparar a peça, e não o anúncio que a embrulha. */
+  creativeId   String?
   acoes        Json?
   valoresAcoes Json?
 
   cliente Cliente @relation(fields: [clienteId], references: [id])
 
   @@unique([clienteId, adId, dia])
+  @@index([clienteId, creativeId])
   @@index([clienteId, dia])
 }
 

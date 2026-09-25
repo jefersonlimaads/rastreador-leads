@@ -21,7 +21,10 @@ export type AnuncioPeriodo = {
   tipo: TipoResultado;
   gasto: number;
   impressoes: number;
+  /** A base do funil: clique de saída quando a conta reporta, senão no link. */
   cliquesLink: number;
+  /** Cliques de saída crus, zero quando a conta não reporta. */
+  cliquesSaida: number;
   resultados: number;
   /**
    * Visualizações da página de destino, contadas pelo Meta. É a visita de

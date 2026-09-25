@@ -39,6 +39,7 @@ export async function anunciosDoPeriodo(
         valor: true,
         impressoes: true,
         cliquesLink: true,
+        cliquesSaida: true,
         cliques: true,
         acoes: true,
       },
@@ -87,6 +88,7 @@ export async function anunciosDoPeriodo(
     gasto: number;
     impressoes: number;
     cliquesLink: number;
+    cliquesSaida: number;
     acoes: Acoes;
   };
   const mapa = new Map<string, Acumulado>();
@@ -103,6 +105,7 @@ export async function anunciosDoPeriodo(
         gasto: 0,
         impressoes: 0,
         cliquesLink: 0,
+        cliquesSaida: 0,
         acoes: {} as Acoes,
       } satisfies Acumulado);
     a.nome ??= l.adNome;
@@ -112,6 +115,7 @@ export async function anunciosDoPeriodo(
     a.impressoes += l.impressoes;
     // Cliques no link é o que interessa; sem ele (linha antiga), vale o total.
     a.cliquesLink += l.cliquesLink || l.cliques;
+    a.cliquesSaida += l.cliquesSaida;
     for (const [k, v] of Object.entries((l.acoes as Acoes | null) ?? {})) a.acoes[k] = (a.acoes[k] ?? 0) + v;
     const chave = `${l.otimizacao ?? ""}|${l.objetivo ?? ""}`;
     a.gastoPorOtimizacao.set(chave, (a.gastoPorOtimizacao.get(chave) ?? 0) + valor);
@@ -136,7 +140,10 @@ export async function anunciosDoPeriodo(
       tipo,
       gasto: a.gasto,
       impressoes: a.impressoes,
-      cliquesLink: a.cliquesLink,
+      /* Clique de saída é quem de fato tentou sair do Meta: é a base mais
+         honesta do funil. Conta que não reporta cai no clique no link. */
+      cliquesLink: a.cliquesSaida || a.cliquesLink,
+      cliquesSaida: a.cliquesSaida,
       resultados: quantidade(tipo, {
         acoes: a.acoes,
         cliquesLink: a.cliquesLink,

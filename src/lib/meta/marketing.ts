@@ -25,6 +25,9 @@ type LinhaInsights = {
   impressions?: string;
   clicks?: string;
   inline_link_clicks?: string;
+  outbound_clicks?: { action_type: string; value: string }[];
+  reach?: string;
+  frequency?: string;
   objective?: string;
   optimization_goal?: string;
   actions?: { action_type: string; value: string }[];
@@ -55,6 +58,9 @@ const CAMPOS = [
   "impressions",
   "clicks",
   "inline_link_clicks",
+  "outbound_clicks",
+  "reach",
+  "frequency",
   "actions",
   "action_values",
   "video_thruplay_watched_actions",
@@ -118,6 +124,37 @@ export async function sincronizarGastos(clienteId: string, dias = DIAS_REBUSCA) 
   return { gravados, de: dataISO(de), ate: dataISO(ate), contas: cred.contas.length, falhas };
 }
 
+/**
+ * anúncio → criativo. O mesmo criativo roda em vários anúncios e campanhas, e
+ * é por ele que se compara peça com peça. O insights não traz esse campo, daí
+ * a chamada à parte.
+ */
+async function criativosDaConta(conta: string, token: string): Promise<Map<string, string>> {
+  const mapa = new Map<string, string>();
+  const params = new URLSearchParams({
+    fields: "id,creative{id}",
+    limit: "500",
+    access_token: token,
+  });
+  let url: string | null = `https://graph.facebook.com/${VERSAO_API}/${conta}/ads?${params}`;
+
+  try {
+    while (url) {
+      const r = await fetch(url);
+      if (!r.ok) return mapa;
+      const json = (await r.json()) as {
+        data: { id: string; creative?: { id?: string } }[];
+        paging?: { next?: string };
+      };
+      for (const a of json.data) if (a.creative?.id) mapa.set(a.id, a.creative.id);
+      url = json.paging?.next ?? null;
+    }
+  } catch {
+    // Sem criativo o painel funciona; sem gasto, não. Segue sem.
+  }
+  return mapa;
+}
+
 async function sincronizarConta(
   clienteId: string,
   conta: string,
@@ -133,6 +170,10 @@ async function sincronizarConta(
     limit: "500",
     access_token: token,
   });
+
+  /* O insights não devolve o criativo, então o mapa vem da lista de anúncios.
+     Falhar aqui não derruba a sincronização: sem criativo, o resto continua. */
+  const criativos = await criativosDaConta(conta, token);
 
   let url: string | null = `https://graph.facebook.com/${VERSAO_API}/${conta}/insights?${params}`;
   let gravados = 0;
@@ -160,10 +201,17 @@ async function sincronizarConta(
         if (Object.keys(thruplays).length) {
           acoes.thruplay = Object.values(thruplays).reduce((a, b) => a + b, 0);
         }
+        const saida = mapaDeAcoes(linha.outbound_clicks);
         const resultados = {
           objetivo: linha.objective ?? null,
           otimizacao: linha.optimization_goal ?? null,
           cliquesLink: Number(linha.inline_link_clicks ?? 0),
+          cliquesSaida: saida.outbound_click ?? Object.values(saida).reduce((a, b) => a + b, 0),
+          // Também fica em acoes; a coluna existe para somar e ordenar barato.
+          visualizacoesPagina: acoes.landing_page_view ?? acoes.omni_landing_page_view ?? 0,
+          alcanceDia: Number(linha.reach ?? 0),
+          frequencia: linha.frequency ? Number(linha.frequency) : null,
+          creativeId: criativos.get(linha.ad_id) ?? null,
           acoes,
           valoresAcoes: mapaDeAcoes(linha.action_values),
         };

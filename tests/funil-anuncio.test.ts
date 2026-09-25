@@ -14,6 +14,7 @@ const anuncio = (p: Partial<AnuncioPeriodo>): AnuncioPeriodo => ({
   gasto: 500,
   impressoes: 50000,
   cliquesLink: 1000,
+  cliquesSaida: 1000,
   resultados: 50,
   visualizacoesPagina: 800,
   conversasIniciadas: 0,
