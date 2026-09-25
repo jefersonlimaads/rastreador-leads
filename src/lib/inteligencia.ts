@@ -24,9 +24,16 @@ export type AnuncioPeriodo = {
   cliquesLink: number;
   resultados: number;
   /**
+   * Visualizações da página de destino, contadas pelo Meta. É a visita de
+   * verdade: o nosso script não dispara no carregamento, só na intenção de
+   * contato.
+   */
+  visualizacoesPagina: number;
+  /** Conversas de fato iniciadas no WhatsApp, pelo Meta. */
+  conversasIniciadas: number;
+  /**
    * Pedidos de contato que o script registrou: formulário enviado ou botão de
-   * WhatsApp tocado. NÃO é visita na página — o script não dispara no
-   * carregamento, só na intenção de falar.
+   * WhatsApp tocado. É intenção de falar, não visita.
    */
   pedidosContato: number;
   /** Contatos que a plataforma viu chegar deste anúncio (página rastreada). */

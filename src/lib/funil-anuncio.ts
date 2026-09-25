@@ -22,7 +22,7 @@ import type { TipoResultado } from "./resultados";
  * Funções puras, testadas sem banco.
  */
 
-export type ChaveEtapa = "impressoes" | "cliques" | "pedidos" | "contatos" | "vendas";
+export type ChaveEtapa = "impressoes" | "cliques" | "visitas" | "pedidos" | "contatos" | "vendas";
 
 export type EtapaFunil = {
   chave: ChaveEtapa;
@@ -62,16 +62,19 @@ const CTR_POR_TIPO: Partial<Record<TipoResultado, Faixa>> = {
 };
 
 /**
- * Clique que vira pedido de contato. É a régua da página e da oferta juntas:
- * inclui quem abriu e foi embora, porque o carregamento não é medido aqui.
+ * Clique que chega a abrir a página. Perda aqui é caminho, não conteúdo:
+ * página lenta, redirecionamento, ou quem desistiu no carregamento.
  */
+const CONEXAO: Faixa = { ruim: 0.55, bom: 0.8 };
+
+/** Visita que vira pedido de contato. É a régua da página e da oferta. */
 const PAGINA: Faixa = { ruim: 0.03, bom: 0.12 };
 
 /** Contato que vira venda. Depende do atendimento, e é onde o cliente atua. */
 const FECHAMENTO: Faixa = { ruim: 0.08, bom: 0.25 };
 
 /** Volume mínimo para a taxa significar alguma coisa. */
-const MINIMO = { impressoes: 500, cliques: 30, pedidos: 10, contatos: 8 };
+const MINIMO = { impressoes: 500, cliques: 30, visitas: 20, pedidos: 10, contatos: 8 };
 
 function avaliar(taxa: number | null, faixa: Faixa | null, temVolume: boolean): EtapaFunil["estado"] {
   if (faixa == null) return "sem_referencia";
@@ -118,11 +121,20 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
 
   if (temPagina) {
     etapas.push({
+      chave: "visitas",
+      rotulo: "Visitas na página",
+      valor: a.visualizacoesPagina,
+      taxa: razao(a.visualizacoesPagina, a.cliquesLink),
+      mede: "A página abre para quem clicou",
+      referencia: CONEXAO,
+      estado: "sem_referencia",
+    });
+    etapas.push({
       chave: "pedidos",
       rotulo: "Pediram contato",
       valor: a.pedidosContato,
-      taxa: razao(a.pedidosContato, a.cliquesLink),
-      mede: "Quem clicou preenche o formulário ou chama no WhatsApp",
+      taxa: razao(a.pedidosContato, a.visualizacoesPagina || a.cliquesLink),
+      mede: "Quem abriu preenche o formulário ou chama no WhatsApp",
       referencia: PAGINA,
       estado: "sem_referencia",
     });
@@ -156,7 +168,8 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
   const volumes: Record<ChaveEtapa, number> = {
     impressoes: Infinity,
     cliques: a.impressoes >= MINIMO.impressoes ? Infinity : 0,
-    pedidos: a.cliquesLink >= MINIMO.cliques ? Infinity : 0,
+    visitas: a.cliquesLink >= MINIMO.cliques ? Infinity : 0,
+    pedidos: (a.visualizacoesPagina || a.cliquesLink) >= MINIMO.visitas ? Infinity : 0,
     contatos: (temPagina ? a.pedidosContato : a.cliquesLink) >= MINIMO.pedidos ? Infinity : 0,
     vendas: a.contatosPainel >= MINIMO.contatos ? Infinity : 0,
   };
@@ -172,9 +185,14 @@ const TEXTOS: Record<ChaveEtapa, { titulo: string; motivo: string; acao: string 
     motivo: "de cada mil pessoas que viram, poucas clicaram",
     acao: "O gargalo é a peça, não a página: troque o ângulo, a primeira frase ou a imagem. Mexer na página aqui não resolve.",
   },
+  visitas: {
+    titulo: "O clique não está virando visita",
+    motivo: "boa parte de quem clicou não chegou a abrir a página",
+    acao: "Isso é caminho, não conteúdo: confira a velocidade da página no celular e se há redirecionamento no meio. Trocar criativo aqui não resolve.",
+  },
   pedidos: {
     titulo: "A página não está virando pedido",
-    motivo: "de quem clicou, pouca gente preencheu o formulário ou chamou no WhatsApp",
+    motivo: "de quem abriu a página, pouca gente preencheu o formulário ou chamou no WhatsApp",
     acao: "O criativo está entregando: o gargalo é a página. Oferta acima da dobra, formulário mais curto, prova social e botão de WhatsApp visível no celular. Se a página demorar a abrir, some gente antes de ler.",
   },
   contatos: {

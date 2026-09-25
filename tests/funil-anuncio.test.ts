@@ -15,6 +15,8 @@ const anuncio = (p: Partial<AnuncioPeriodo>): AnuncioPeriodo => ({
   impressoes: 50000,
   cliquesLink: 1000,
   resultados: 50,
+  visualizacoesPagina: 800,
+  conversasIniciadas: 0,
   pedidosContato: 90,
   contatosPainel: 90,
   fechados: 20,
@@ -33,18 +35,28 @@ describe("funil do anúncio", () => {
 
   it("aponta a página quando o clique não vira pedido", () => {
     // 1.000 cliques e 20 pedidos: 2%, abaixo do mínimo de 3%.
-    const f = funilDoAnuncio(anuncio({ pedidosContato: 20, contatosPainel: 20 }), true);
+    const f = funilDoAnuncio(anuncio({ pedidosContato: 16, contatosPainel: 16 }), true);
     expect(f.gargalo?.chave).toBe("pedidos");
     expect(f.gargalo?.acao).toMatch(/página|formulário|oferta/i);
   });
 
-  it("nunca julga uma etapa de visita, que o script não mede", () => {
-    /* O script dispara na intenção de contato, não no carregamento. Comparar
-       clique do Meta com esse registro como se fosse visita fez a tela acusar
-       página lenta onde havia uma página normal. */
-    const f = funilDoAnuncio(anuncio({}), true);
-    expect(f.etapas.map((e) => e.chave)).not.toContain("visitas");
-    expect(JSON.stringify(f)).not.toMatch(/velocidade|redirecionamento/i);
+  it("visita é a do Meta, pedido é o do script — nunca o mesmo número", () => {
+    /* A visita sai de landing_page_view, contada pelo Meta. O pedido sai do
+       nosso script, que só dispara na intenção de contato. Tratar um pelo
+       outro fazia a tela acusar página lenta onde havia página normal. */
+    const f = funilDoAnuncio(anuncio({ visualizacoesPagina: 800, pedidosContato: 90 }), true);
+    const visita = f.etapas.find((e) => e.chave === "visitas")!;
+    const pedido = f.etapas.find((e) => e.chave === "pedidos")!;
+    expect(visita.valor).toBe(800);
+    expect(pedido.valor).toBe(90);
+    // Pedido é medido sobre a visita, não sobre o clique.
+    expect(pedido.taxa).toBeCloseTo(90 / 800);
+  });
+
+  it("aponta o caminho quando o clique não abre a página", () => {
+    const f = funilDoAnuncio(anuncio({ visualizacoesPagina: 300, pedidosContato: 30 }), true);
+    expect(f.gargalo?.chave).toBe("visitas");
+    expect(f.gargalo?.acao).toMatch(/velocidade|redirecionamento/i);
   });
 
   it("aponta o atendimento quando o contato não vira venda", () => {
@@ -72,7 +84,14 @@ describe("funil do anúncio", () => {
 
   it("volume baixo não vira diagnóstico", () => {
     const f = funilDoAnuncio(
-      anuncio({ impressoes: 200, cliquesLink: 1, pedidosContato: 0, contatosPainel: 0, fechados: 0 }),
+      anuncio({
+        impressoes: 200,
+        cliquesLink: 1,
+        visualizacoesPagina: 0,
+        pedidosContato: 0,
+        contatosPainel: 0,
+        fechados: 0,
+      }),
       true,
     );
     expect(f.etapas.find((e) => e.chave === "cliques")?.estado).toBe("sem_volume");

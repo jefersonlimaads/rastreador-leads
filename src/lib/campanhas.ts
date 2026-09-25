@@ -144,6 +144,13 @@ export async function anunciosDoPeriodo(
         otimizacao,
         objetivo,
       }),
+      /* O Meta já manda essas duas dentro de actions: a visita de verdade e a
+         conversa que começou. Estavam guardadas e sem uso. */
+      visualizacoesPagina: a.acoes["landing_page_view"] ?? a.acoes["omni_landing_page_view"] ?? 0,
+      conversasIniciadas:
+        a.acoes["onsite_conversion.messaging_conversation_started_7d"] ??
+        a.acoes["onsite_conversion.total_messaging_connection"] ??
+        0,
       pedidosContato: pedidosPorAnuncio.get(adId) ?? 0,
       contatosPainel: painel?.contatos ?? 0,
       fechados: painel?.fechados ?? 0,
