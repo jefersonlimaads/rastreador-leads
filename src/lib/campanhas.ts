@@ -53,9 +53,9 @@ export async function anunciosDoPeriodo(
       },
       select: { status: true, valorVenda: true, clique: { select: { adId: true } } },
     }),
-    /* Visitas que o script registrou por anúncio. É o elo que falta entre o
-       clique que o Meta cobra e o contato que chega: sem ele não dá para saber
-       se a perda foi no criativo, no caminho até a página, ou na página. */
+    /* Pedidos de contato por anúncio: formulário enviado ou WhatsApp tocado.
+       O script não dispara no carregamento da página, então isso não é visita
+       — é a intenção de falar, que vem bem depois. */
     prisma.clique.groupBy({
       by: ["adId"],
       where: { clienteId, adId: { not: null }, criadoEm: { gte: inicio, lte: fim } },
@@ -63,7 +63,7 @@ export async function anunciosDoPeriodo(
     }),
   ]);
 
-  const visitasPorAnuncio = new Map(visitas.map((v) => [v.adId!, v._count._all]));
+  const pedidosPorAnuncio = new Map(visitas.map((v) => [v.adId!, v._count._all]));
 
   const doPainel = new Map<string, { contatos: number; fechados: number; receita: number }>();
   for (const l of leads) {
@@ -144,7 +144,7 @@ export async function anunciosDoPeriodo(
         otimizacao,
         objetivo,
       }),
-      visitas: visitasPorAnuncio.get(adId) ?? 0,
+      pedidosContato: pedidosPorAnuncio.get(adId) ?? 0,
       contatosPainel: painel?.contatos ?? 0,
       fechados: painel?.fechados ?? 0,
       receita: painel?.receita ?? 0,
@@ -165,7 +165,7 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
 
   /* Se nenhum anúncio trouxe visita registrada, o script não está no ar: sem
      isso o funil acusaria uma página que nunca foi medida. */
-  const paginaRastreada = atual.some((a) => a.visitas > 0);
+  const paginaRastreada = atual.some((a) => a.pedidosContato > 0);
 
   const funis = new Map<string, DiagnosticoFunil>();
   for (const a of atual) {

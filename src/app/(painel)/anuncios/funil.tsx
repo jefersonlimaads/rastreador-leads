@@ -16,9 +16,12 @@ const COR: Record<EtapaFunil["estado"], string> = {
 /**
  * O caminho do anúncio, etapa por etapa.
  *
- * Cada passagem quebra por um motivo diferente — criativo, velocidade da
- * página, oferta, atendimento. Ver a taxa de cada uma é o que separa "o
- * anúncio não performa" de "o problema é a página".
+ * Cada passagem quebra por um motivo diferente — criativo, oferta da página,
+ * atendimento. Ver a taxa de cada uma é o que separa "o anúncio não performa"
+ * de "o problema é a página".
+ *
+ * Não há etapa de visita: o script mede a intenção de contato, não o
+ * carregamento. Quem quiser visitas tem o número no Gerenciador.
  */
 export function Funil({ funil }: { funil: DiagnosticoFunil }) {
   return (

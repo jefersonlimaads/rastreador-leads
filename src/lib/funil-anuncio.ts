@@ -22,7 +22,7 @@ import type { TipoResultado } from "./resultados";
  * Funções puras, testadas sem banco.
  */
 
-export type ChaveEtapa = "impressoes" | "cliques" | "visitas" | "contatos" | "vendas";
+export type ChaveEtapa = "impressoes" | "cliques" | "pedidos" | "contatos" | "vendas";
 
 export type EtapaFunil = {
   chave: ChaveEtapa;
@@ -61,17 +61,17 @@ const CTR_POR_TIPO: Partial<Record<TipoResultado, Faixa>> = {
   thruplays: { ruim: 0.004, bom: 0.012 },
 };
 
-/** Clique que não vira visita é página lenta, redirecionamento ou rastreio quebrado. */
-const CONEXAO: Faixa = { ruim: 0.55, bom: 0.8 };
-
-/** Visita que vira pedido de contato. É a régua da página e da oferta. */
-const PAGINA: Faixa = { ruim: 0.03, bom: 0.1 };
+/**
+ * Clique que vira pedido de contato. É a régua da página e da oferta juntas:
+ * inclui quem abriu e foi embora, porque o carregamento não é medido aqui.
+ */
+const PAGINA: Faixa = { ruim: 0.03, bom: 0.12 };
 
 /** Contato que vira venda. Depende do atendimento, e é onde o cliente atua. */
 const FECHAMENTO: Faixa = { ruim: 0.08, bom: 0.25 };
 
 /** Volume mínimo para a taxa significar alguma coisa. */
-const MINIMO = { impressoes: 500, cliques: 30, visitas: 20, contatos: 8 };
+const MINIMO = { impressoes: 500, cliques: 30, pedidos: 10, contatos: 8 };
 
 function avaliar(taxa: number | null, faixa: Faixa | null, temVolume: boolean): EtapaFunil["estado"] {
   if (faixa == null) return "sem_referencia";
@@ -118,25 +118,27 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
 
   if (temPagina) {
     etapas.push({
-      chave: "visitas",
-      rotulo: "Visitas na página",
-      valor: a.visitas,
-      taxa: razao(a.visitas, a.cliquesLink),
-      mede: "A página abre para quem clicou",
-      referencia: CONEXAO,
+      chave: "pedidos",
+      rotulo: "Pediram contato",
+      valor: a.pedidosContato,
+      taxa: razao(a.pedidosContato, a.cliquesLink),
+      mede: "Quem clicou preenche o formulário ou chama no WhatsApp",
+      referencia: PAGINA,
       estado: "sem_referencia",
     });
   }
 
   etapas.push({
     chave: "contatos",
-    rotulo: "Contatos",
+    rotulo: "Contatos registrados",
     valor: a.contatosPainel,
     taxa: temPagina
-      ? razao(a.contatosPainel, a.visitas)
+      ? razao(a.contatosPainel, a.pedidosContato)
       : razao(a.contatosPainel, a.cliquesLink),
-    mede: temPagina ? "A página vira pedido de contato" : "O clique vira conversa",
-    referencia: temPagina ? PAGINA : null,
+    /* Sem referência de propósito: pedido sem contato costuma ser confirmação
+       pendente do cliente, não perda de verdade. */
+    mede: temPagina ? "O pedido vira conversa registrada" : "O clique vira conversa",
+    referencia: null,
     estado: "sem_referencia",
   });
 
@@ -154,8 +156,8 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
   const volumes: Record<ChaveEtapa, number> = {
     impressoes: Infinity,
     cliques: a.impressoes >= MINIMO.impressoes ? Infinity : 0,
-    visitas: a.cliquesLink >= MINIMO.cliques ? Infinity : 0,
-    contatos: (temPagina ? a.visitas : a.cliquesLink) >= MINIMO.visitas ? Infinity : 0,
+    pedidos: a.cliquesLink >= MINIMO.cliques ? Infinity : 0,
+    contatos: (temPagina ? a.pedidosContato : a.cliquesLink) >= MINIMO.pedidos ? Infinity : 0,
     vendas: a.contatosPainel >= MINIMO.contatos ? Infinity : 0,
   };
   for (const e of etapas) e.estado = avaliar(e.taxa, e.referencia, volumes[e.chave] > 0);
@@ -170,15 +172,15 @@ const TEXTOS: Record<ChaveEtapa, { titulo: string; motivo: string; acao: string 
     motivo: "de cada mil pessoas que viram, poucas clicaram",
     acao: "O gargalo é a peça, não a página: troque o ângulo, a primeira frase ou a imagem. Mexer na página aqui não resolve.",
   },
-  visitas: {
-    titulo: "O clique não está virando visita",
-    motivo: "boa parte de quem clicou não chegou a abrir a página",
-    acao: "Isso é caminho, não conteúdo: confira a velocidade da página no celular, redirecionamentos e se o script está em todas as páginas de destino.",
+  pedidos: {
+    titulo: "A página não está virando pedido",
+    motivo: "de quem clicou, pouca gente preencheu o formulário ou chamou no WhatsApp",
+    acao: "O criativo está entregando: o gargalo é a página. Oferta acima da dobra, formulário mais curto, prova social e botão de WhatsApp visível no celular. Se a página demorar a abrir, some gente antes de ler.",
   },
   contatos: {
-    titulo: "A página não está virando contato",
-    motivo: "chega gente, e pouca gente pede orçamento",
-    acao: "O criativo está entregando: mexa na página. Oferta acima da dobra, formulário mais curto, prova e botão de WhatsApp visível no celular.",
+    titulo: "Pedido sem conversa registrada",
+    motivo: "houve pedido de contato que não virou conversa no painel",
+    acao: "Em geral é confirmação pendente: mande o link de confirmação para o cliente dizer com quem falou.",
   },
   vendas: {
     titulo: "O contato não está virando venda",

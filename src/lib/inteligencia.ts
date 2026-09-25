@@ -23,8 +23,12 @@ export type AnuncioPeriodo = {
   impressoes: number;
   cliquesLink: number;
   resultados: number;
-  /** Visitas que o script registrou vindas deste anúncio. */
-  visitas: number;
+  /**
+   * Pedidos de contato que o script registrou: formulário enviado ou botão de
+   * WhatsApp tocado. NÃO é visita na página — o script não dispara no
+   * carregamento, só na intenção de falar.
+   */
+  pedidosContato: number;
   /** Contatos que a plataforma viu chegar deste anúncio (página rastreada). */
   contatosPainel: number;
   fechados: number;
