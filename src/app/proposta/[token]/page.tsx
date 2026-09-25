@@ -45,8 +45,19 @@ export default async function PaginaPropostaPublica({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
+  const { previa } = await searchParams;
   const proposta = await propostaPublica(token);
-  if (!proposta || proposta.status === "RASCUNHO") notFound();
+  if (!proposta) notFound();
+
+  /*
+   * Rascunho só abre em prévia. Sem isso, a única forma de conferir como a
+   * proposta chega era clicar em "gerar link para enviar" — que marca como
+   * enviada e move o prospect no pipeline. Quem quis olhar acabou mandando.
+   *
+   * O segredo continua sendo o token: ?previa=1 sozinho não descobre nada.
+   */
+  const rascunho = proposta.status === "RASCUNHO";
+  if (rascunho && !previa) notFound();
 
   /*
    * "Aberta" é sinal de venda: é o que faz você ligar. Três coisas não contam
@@ -55,7 +66,6 @@ export default async function PaginaPropostaPublica({
    * link no WhatsApp faz o próprio WhatsApp buscar a página para montar o
    * cartão de prévia, antes de qualquer pessoa tocar nele.
    */
-  const { previa } = await searchParams;
   const sessao = await sessaoAtual();
   const robo = ehRobo((await headers()).get("user-agent"));
   if (!sessao && !previa && !robo) await registrarVisualizacao(proposta.id);
@@ -87,6 +97,12 @@ export default async function PaginaPropostaPublica({
       </section>
 
       <div className="mx-auto max-w-2xl px-5 py-10">
+        {rascunho && (
+          <p className="mb-8 rounded-2xl border border-alerta bg-alerta-suave px-4 py-3 text-sm text-alerta">
+            Rascunho: só quem tem este link está vendo. O cliente ainda não recebeu nada.
+          </p>
+        )}
+
         {proposta.apresentacao && (
           <section className="flex flex-col gap-4">
             <Texto bruto={proposta.apresentacao} tamanho="grande" />

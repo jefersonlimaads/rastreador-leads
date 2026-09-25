@@ -34,6 +34,16 @@ export function EnviarProposta({
             Enquanto é rascunho, só você vê. Enviar gera o link e move o prospect para
             &quot;proposta enviada&quot; no Negócio.
           </p>
+          {/* Conferir antes de mandar: sem isso, a única forma de ver como a
+              proposta chega era enviá-la. */}
+          <a
+            href={`${linkPublico}?previa=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 block rounded-xl border border-borda px-4 py-2.5 text-center text-sm"
+          >
+            Ver como o lead vê, sem enviar
+          </a>
           <button
             type="button"
             disabled={enviando}
