@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth";
 import { cadastrarLead, sugerirClique } from "@/lib/atribuicao";
 import { normalizarTelefone } from "@/lib/telefone";
+import { apagarVenda, registrarVenda } from "@/lib/vendas";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
 import { garantirToken } from "@/lib/confirmacao";
 import { OPCOES_COOKIE_CLIENTE } from "@/lib/cookies";
@@ -204,31 +205,41 @@ export async function acaoMudarStatus(
       where: { id: lead.id },
       data: {
         status,
-        valorVenda,
+        // Fechando, o total sai do registro de vendas logo abaixo.
+        ...(status === "FECHADO" ? {} : { valorVenda }),
         motivoPerda,
         fechadoEm: status === "FECHADO" || status === "PERDIDO" ? new Date() : null,
       },
     });
 
     // Regra 11: toda mudança de status vira evento, com usuário e horário.
-    await tx.evento.create({
-      data: {
-        clienteId: lead.clienteId,
-        leadId: lead.id,
-        tipo: "MUDANCA_STATUS",
-        descricao:
-          status === "FECHADO"
-            ? `Fechado por R$ ${valorVenda?.toFixed(2)}`
-            : status === "PERDIDO"
-              ? `Perdido: ${motivoPerda}`
-              : `Status: ${status}`,
-        usuarioId: sessao.usuarioId,
-      },
-    });
+    // Fechamento tem evento próprio, escrito ao registrar a venda.
+    if (status !== "FECHADO") {
+      await tx.evento.create({
+        data: {
+          clienteId: lead.clienteId,
+          leadId: lead.id,
+          tipo: "MUDANCA_STATUS",
+          descricao: status === "PERDIDO" ? `Perdido: ${motivoPerda}` : `Status: ${status}`,
+          usuarioId: sessao.usuarioId,
+        },
+      });
+    }
   });
 
   if (status === "FECHADO") {
-    await enfileirarEventoCapi({ leadId: lead.id, tipo: "PURCHASE", valor: valorVenda ?? undefined });
+    const { venda } = await registrarVenda({
+      leadId: lead.id,
+      clienteId: lead.clienteId,
+      valor: valorVenda!,
+      usuarioId: sessao.usuarioId,
+    });
+    await enfileirarEventoCapi({
+      leadId: lead.id,
+      tipo: "PURCHASE",
+      valor: valorVenda ?? undefined,
+      chave: venda.id,
+    });
   }
 
   revalidarPainel(lead.id);
@@ -335,4 +346,61 @@ export async function acaoArquivarLead(formData: FormData) {
 
   revalidarPainel(lead.id);
   redirect("/leads");
+}
+
+const NovaVenda = z.object({
+  leadId: z.string().min(1),
+  valor: z.string().min(1),
+  descricao: z.string().max(160).optional(),
+});
+
+export type EstadoVenda = { erro?: string; ok?: string };
+
+/**
+ * Outra venda para o mesmo lead. O cliente que já comprou volta e compra de
+ * novo: é o faturamento mais barato que existe, e veio da mesma mídia.
+ */
+export async function acaoRegistrarVenda(
+  _estado: EstadoVenda,
+  formData: FormData,
+): Promise<EstadoVenda> {
+  const sessao = await exigirSessao();
+  if (!podeVerDinheiro(sessao.papel)) return { erro: "Só gestor ou admin registra venda." };
+
+  const dados = NovaVenda.safeParse(Object.fromEntries(formData));
+  if (!dados.success) return { erro: "Confira o valor." };
+
+  const lead = await leadPermitido(dados.data.leadId, sessao);
+  const bruto = dados.data.valor.replace(/\./g, "").replace(",", ".");
+  const valor = Number(bruto);
+  if (Number.isNaN(valor) || valor <= 0) return { erro: "Informe um valor maior que zero." };
+
+  const { venda } = await registrarVenda({
+    leadId: lead.id,
+    clienteId: lead.clienteId,
+    valor,
+    descricao: dados.data.descricao,
+    usuarioId: sessao.usuarioId,
+  });
+
+  // Lead que ainda não estava fechado passa a estar: houve venda.
+  if (lead.status !== "FECHADO") {
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { status: "FECHADO", fechadoEm: lead.fechadoEm ?? new Date() },
+    });
+  }
+
+  // Cada venda é uma compra para o Meta, com identidade própria.
+  await enfileirarEventoCapi({ leadId: lead.id, tipo: "PURCHASE", valor, chave: venda.id });
+
+  revalidarPainel(lead.id);
+  return { ok: "Venda registrada." };
+}
+
+export async function acaoApagarVenda(formData: FormData): Promise<void> {
+  const sessao = await exigirSessao();
+  if (!podeVerDinheiro(sessao.papel)) return;
+  const r = await apagarVenda(String(formData.get("id") ?? ""), sessao.agenciaId);
+  if (r) revalidarPainel(r.leadId);
 }

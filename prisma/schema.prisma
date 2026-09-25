@@ -227,6 +227,7 @@ model Cliente {
   cliques    Clique[]
   leads      Lead[]
   eventos    Evento[]
+  vendas     Venda[]
   gastos     Gasto[]
   enviosCapi EnvioCapi[]
   faturas    Fatura[]
@@ -514,10 +515,34 @@ model Lead {
 
   eventos    Evento[]
   enviosCapi EnvioCapi[]
+  vendas     Venda[]
 
   @@index([clienteId, telefone])
   @@index([clienteId, status, criadoEm])
   @@index([clienteId, criadoEm])
+}
+
+/**
+ * Uma venda fechada com o lead. Existe porque o mesmo cliente compra mais de
+ * uma vez: fecha um serviço, e semanas depois fecha outro. Todo esse
+ * faturamento veio da mesma mídia, e antes não havia onde somar o segundo.
+ *
+ * Lead.valorVenda continua sendo o total, mantido em dia a cada venda. É o que
+ * relatório, ROAS e custo por venda já leem — nenhum número muda de fonte.
+ */
+model Venda {
+  id        String   @id @default(cuid())
+  clienteId String
+  leadId    String
+  valor     Decimal  @db.Decimal(12, 2)
+  descricao String? // "implantação", "segundo serviço": o que foi vendido
+  fechadoEm DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  lead    Lead    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, fechadoEm])
+  @@index([leadId])
 }
 
 model Evento {

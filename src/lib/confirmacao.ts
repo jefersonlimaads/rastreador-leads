@@ -166,12 +166,11 @@ export async function registrarDesfecho(params: {
 
   const encerrou = status === "FECHADO" || status === "PERDIDO";
 
-  return prisma.$transaction(async (tx) => {
-    const atualizado = await tx.lead.update({
+  const atualizado = await prisma.$transaction(async (tx) => {
+    const lido = await tx.lead.update({
       where: { id: lead.id },
       data: {
         status,
-        valorVenda: status === "FECHADO" ? params.valorVenda : lead.valorVenda,
         motivoPerda: status === "PERDIDO" ? params.motivoPerda?.trim() : lead.motivoPerda,
         fechadoEm: encerrou ? new Date() : null,
       },
@@ -191,8 +190,24 @@ export async function registrarDesfecho(params: {
       },
     });
 
-    return atualizado;
+    return lido;
   });
+
+  /* A venda vira registro próprio: o cliente pode informar outra depois, e o
+     total do lead passa a ser a soma delas. */
+  if (status === "FECHADO") {
+    const venda = await prisma.venda.create({
+      data: { leadId: lead.id, clienteId, valor: params.valorVenda!, descricao: "Informado pelo cliente" },
+    });
+    const soma = await prisma.venda.aggregate({ where: { leadId: lead.id }, _sum: { valor: true } });
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: { valorVenda: soma._sum.valor ? Number(soma._sum.valor) : null },
+    });
+    return { ...atualizado, vendaId: venda.id };
+  }
+
+  return atualizado;
 }
 
 /** Quanto do rastreamento está sem resposta — o sinal de que o cliente parou de confirmar. */

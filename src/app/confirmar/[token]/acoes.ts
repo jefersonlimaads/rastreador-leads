@@ -105,7 +105,14 @@ export async function acaoDesfecho(
   if (!lead) return { erro: "Não consegui registrar. Confira os campos." };
 
   if (status === "FECHADO") {
-    await enfileirarEventoCapi({ leadId: lead.id, tipo: "PURCHASE", valor: valorVenda });
+    // Cada venda é uma compra própria para o Meta: sem chave, a segunda seria
+    // descartada como repetição da primeira.
+    await enfileirarEventoCapi({
+      leadId: lead.id,
+      tipo: "PURCHASE",
+      valor: valorVenda,
+      chave: "vendaId" in lead ? lead.vendaId : undefined,
+    });
   }
 
   revalidar(String(formData.get("token")));

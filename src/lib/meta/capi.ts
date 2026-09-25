@@ -14,7 +14,17 @@ const VERSAO_API = process.env.META_API_VERSION ?? "v26.0";
 /** O Meta recusa a requisição inteira se o evento tiver mais de 7 dias. */
 const JANELA_DIAS = 7;
 
-type Params = { leadId: string; tipo: TipoEnvioCapi; valor?: number };
+type Params = {
+  leadId: string;
+  tipo: TipoEnvioCapi;
+  valor?: number;
+  /**
+   * Identidade do evento, quando o lead pode gerar mais de um do mesmo tipo.
+   * O mesmo cliente comprando duas vezes são duas compras para o Meta, e sem
+   * isso a segunda seria descartada como repetição da primeira.
+   */
+  chave?: string;
+};
 
 /**
  * Monta o evento, grava em envios_capi e tenta enviar. O registro nasce antes do
@@ -22,14 +32,14 @@ type Params = { leadId: string; tipo: TipoEnvioCapi; valor?: number };
  * auditoria e reenvio. Nada falha silenciosamente, e o cadastro do lead nunca
  * quebra por causa do Meta.
  */
-export async function enfileirarEventoCapi({ leadId, tipo, valor }: Params) {
+export async function enfileirarEventoCapi({ leadId, tipo, valor, chave }: Params) {
   const lead = await prisma.lead.findUnique({
     where: { id: leadId },
     include: { cliente: true, clique: true },
   });
   if (!lead) return null;
 
-  const eventId = `${tipo.toLowerCase()}_${lead.id}`;
+  const eventId = `${tipo.toLowerCase()}_${chave ?? lead.id}`;
 
   // Deduplicação: o mesmo lead não gera dois eventos do mesmo tipo.
   const jaExiste = await prisma.envioCapi.findUnique({ where: { eventId } });

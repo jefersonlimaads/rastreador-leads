@@ -7,10 +7,12 @@ import { formatarTelefone, linkWhatsapp } from "@/lib/telefone";
 import { ROTULO_ATRIBUICAO, ROTULO_EVENTO, ROTULO_STATUS } from "@/lib/regras";
 import { formatarDataHora } from "@/lib/datas";
 import { lerCampos } from "@/lib/campos";
+import { vendasDoLead } from "@/lib/vendas";
 import { etapasVisiveis } from "@/lib/regras";
 import { Selo, moeda, tempoRelativo } from "../../componentes";
 import { PainelStatus } from "./status";
 import { ArquivarLead } from "./arquivar";
+import { Vendas } from "./vendas";
 import { acaoAdicionarNota, acaoRegistrarContato } from "../../acoes";
 
 export default async function PaginaLead({ params, searchParams }: PageProps<"/leads/[id]">) {
@@ -22,6 +24,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
   if (!lead) notFound();
 
   const mostrarDinheiro = podeVerDinheiro(sessao.papel);
+  const vendas = mostrarDinheiro ? await vendasDoLead(lead.id) : [];
 
   // Nomes do anúncio, conjunto e campanha vêm do Meta (tabela de gasto); o
   // clique só traz os números. Sem gasto sincronizado, fica o que o link trouxe.
@@ -125,6 +128,11 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
           </p>
         )}
       </section>
+
+      {/* Só depois de existir venda: antes disso, quem fecha é o painel de status. */}
+      {mostrarDinheiro && vendas.length > 0 && (
+        <Vendas leadId={lead.id} vendas={vendas} fuso={lead.cliente.fuso ?? undefined} />
+      )}
 
       <PainelStatus
         leadId={lead.id}
