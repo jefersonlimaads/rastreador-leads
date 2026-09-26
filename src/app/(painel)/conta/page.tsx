@@ -6,6 +6,7 @@ import { Selo } from "../componentes";
 import { ConexaoMeta } from "../ajustes/meta";
 import { Bloco, FormNovoUsuario, FormSenha } from "../ajustes/formularios";
 import { ImportacaoCowork } from "./importacao";
+import { EnderecoDeLeads } from "./leads-externos";
 
 /**
  * Minha conta: o que é da pessoa e da agência, não de um cliente. Senha para
@@ -90,6 +91,15 @@ export default async function PaginaConta() {
                 : null
             }
           />
+        </Bloco>
+      )}
+
+      {ehAdmin && agencia && (
+        <Bloco
+          titulo="Receber leads de outra plataforma"
+          descricao="Qualquer página ou automação pode mandar lead para cá, com a origem preservada. Usa a mesma chave da importação acima."
+        >
+          <EnderecoDeLeads url={process.env.APP_URL ?? "https://rastreador-leads.vercel.app"} />
         </Bloco>
       )}
 

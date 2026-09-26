@@ -9,6 +9,9 @@ export default defineConfig({
     alias: {
       // Fora do Next, "server-only" não resolve: aqui ele vira um módulo vazio.
       "server-only": path.resolve(process.cwd(), "tests/server-only.ts"),
+      // O mesmo atalho do app, para dar para testar rota de API sem reescrever
+      // os imports dela.
+      "@": path.resolve(process.cwd(), "src"),
     },
   },
 });
