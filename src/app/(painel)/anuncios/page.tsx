@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
 import { metricasPorAnuncio, ROTULO_MODO, type ModoAnalise, type Nivel } from "@/lib/metricas";
-import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
+import { dataPuraDe, formatarData, formatarDataHora } from "@/lib/datas";
+import { lerChave, PERIODOS, resolverPeriodo } from "@/lib/periodos";
+import { evolucaoDiaria } from "@/lib/evolucao";
+import { Evolucao } from "./evolucao";
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
 import { Comparacao, Diario, Inteligencia, TabelaAnuncios } from "./inteligencia";
@@ -41,7 +44,6 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     return <Vazio>Esta tela é para gestor e administrador.</Vazio>;
   }
 
-  const dias = Number(filtros.dias ?? 30) || 30;
   const nivel = (typeof filtros.nivel === "string" ? filtros.nivel : "ad") as Nivel;
   /* Coorte é o padrão: a tela de Anúncios existe para julgar campanha, e é a
      leitura que relaciona verba com o que ela trouxe. */
@@ -51,7 +53,13 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     select: { fuso: true },
   });
   const fuso = cliente?.fuso;
-  const { de, ate } = periodoPadrao(dias, fuso);
+  const chavePeriodo = lerChave(filtros.periodo);
+  const periodo = resolverPeriodo(chavePeriodo, fuso, {
+    de: typeof filtros.de === "string" ? filtros.de : "",
+    ate: typeof filtros.ate === "string" ? filtros.ate : "",
+  });
+  const { de, ate } = periodo;
+  const dias = Math.max(1, Math.ceil((ate.getTime() - de.getTime()) / 864e5));
 
   const [
     { linhas, total, semAtribuicao, vendasSemValor, emAberto, vendasSemDataFechamento },
@@ -62,6 +70,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     diario,
     comparacao,
     qualificacao,
+    serie,
   ] =
     await Promise.all([
       metricasPorAnuncio({ clienteId, de, ate, nivel, fuso, modo }),
@@ -72,6 +81,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
       diarioDoCliente(clienteId, fuso),
       compararComACarteira(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
       qualificacaoDoCliente(clienteId, de, ate),
+      evolucaoDiaria(clienteId, de, ate, fuso),
     ]);
 
   /* Cada número diz o quanto se sustenta. Zero onde falta dado faria cortar a
@@ -141,22 +151,50 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {[7, 30, 90].map((d) => (
+        {PERIODOS.map((p) => (
           <Link
-            key={d}
-            href={`/anuncios?dias=${d}&nivel=${nivel}&modo=${modo}`}
+            key={p.chave}
+            href={`/anuncios?periodo=${p.chave}&nivel=${nivel}&modo=${modo}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
-              dias === d ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
+              chavePeriodo === p.chave ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
           >
-            {d} dias
+            {p.rotulo}
           </Link>
         ))}
-        <span className="mx-1 w-px bg-borda" />
+      </div>
+
+      {/* Período livre: GET simples, o recorte fica na URL e volta igual. */}
+      <form method="get" action="/anuncios" className="mt-2 flex flex-wrap items-end gap-2">
+        <input type="hidden" name="periodo" value="personalizado" />
+        <input type="hidden" name="nivel" value={nivel} />
+        <input type="hidden" name="modo" value={modo} />
+        <label className="flex flex-col gap-1 text-xs text-suave">
+          De
+          <input
+            type="date"
+            name="de"
+            defaultValue={dataPuraDe(de, fuso).toISOString().slice(0, 10)}
+            className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm text-texto"
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-suave">
+          Até
+          <input
+            type="date"
+            name="ate"
+            defaultValue={dataPuraDe(ate, fuso).toISOString().slice(0, 10)}
+            className="rounded-xl border border-borda bg-superficie px-3 py-2 text-sm text-texto"
+          />
+        </label>
+        <button type="submit" className="rounded-xl border border-borda px-4 py-2 text-sm">
+          Ver período
+        </button>
+        <span className="mx-1 hidden w-px self-stretch bg-borda sm:block" />
         {NIVEIS.map((n) => (
           <Link
             key={n.valor}
-            href={`/anuncios?dias=${dias}&nivel=${n.valor}&modo=${modo}`}
+            href={`/anuncios?periodo=${chavePeriodo}&nivel=${n.valor}&modo=${modo}&de=${typeof filtros.de === "string" ? filtros.de : ""}&ate=${typeof filtros.ate === "string" ? filtros.ate : ""}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
               nivel === n.valor ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
@@ -164,7 +202,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
             {n.rotulo}
           </Link>
         ))}
-      </div>
+      </form>
 
       <FaixaDoMes ritmo={ritmo} />
 
@@ -176,7 +214,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
           {(["coorte", "periodo"] as const).map((m) => (
             <Link
               key={m}
-              href={`/anuncios?dias=${dias}&nivel=${nivel}&modo=${m}`}
+              href={`/anuncios?periodo=${chavePeriodo}&nivel=${nivel}&modo=${m}`}
               className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
                 modo === m ? "bg-marca text-sobre-marca" : "border border-borda"
               }`}
@@ -204,6 +242,8 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         tipoMediano={inteligencia.tipoMediano}
         dias={inteligencia.dias}
       />
+
+      <Evolucao serie={serie} />
 
       <Qualificacao q={qualificacao} leitura={leituraDaPerda(qualificacao)} />
 
