@@ -231,6 +231,7 @@ model Cliente {
 
   numeros    NumeroWhatsapp[]
   usuarios   Usuario[]
+  acessos    AcessoCliente[]
   cliques    Clique[]
   leads      Lead[]
   eventos    Evento[]
@@ -423,11 +424,36 @@ model Usuario {
 
   agencia          Agencia  @relation(fields: [agenciaId], references: [id])
   cliente          Cliente? @relation(fields: [clienteId], references: [id])
+  acessos          AcessoCliente[]
   leadsResponsavel Lead[]   @relation("responsavel")
   eventos          Evento[]
   tarefas          Tarefa[]
 
   @@index([clienteId])
+}
+
+/**
+ * Quais clientes um colaborador da agência alcança.
+ *
+ * Sem nenhuma linha, ele alcança todos os da agência — é o colaborador sem
+ * restrição, e mantém funcionando quem já estava cadastrado. Com linhas, só os
+ * listados: é assim que o administrador entrega um cliente sem entregar a
+ * carteira inteira.
+ *
+ * Não vale para usuário do cliente, que continua preso ao próprio por
+ * Usuario.clienteId.
+ */
+model AcessoCliente {
+  id        String   @id @default(cuid())
+  usuarioId String
+  clienteId String
+  criadoEm  DateTime @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([usuarioId, clienteId])
+  @@index([usuarioId])
 }
 
 model Clique {

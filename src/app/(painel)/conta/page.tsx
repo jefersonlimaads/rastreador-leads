@@ -7,6 +7,7 @@ import { ConexaoMeta } from "../ajustes/meta";
 import { Bloco, FormNovoUsuario, FormSenha } from "../ajustes/formularios";
 import { ImportacaoCowork } from "./importacao";
 import { EnderecoDeLeads } from "./leads-externos";
+import { AcessoDoColaborador } from "./acesso";
 
 /**
  * Minha conta: o que é da pessoa e da agência, não de um cliente. Senha para
@@ -25,10 +26,25 @@ export default async function PaginaConta() {
         prisma.usuario.findMany({
           where: { agenciaId: sessao.agenciaId, clienteId: null },
           orderBy: { nome: "asc" },
-          select: { id: true, nome: true, email: true, papel: true },
+          select: {
+            id: true,
+            nome: true,
+            email: true,
+            papel: true,
+            acessos: { select: { clienteId: true } },
+          },
         }),
       ])
     : [null, []];
+
+  // A lista de clientes só serve para o administrador liberar acesso.
+  const clientes = ehAdmin
+    ? await prisma.cliente.findMany({
+        where: { agenciaId: sessao.agenciaId, ativo: true },
+        orderBy: { nome: "asc" },
+        select: { id: true, nome: true },
+      })
+    : [];
 
   let mascara: string | null = null;
   try {
@@ -60,19 +76,38 @@ export default async function PaginaConta() {
       )}
 
       {ehAdmin && (
-        <Bloco titulo="Equipe da agência" descricao="Administradores veem todos os clientes, o financeiro e a prospecção.">
+        <Bloco
+          titulo="Equipe da agência"
+          descricao="Administrador vê todos os clientes, o financeiro e a prospecção. Colaborador vê só os clientes liberados para ele."
+        >
           <ul className="flex flex-col gap-2">
             {equipe.map((u) => (
-              <li key={u.id} className="flex items-center justify-between gap-2 rounded-xl bg-fundo px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{u.nome}</p>
-                  <p className="truncate text-xs text-suave">{u.email}</p>
+              <li key={u.id} className="rounded-xl bg-fundo px-3 py-2.5">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium">{u.nome}</p>
+                    <p className="truncate text-xs text-suave">{u.email}</p>
+                  </div>
+                  <Selo tom={u.papel === "ADMIN" ? "marca" : "neutro"}>
+                    {u.id === sessao.usuarioId
+                      ? "você"
+                      : u.papel === "ADMIN"
+                        ? "administrador"
+                        : "colaborador"}
+                  </Selo>
                 </div>
-                <Selo tom="marca">{u.id === sessao.usuarioId ? "você" : "administrador"}</Selo>
+
+                {u.papel !== "ADMIN" && (
+                  <AcessoDoColaborador
+                    usuarioId={u.id}
+                    clientes={clientes}
+                    liberados={u.acessos.map((a) => a.clienteId)}
+                  />
+                )}
               </li>
             ))}
           </ul>
-          <FormNovoUsuario clienteId={null} papeis={["ADMIN"]} />
+          <FormNovoUsuario clienteId={null} papeis={["ADMIN", "GESTOR", "ATENDENTE"]} />
         </Bloco>
       )}
 

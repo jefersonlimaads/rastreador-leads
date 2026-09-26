@@ -124,12 +124,14 @@ export async function clienteDaAgencia(clienteId: string, agenciaId: string) {
 export async function exigirClienteDaAgencia(clienteId: string, sessao: Sessao) {
   const cliente = await clienteDaAgencia(clienteId, sessao.agenciaId);
   if (!cliente) throw new Error("Cliente não encontrado nesta agência");
-  // Equipe do cliente só alcança o próprio cliente, mesmo dentro da agência.
-  if (sessao.papel !== "ADMIN" && cliente.id !== sessao.clienteId) {
+  // Equipe do cliente alcança o próprio; colaborador, os liberados para ele.
+  if (!(await podeVerCliente(sessao, cliente.id))) {
     throw new Error("Sem acesso a este cliente");
   }
   return cliente;
 }
+
+import { clientesPermitidos, podeVerCliente } from "./acesso";
 
 export { COOKIE_CLIENTE } from "./cookies";
 import { COOKIE_CLIENTE } from "./cookies";
@@ -140,27 +142,22 @@ import { COOKIE_CLIENTE } from "./cookies";
  * que vier na URL ou no cookie.
  */
 export async function clienteEmFoco(sessao: Sessao, pedido?: string | null): Promise<string | null> {
-  if (sessao.papel === "ADMIN") {
-    // Pedido pela URL ou pelo cookie só vale se o cliente for desta agência.
-    // Antes aceitava qualquer id: inofensivo com uma agência, vazamento com duas.
-    const candidatos = [pedido, (await cookies()).get(COOKIE_CLIENTE)?.value];
-    for (const id of candidatos) {
-      if (!id) continue;
-      const existe = await prisma.cliente.findFirst({
-        where: { id, agenciaId: sessao.agenciaId, ativo: true },
-        select: { id: true },
-      });
-      if (existe) return existe.id;
-    }
+  // Usuário do cliente fica preso ao próprio, venha o que vier na URL.
+  if (sessao.clienteId) return sessao.clienteId;
 
-    const primeiro = await prisma.cliente.findFirst({
-      where: { agenciaId: sessao.agenciaId, ativo: true },
-      orderBy: { nome: "asc" },
-      select: { id: true },
-    });
-    return primeiro?.id ?? null;
+  /* Equipe da agência escolhe entre os clientes que alcança — todos, para o
+     administrador; os liberados, para o colaborador com lista. O pedido da URL
+     ou do cookie só vale se estiver nessa lista: antes aceitava qualquer id,
+     inofensivo com uma agência e vazamento com duas. */
+  const permitidos = await clientesPermitidos(sessao);
+  if (permitidos.length === 0) return null;
+
+  const podem = new Set(permitidos.map((c) => c.id));
+  const candidatos = [pedido, (await cookies()).get(COOKIE_CLIENTE)?.value];
+  for (const id of candidatos) {
+    if (id && podem.has(id)) return id;
   }
-  return sessao.clienteId;
+  return permitidos[0].id;
 }
 
 /** Barreira única de isolamento: nenhuma consulta do painel roda sem clienteId. */
