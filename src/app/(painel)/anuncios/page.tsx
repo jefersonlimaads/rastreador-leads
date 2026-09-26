@@ -7,6 +7,15 @@ import { inteligenciaDoCliente } from "@/lib/campanhas";
 import { Comparacao, Diario, Inteligencia, TabelaAnuncios } from "./inteligencia";
 import { Gargalos, Qualificacao } from "./funil";
 import { leituraDaPerda, qualificacaoDoCliente } from "@/lib/qualificacao";
+import {
+  custoPorContato,
+  custoPorVenda,
+  formatar,
+  receita as indicadorReceita,
+  roas as indicadorRoas,
+  taxaQualificacao,
+  type Indicador,
+} from "@/lib/indicadores";
 import { diarioDoCliente } from "@/lib/diario";
 import { compararComACarteira } from "@/lib/benchmark";
 import { FaixaDoMes, TempoDeRespostaBloco } from "./mes";
@@ -42,7 +51,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const { de, ate } = periodoPadrao(dias, fuso);
 
   const [
-    { linhas, total, semAtribuicao },
+    { linhas, total, semAtribuicao, vendasSemValor, emAberto },
     doMeta,
     inteligencia,
     ritmo,
@@ -61,6 +70,26 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
       compararComACarteira(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
       qualificacaoDoCliente(clienteId, de, ate),
     ]);
+
+  /* Cada número diz o quanto se sustenta. Zero onde falta dado faria cortar a
+     campanha que vendeu e ninguém lançou o valor. */
+  const receita = indicadorReceita({
+    soma: total.receita,
+    vendasComValor: total.fechados - vendasSemValor,
+    vendasTotal: total.fechados,
+  });
+  const retorno = indicadorRoas(receita, total.gasto);
+  const custoContato = custoPorContato({
+    investimento: total.gasto,
+    contatos: total.leads,
+    semOrigem: semAtribuicao,
+  });
+  const custoVenda = custoPorVenda(total.gasto, total.fechados);
+  const qualificacaoTaxa = taxaQualificacao({
+    qualificados: qualificacao.qualificados,
+    contatos: qualificacao.contatos,
+    algumDiaClassificou: qualificacao.qualificados > 0 || qualificacao.perdidos > 0,
+  });
 
   /* O diagnóstico de cada anúncio vira selo na linha da tabela, em vez de
      cartão próprio: "vendendo" não é ação, é estado. */
@@ -118,15 +147,13 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
 
       <FaixaDoMes ritmo={ritmo} />
 
-      <section className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Indicador titulo="Contatos" valor={String(total.leads)} nota={`${total.leadsExatos} exatos`} />
-        <Indicador titulo="Vendas" valor={String(total.fechados)} />
-        <Indicador titulo="Investido" valor={moeda(total.gasto)} />
-        <Indicador
-          titulo="Retorno"
-          valor={total.roas != null ? total.roas.toFixed(1) + "x" : "—"}
-          nota={moeda(total.receita)}
-        />
+      <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <Cartao titulo="Investido" valor={moeda(total.gasto)} />
+        <Cartao titulo="Contatos" valor={String(total.leads)} nota={`${total.leadsExatos} de origem exata`} />
+        <Cartao titulo="Custo por contato" i={custoContato} como="moeda" />
+        <Cartao titulo="Qualificação" i={qualificacaoTaxa} como="pct" />
+        <Cartao titulo="Custo por venda" i={custoVenda} como="moeda" nota={`${total.fechados} vendas`} />
+        <Cartao titulo="Retorno" i={retorno} como="vezes" nota={formatar(receita, "moeda")} />
       </section>
 
       <Inteligencia
@@ -192,12 +219,43 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   );
 }
 
-function Indicador({ titulo, valor, nota }: { titulo: string; valor: string; nota?: string }) {
+/**
+ * Um número e o quanto ele se sustenta. Indisponível aparece como palavra, não
+ * como zero: zero parece medição e é ausência.
+ */
+function Cartao({
+  titulo,
+  valor,
+  i,
+  como = "moeda",
+  nota,
+}: {
+  titulo: string;
+  valor?: string;
+  i?: Indicador;
+  como?: "moeda" | "pct" | "vezes" | "inteiro";
+  nota?: string;
+}) {
+  const texto = valor ?? (i ? formatar(i, como) : "—");
+  const incerto = i && i.estado !== "exato";
+
   return (
     <div className="rounded-2xl border border-borda bg-superficie p-3">
       <p className="text-xs uppercase tracking-wide text-suave">{titulo}</p>
-      <p className="mt-1 text-lg font-semibold">{valor}</p>
-      {nota && <p className="text-xs text-suave">{nota}</p>}
+      <p
+        className={`mt-1 text-lg font-semibold ${i?.estado === "indisponivel" ? "text-suave" : ""}`}
+        title={i?.formula}
+      >
+        {texto}
+        {i?.estado === "parcial" && (
+          <span className="ml-1.5 align-middle text-[11px] font-normal text-alerta">parcial</span>
+        )}
+      </p>
+      {incerto ? (
+        <p className="text-xs text-suave [overflow-wrap:anywhere]">{i!.motivo}</p>
+      ) : (
+        nota && <p className="text-xs text-suave">{nota}</p>
+      )}
     </div>
   );
 }

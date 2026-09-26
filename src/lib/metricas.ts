@@ -35,7 +35,15 @@ export async function metricasPorAnuncio(params: {
   ate: Date;
   nivel?: Nivel;
   fuso?: string;
-}): Promise<{ linhas: LinhaMetrica[]; total: LinhaMetrica; semAtribuicao: number }> {
+}): Promise<{
+  linhas: LinhaMetrica[];
+  total: LinhaMetrica;
+  semAtribuicao: number;
+  /** Vendas fechadas sem valor lançado: fazem a receita virar piso. */
+  vendasSemValor: number;
+  /** Contatos que ainda não fecharam nem se perderam: a taxa vai mudar. */
+  emAberto: number;
+}> {
   const { clienteId, de, ate, nivel = "ad", fuso = FUSO_PADRAO } = params;
 
   const leads = await prisma.lead.findMany({
@@ -87,11 +95,17 @@ export async function metricasPorAnuncio(params: {
   };
 
   let semAtribuicao = 0;
+  /* O que a camada de indicadores precisa para dizer o quanto o número se
+     sustenta: venda sem valor lançado, e contato ainda em aberto. */
+  let vendasSemValor = 0;
+  let emAberto = 0;
   const total = linha("__total__", "Total do cliente");
 
   for (const lead of leads) {
     const chave = chaveDe(lead.clique);
     const valor = lead.valorVenda ? Number(lead.valorVenda) : 0;
+    if (lead.status === "FECHADO" && !lead.valorVenda) vendasSemValor++;
+    if (lead.status !== "FECHADO" && lead.status !== "PERDIDO") emAberto++;
 
     total.leads++;
     if (lead.atribuicao === "EXATA") total.leadsExatos++;
@@ -151,5 +165,5 @@ export async function metricasPorAnuncio(params: {
     .map(calcular)
     .sort((a, b) => b.leads - a.leads || b.gasto - a.gasto);
 
-  return { linhas, total: calcular(total), semAtribuicao };
+  return { linhas, total: calcular(total), semAtribuicao, vendasSemValor, emAberto };
 }
