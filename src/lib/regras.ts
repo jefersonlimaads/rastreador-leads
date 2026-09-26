@@ -18,6 +18,7 @@ export const REGRAS = {
 export const STATUS_ABERTOS = [
   "NOVO",
   "EM_ATENDIMENTO",
+  "QUALIFICADO",
   "PROPOSTA_ENVIADA",
   "NEGOCIANDO",
 ] as const;
@@ -26,6 +27,7 @@ export const STATUS_ABERTOS = [
 export const ETAPAS = [
   "NOVO",
   "EM_ATENDIMENTO",
+  "QUALIFICADO",
   "PROPOSTA_ENVIADA",
   "NEGOCIANDO",
   "FECHADO",
@@ -33,7 +35,12 @@ export const ETAPAS = [
 ] as const;
 
 /** As que o cliente escolhe quando diz que o lead ainda está sendo tratado. */
-export const ETAPAS_EM_ANDAMENTO = ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIANDO"] as const;
+export const ETAPAS_EM_ANDAMENTO = [
+  "EM_ATENDIMENTO",
+  "QUALIFICADO",
+  "PROPOSTA_ENVIADA",
+  "NEGOCIANDO",
+] as const;
 
 /**
  * Que etapas do meio cada tipo de funil usa.
@@ -44,9 +51,55 @@ export const ETAPAS_EM_ANDAMENTO = ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOC
  * comparando clientes entre si.
  */
 export const ETAPAS_DO_FUNIL = {
-  SIMPLES: ["EM_ATENDIMENTO"],
-  COMPLETO: ["EM_ATENDIMENTO", "PROPOSTA_ENVIADA", "NEGOCIANDO"],
+  SIMPLES: ["EM_ATENDIMENTO", "QUALIFICADO"],
+  COMPLETO: ["EM_ATENDIMENTO", "QUALIFICADO", "PROPOSTA_ENVIADA", "NEGOCIANDO"],
 } as const;
+
+/**
+ * Etapas em que o lead já foi considerado bom para o negócio.
+ *
+ * Quem fechou passou por qualificado, mesmo que ninguém tenha clicado na
+ * etapa. Sem essa lista, a taxa de qualificação cairia toda vez que alguém
+ * pulasse direto para o fechamento — punindo o atendimento rápido.
+ */
+export const ETAPAS_QUALIFICADAS = [
+  "QUALIFICADO",
+  "PROPOSTA_ENVIADA",
+  "NEGOCIANDO",
+  "FECHADO",
+] as const;
+
+/**
+ * Motivos de perda. Lista fechada de propósito: texto livre não se compara
+ * entre clientes nem entre campanhas, e é a comparação que diz se o problema
+ * está no anúncio, na página ou no atendimento.
+ *
+ * A observação em texto continua existindo ao lado, para o detalhe.
+ */
+export const MOTIVOS_PERDA = [
+  { chave: "NAO_RESPONDEU", rotulo: "Não respondeu", ondeAponta: "atendimento" },
+  { chave: "SEM_INTERESSE", rotulo: "Sem interesse", ondeAponta: "anuncio" },
+  { chave: "SEM_ORCAMENTO", rotulo: "Sem orçamento", ondeAponta: "anuncio" },
+  { chave: "FORA_DA_REGIAO", rotulo: "Fora da região", ondeAponta: "anuncio" },
+  { chave: "PERFIL_INADEQUADO", rotulo: "Perfil inadequado", ondeAponta: "anuncio" },
+  { chave: "ESCOLHEU_CONCORRENTE", rotulo: "Escolheu concorrente", ondeAponta: "proposta" },
+  { chave: "ATENDIMENTO_DEMORADO", rotulo: "Atendimento demorado", ondeAponta: "atendimento" },
+  { chave: "DUPLICADO", rotulo: "Duplicado", ondeAponta: "dado" },
+  { chave: "OUTRO", rotulo: "Outro", ondeAponta: "dado" },
+] as const;
+
+export const ROTULO_MOTIVO: Record<string, string> = Object.fromEntries(
+  MOTIVOS_PERDA.map((m) => [m.chave, m.rotulo]),
+);
+
+/**
+ * Para onde cada motivo aponta. "Sem interesse" e "fora da região" em volume
+ * são problema de segmentação do anúncio; "não respondeu" e "demorou" são do
+ * atendimento. É o que transforma motivo de perda em decisão.
+ */
+export const ONDE_APONTA: Record<string, string> = Object.fromEntries(
+  MOTIVOS_PERDA.map((m) => [m.chave, m.ondeAponta]),
+);
 
 export const ROTULO_FUNIL: Record<string, string> = {
   SIMPLES: "Simples — atende e fecha",
@@ -71,6 +124,7 @@ export function etapasVisiveis(funil: string, comLeads: string[] = []): string[]
 export const ROTULO_STATUS: Record<string, string> = {
   NOVO: "Novo",
   EM_ATENDIMENTO: "Em atendimento",
+  QUALIFICADO: "Qualificado",
   PROPOSTA_ENVIADA: "Proposta enviada",
   NEGOCIANDO: "Negociando",
   FECHADO: "Fechado",

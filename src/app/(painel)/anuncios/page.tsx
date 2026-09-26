@@ -5,7 +5,8 @@ import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
 import { Comparacao, Diario, Inteligencia, TabelaAnuncios } from "./inteligencia";
-import { Gargalos } from "./funil";
+import { Gargalos, Qualificacao } from "./funil";
+import { leituraDaPerda, qualificacaoDoCliente } from "@/lib/qualificacao";
 import { diarioDoCliente } from "@/lib/diario";
 import { compararComACarteira } from "@/lib/benchmark";
 import { FaixaDoMes, TempoDeRespostaBloco } from "./mes";
@@ -40,7 +41,16 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const fuso = cliente?.fuso;
   const { de, ate } = periodoPadrao(dias, fuso);
 
-  const [{ linhas, total, semAtribuicao }, doMeta, inteligencia, ritmo, atendimento, diario, comparacao] =
+  const [
+    { linhas, total, semAtribuicao },
+    doMeta,
+    inteligencia,
+    ritmo,
+    atendimento,
+    diario,
+    comparacao,
+    qualificacao,
+  ] =
     await Promise.all([
       metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
       campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
@@ -49,6 +59,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
       tempoDeResposta(clienteId, de, ate),
       diarioDoCliente(clienteId, fuso),
       compararComACarteira(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
+      qualificacaoDoCliente(clienteId, de, ate),
     ]);
 
   /* O diagnóstico de cada anúncio vira selo na linha da tabela, em vez de
@@ -125,6 +136,8 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         tipoMediano={inteligencia.tipoMediano}
         dias={inteligencia.dias}
       />
+
+      <Qualificacao q={qualificacao} leitura={leituraDaPerda(qualificacao)} />
 
       <Gargalos gargalos={inteligencia.gargalos} />
 

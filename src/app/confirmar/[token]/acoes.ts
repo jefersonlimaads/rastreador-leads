@@ -100,6 +100,7 @@ export async function acaoDesfecho(
     leadId: String(formData.get("leadId") ?? ""),
     status,
     valorVenda,
+    motivoPerdaCategoria: String(formData.get("motivoPerdaCategoria") ?? ""),
     motivoPerda: String(formData.get("motivoPerda") ?? ""),
   });
   if (!lead) return { erro: "Não consegui registrar. Confira os campos." };

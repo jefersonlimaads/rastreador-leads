@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "./prisma";
-import { ETAPAS_EM_ANDAMENTO, REGRAS, STATUS_ABERTOS } from "./regras";
+import { ETAPAS_EM_ANDAMENTO, MOTIVOS_PERDA, REGRAS, ROTULO_MOTIVO, STATUS_ABERTOS } from "./regras";
 
 /**
  * Confirmação em lote pelo cliente.
@@ -155,6 +155,7 @@ export async function registrarDesfecho(params: {
   leadId: string;
   status: "FECHADO" | "PERDIDO" | (typeof ETAPAS_EM_ANDAMENTO)[number];
   valorVenda?: number;
+  motivoPerdaCategoria?: string;
   motivoPerda?: string;
 }) {
   const { clienteId, leadId, status } = params;
@@ -162,7 +163,14 @@ export async function registrarDesfecho(params: {
   if (!lead) return null;
 
   if (status === "FECHADO" && !(params.valorVenda && params.valorVenda > 0)) return null;
-  if (status === "PERDIDO" && !params.motivoPerda?.trim()) return null;
+  // O cliente escolhe da mesma lista fechada que o gestor: é o que mantém o
+  // motivo comparável, venha de onde vier.
+  if (
+    status === "PERDIDO" &&
+    !(MOTIVOS_PERDA as readonly { chave: string }[]).some((m) => m.chave === params.motivoPerdaCategoria)
+  ) {
+    return null;
+  }
 
   const encerrou = status === "FECHADO" || status === "PERDIDO";
 
@@ -171,7 +179,9 @@ export async function registrarDesfecho(params: {
       where: { id: lead.id },
       data: {
         status,
-        motivoPerda: status === "PERDIDO" ? params.motivoPerda?.trim() : lead.motivoPerda,
+        motivoPerda: status === "PERDIDO" ? (params.motivoPerda?.trim() || null) : lead.motivoPerda,
+        motivoPerdaCategoria:
+          status === "PERDIDO" ? params.motivoPerdaCategoria : lead.motivoPerdaCategoria,
         fechadoEm: encerrou ? new Date() : null,
       },
     });
@@ -185,7 +195,7 @@ export async function registrarDesfecho(params: {
           status === "FECHADO"
             ? `Cliente informou venda de R$ ${params.valorVenda?.toFixed(2)}`
             : status === "PERDIDO"
-              ? `Cliente informou perda: ${params.motivoPerda?.trim()}`
+              ? `Cliente informou perda: ${ROTULO_MOTIVO[params.motivoPerdaCategoria ?? ""] ?? "motivo"}${params.motivoPerda?.trim() ? ` — ${params.motivoPerda.trim()}` : ""}`
               : `Cliente informou a etapa: ${status}`,
       },
     });

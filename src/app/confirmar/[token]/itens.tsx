@@ -8,7 +8,7 @@ import {
   acaoDesfecho,
   type EstadoConfirmacao,
 } from "./acoes";
-import { ROTULO_STATUS } from "@/lib/regras";
+import { MOTIVOS_PERDA, ROTULO_STATUS } from "@/lib/regras";
 import type { CampoFormulario } from "@/lib/campos";
 
 const vazio: EstadoConfirmacao = {};
@@ -296,15 +296,22 @@ export function ItemLead({
               />
             </label>
           ) : (
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm text-suave">O que aconteceu?</span>
-              <input
-                name="motivoPerda"
-                required
-                placeholder="Preço, prazo, sumiu..."
-                className={campo}
-              />
-            </label>
+            <div className="flex flex-col gap-2">
+              <label className="flex flex-col gap-1.5">
+                <span className="text-sm text-suave">O que aconteceu?</span>
+                {/* Mesma lista do painel: o motivo só vira decisão quando dá
+                    para somar entre campanhas. */}
+                <select name="motivoPerdaCategoria" required defaultValue="" className={campo}>
+                  <option value="">Escolha...</option>
+                  {MOTIVOS_PERDA.map((m) => (
+                    <option key={m.chave} value={m.chave}>
+                      {m.rotulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input name="motivoPerda" placeholder="Quer detalhar? (opcional)" className={campo} />
+            </div>
           )}
 
           <div className="flex gap-2">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { DiagnosticoFunil, EtapaFunil } from "@/lib/funil-anuncio";
 import type { AnuncioPeriodo } from "@/lib/inteligencia";
+import type { LeituraQualificacao } from "@/lib/qualificacao";
 
 const inteiro = (v: number) => v.toLocaleString("pt-BR");
 const pct = (v: number) => `${(v * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
@@ -112,6 +113,68 @@ export function Gargalos({
           </li>
         ))}
       </ul>
+    </section>
+  );
+}
+
+const pctCurto = (v: number) => `${Math.round(v * 100)}%`;
+
+/**
+ * Qualificação e motivo de perda.
+ *
+ * Responde a pergunta que custo por lead não responde: a campanha traz pouca
+ * gente, ou traz gente errada? São problemas opostos — um pede verba, o outro
+ * pede mudar público e promessa.
+ */
+export function Qualificacao({
+  q,
+  leitura,
+}: {
+  q: LeituraQualificacao;
+  leitura: { titulo: string; motivo: string; acao: string } | null;
+}) {
+  if (q.contatos === 0) return null;
+
+  return (
+    <section className="mt-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-suave">
+          Qualidade dos contatos
+        </h2>
+        <p className="text-xs text-suave">
+          {q.qualificados} de {q.contatos} qualificados
+          {q.taxa != null ? ` · ${pctCurto(q.taxa)}` : ""}
+        </p>
+      </div>
+
+      {leitura && (
+        <div className="mt-2 rounded-2xl border border-alerta bg-alerta-suave px-4 py-3">
+          <p className="text-sm font-medium text-alerta">{leitura.titulo}</p>
+          <p className="mt-0.5 text-sm text-texto">{leitura.motivo}</p>
+          <p className="mt-1 text-sm">{leitura.acao}</p>
+        </div>
+      )}
+
+      {q.motivos.length > 0 && (
+        <div className="mt-2 rounded-2xl border border-borda bg-superficie p-4">
+          <p className="text-xs text-suave">
+            Por que {q.perdidos} {q.perdidos === 1 ? "contato foi perdido" : "contatos foram perdidos"}
+          </p>
+          <ul className="mt-2 flex flex-col gap-1.5">
+            {q.motivos.map((m) => (
+              <li key={m.chave} className="flex items-baseline justify-between gap-3 text-sm">
+                <span>{m.rotulo}</span>
+                <span className="flex items-baseline gap-2">
+                  <span className="text-xs text-suave">
+                    {pctCurto(m.quantos / q.perdidos)}
+                  </span>
+                  <span className="font-medium tabular-nums">{m.quantos}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

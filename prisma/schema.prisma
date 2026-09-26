@@ -95,6 +95,13 @@ enum TipoFunil {
 enum StatusLead {
   NOVO
   EM_ATENDIMENTO
+  /*
+   * Serve para o negócio: tem o problema, o perfil e a condição de comprar.
+   * Sem essa etapa não existe taxa de qualificação nem custo por lead
+   * qualificado — e é ela que separa "a campanha traz pouca gente" de "traz
+   * gente errada", que pedem ações opostas.
+   */
+  QUALIFICADO
   PROPOSTA_ENVIADA
   NEGOCIANDO
   FECHADO
@@ -499,6 +506,12 @@ model Lead {
 
   mensagemEm DateTime // horário da mensagem, base da janela de atribuição
   valorVenda Decimal? @db.Decimal(12, 2)
+  /*
+   * Categoria padronizada da perda, da lista de MOTIVOS_PERDA. É o que torna o
+   * motivo comparável entre clientes e entre campanhas; motivoPerda continua
+   * guardando a observação em texto livre, que é onde mora o detalhe.
+   */
+  motivoPerdaCategoria String?
   motivoPerda String?
 
   responsavelId String?

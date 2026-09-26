@@ -3,7 +3,7 @@
 import { Formulario } from "@/app/formulario";
 import { useActionState, useState } from "react";
 import { acaoMudarStatus, type EstadoStatus } from "../../acoes";
-import { ROTULO_STATUS } from "@/lib/regras";
+import { MOTIVOS_PERDA, ROTULO_STATUS } from "@/lib/regras";
 
 const estadoInicial: EstadoStatus = {};
 
@@ -14,6 +14,7 @@ export function PainelStatus({
   podeFechar,
   valorAtual,
   motivoAtual,
+  categoriaAtual,
 }: {
   leadId: string;
   etapas: string[];
@@ -21,6 +22,7 @@ export function PainelStatus({
   podeFechar: boolean;
   valorAtual: number | null;
   motivoAtual: string | null;
+  categoriaAtual: string | null;
 }) {
   const [estado, acao, enviando] = useActionState(acaoMudarStatus, estadoInicial);
   const [escolhido, setEscolhido] = useState(status);
@@ -67,16 +69,35 @@ export function PainelStatus({
       )}
 
       {escolhido === "PERDIDO" && (
-        <label className="mt-4 flex flex-col gap-1.5">
-          <span className="text-sm text-suave">Motivo da perda</span>
-          <input
-            name="motivoPerda"
-            required
-            defaultValue={motivoAtual ?? ""}
-            placeholder="Preço, prazo, sumiu..."
-            className="rounded-xl border border-borda bg-fundo px-3 py-2.5 outline-none focus:border-marca"
-          />
-        </label>
+        <div className="mt-4 flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-suave">Motivo da perda</span>
+            {/* Lista fechada: texto livre não se compara entre campanhas, e é a
+                comparação que diz se o problema é anúncio ou atendimento. */}
+            <select
+              name="motivoPerdaCategoria"
+              required
+              defaultValue={categoriaAtual ?? ""}
+              className="rounded-xl border border-borda bg-fundo px-3 py-2.5 outline-none focus:border-marca"
+            >
+              <option value="">Escolha...</option>
+              {MOTIVOS_PERDA.map((m) => (
+                <option key={m.chave} value={m.chave}>
+                  {m.rotulo}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm text-suave">Observação (opcional)</span>
+            <input
+              name="motivoPerda"
+              defaultValue={motivoAtual ?? ""}
+              placeholder="O detalhe que o motivo não conta"
+              className="rounded-xl border border-borda bg-fundo px-3 py-2.5 outline-none focus:border-marca"
+            />
+          </label>
+        </div>
       )}
 
       {estado.erro && (

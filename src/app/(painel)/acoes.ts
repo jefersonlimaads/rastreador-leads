@@ -18,7 +18,7 @@ import { apagarVenda, registrarVenda } from "@/lib/vendas";
 import { enfileirarEventoCapi } from "@/lib/meta/capi";
 import { garantirToken } from "@/lib/confirmacao";
 import { OPCOES_COOKIE_CLIENTE } from "@/lib/cookies";
-import { ETAPAS } from "@/lib/regras";
+import { ETAPAS, MOTIVOS_PERDA, ROTULO_MOTIVO, ROTULO_STATUS } from "@/lib/regras";
 import type { StatusLead } from "@prisma/client";
 
 /**
@@ -156,6 +156,7 @@ const MudancaStatus = z.object({
   leadId: z.string().min(1),
   status: z.enum(ETAPAS),
   valorVenda: z.string().optional(),
+  motivoPerdaCategoria: z.string().max(40).optional(),
   motivoPerda: z.string().max(300).optional(),
 });
 
@@ -170,6 +171,7 @@ export async function acaoMudarStatus(
     leadId: String(formData.get("leadId") ?? ""),
     status: String(formData.get("status") ?? ""),
     valorVenda: String(formData.get("valorVenda") ?? ""),
+    motivoPerdaCategoria: String(formData.get("motivoPerdaCategoria") ?? ""),
     motivoPerda: String(formData.get("motivoPerda") ?? ""),
   });
   if (!dados.success) return { erro: "Status inválido." };
@@ -180,6 +182,7 @@ export async function acaoMudarStatus(
   // Regra 7: fechado exige valor, perdido exige motivo.
   let valorVenda: number | null = lead.valorVenda ? Number(lead.valorVenda) : null;
   let motivoPerda = lead.motivoPerda;
+  let motivoCategoria = lead.motivoPerdaCategoria;
 
   if (status === "FECHADO") {
     if (!podeVerDinheiro(sessao.papel)) {
@@ -194,10 +197,14 @@ export async function acaoMudarStatus(
   }
 
   if (status === "PERDIDO") {
-    if (!dados.data.motivoPerda?.trim()) {
-      return { erro: "Informe o motivo da perda." };
+    /* A categoria é obrigatória e a observação não: texto livre não se compara
+       entre campanhas, e é a comparação que diz onde está o problema. */
+    const categoria = dados.data.motivoPerdaCategoria?.trim();
+    if (!categoria || !(MOTIVOS_PERDA as readonly { chave: string }[]).some((m) => m.chave === categoria)) {
+      return { erro: "Escolha o motivo da perda." };
     }
-    motivoPerda = dados.data.motivoPerda.trim();
+    motivoCategoria = categoria;
+    motivoPerda = dados.data.motivoPerda?.trim() || null;
   }
 
   await prisma.$transaction(async (tx) => {
@@ -208,6 +215,7 @@ export async function acaoMudarStatus(
         // Fechando, o total sai do registro de vendas logo abaixo.
         ...(status === "FECHADO" ? {} : { valorVenda }),
         motivoPerda,
+        motivoPerdaCategoria: motivoCategoria,
         fechadoEm: status === "FECHADO" || status === "PERDIDO" ? new Date() : null,
       },
     });
@@ -220,7 +228,10 @@ export async function acaoMudarStatus(
           clienteId: lead.clienteId,
           leadId: lead.id,
           tipo: "MUDANCA_STATUS",
-          descricao: status === "PERDIDO" ? `Perdido: ${motivoPerda}` : `Status: ${status}`,
+          descricao:
+            status === "PERDIDO"
+              ? `Perdido: ${ROTULO_MOTIVO[motivoCategoria ?? ""] ?? "motivo não informado"}${motivoPerda ? ` — ${motivoPerda}` : ""}`
+              : `Status: ${ROTULO_STATUS[status] ?? status}`,
           usuarioId: sessao.usuarioId,
         },
       });

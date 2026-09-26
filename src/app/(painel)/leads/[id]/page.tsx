@@ -141,6 +141,7 @@ export default async function PaginaLead({ params, searchParams }: PageProps<"/l
         podeFechar={mostrarDinheiro}
         valorAtual={lead.valorVenda ? Number(lead.valorVenda) : null}
         motivoAtual={lead.motivoPerda}
+        categoriaAtual={lead.motivoPerdaCategoria}
       />
 
       <section className="mt-5 flex gap-2">
