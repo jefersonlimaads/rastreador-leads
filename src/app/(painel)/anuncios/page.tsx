@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { exigirCliente, podeVerDinheiro } from "@/lib/auth";
-import { metricasPorAnuncio, type Nivel } from "@/lib/metricas";
+import { metricasPorAnuncio, ROTULO_MODO, type ModoAnalise, type Nivel } from "@/lib/metricas";
 import { dataPuraDe, formatarData, formatarDataHora, periodoPadrao } from "@/lib/datas";
 import { campanhasDoMeta } from "@/lib/relatorio";
 import { inteligenciaDoCliente } from "@/lib/campanhas";
@@ -43,6 +43,9 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
 
   const dias = Number(filtros.dias ?? 30) || 30;
   const nivel = (typeof filtros.nivel === "string" ? filtros.nivel : "ad") as Nivel;
+  /* Coorte é o padrão: a tela de Anúncios existe para julgar campanha, e é a
+     leitura que relaciona verba com o que ela trouxe. */
+  const modo = (filtros.modo === "periodo" ? "periodo" : "coorte") as ModoAnalise;
   const cliente = await prisma.cliente.findUnique({
     where: { id: clienteId },
     select: { fuso: true },
@@ -51,7 +54,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const { de, ate } = periodoPadrao(dias, fuso);
 
   const [
-    { linhas, total, semAtribuicao, vendasSemValor, emAberto },
+    { linhas, total, semAtribuicao, vendasSemValor, emAberto, vendasSemDataFechamento },
     doMeta,
     inteligencia,
     ritmo,
@@ -61,7 +64,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     qualificacao,
   ] =
     await Promise.all([
-      metricasPorAnuncio({ clienteId, de, ate, nivel, fuso }),
+      metricasPorAnuncio({ clienteId, de, ate, nivel, fuso, modo }),
       campanhasDoMeta(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso)),
       inteligenciaDoCliente(clienteId, dataPuraDe(de, fuso), dataPuraDe(ate, fuso), fuso),
       ritmoDoMes(clienteId),
@@ -78,13 +81,31 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
     vendasComValor: total.fechados - vendasSemValor,
     vendasTotal: total.fechados,
   });
-  const retorno = indicadorRoas(receita, total.gasto);
+  /* No modo período, venda antiga sem data de fechamento fica de fora. Sem
+     esse aviso o mês pareceria um desastre por falta de dado, não de venda. */
+  const receitaAjustada =
+    vendasSemDataFechamento > 0
+      ? {
+          ...receita,
+          estado: "parcial" as const,
+          motivo: `${vendasSemDataFechamento} vendas sem data de fechamento ficaram de fora desta leitura`,
+        }
+      : receita;
+  const retorno = indicadorRoas(receitaAjustada, total.gasto);
   const custoContato = custoPorContato({
     investimento: total.gasto,
     contatos: total.leads,
     semOrigem: semAtribuicao,
   });
-  const custoVenda = custoPorVenda(total.gasto, total.fechados);
+  const custoVendaBase = custoPorVenda(total.gasto, total.fechados);
+  const custoVenda =
+    vendasSemDataFechamento > 0 && custoVendaBase.valor != null
+      ? {
+          ...custoVendaBase,
+          estado: "parcial" as const,
+          motivo: `${vendasSemDataFechamento} vendas sem data de fechamento ficaram de fora: o custo real é menor`,
+        }
+      : custoVendaBase;
   const qualificacaoTaxa = taxaQualificacao({
     qualificados: qualificacao.qualificados,
     contatos: qualificacao.contatos,
@@ -123,7 +144,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         {[7, 30, 90].map((d) => (
           <Link
             key={d}
-            href={`/anuncios?dias=${d}&nivel=${nivel}`}
+            href={`/anuncios?dias=${d}&nivel=${nivel}&modo=${modo}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
               dias === d ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
@@ -135,7 +156,7 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
         {NIVEIS.map((n) => (
           <Link
             key={n.valor}
-            href={`/anuncios?dias=${dias}&nivel=${n.valor}`}
+            href={`/anuncios?dias=${dias}&nivel=${n.valor}&modo=${modo}`}
             className={`rounded-xl border px-3 py-2 text-sm ${
               nivel === n.valor ? "border-marca bg-marca-suave text-marca-texto" : "border-borda"
             }`}
@@ -147,13 +168,33 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
 
       <FaixaDoMes ritmo={ritmo} />
 
-      <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      {/* O modo fica escrito, não escondido no filtro: a mesma venda pertence a
+          meses diferentes conforme a pergunta, e ler o número sem saber qual
+          delas está no ar é como o relatório erra sem ninguém perceber. */}
+      <section className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-borda bg-superficie px-4 py-3">
+        <div className="flex gap-1.5">
+          {(["coorte", "periodo"] as const).map((m) => (
+            <Link
+              key={m}
+              href={`/anuncios?dias=${dias}&nivel=${nivel}&modo=${m}`}
+              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium ${
+                modo === m ? "bg-marca text-sobre-marca" : "border border-borda"
+              }`}
+            >
+              {ROTULO_MODO[m].curto}
+            </Link>
+          ))}
+        </div>
+        <p className="min-w-0 flex-1 text-xs text-suave">{ROTULO_MODO[modo].explica}</p>
+      </section>
+
+      <section className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         <Cartao titulo="Investido" valor={moeda(total.gasto)} />
         <Cartao titulo="Contatos" valor={String(total.leads)} nota={`${total.leadsExatos} de origem exata`} />
         <Cartao titulo="Custo por contato" i={custoContato} como="moeda" />
         <Cartao titulo="Qualificação" i={qualificacaoTaxa} como="pct" />
         <Cartao titulo="Custo por venda" i={custoVenda} como="moeda" nota={`${total.fechados} vendas`} />
-        <Cartao titulo="Retorno" i={retorno} como="vezes" nota={formatar(receita, "moeda")} />
+        <Cartao titulo="Retorno" i={retorno} como="vezes" nota={formatar(receitaAjustada, "moeda")} />
       </section>
 
       <Inteligencia

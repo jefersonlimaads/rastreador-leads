@@ -8,11 +8,38 @@ import { dataPuraDe, FUSO_PADRAO } from "./datas";
  *   CAC  = gasto do período ÷ leads fechados do período
  *   ROAS = soma das vendas ÷ gasto do período
  *
- * O lead entra no período em que foi criado, e a venda entra no período do lead,
- * não no do fechamento. Assim as três métricas falam do mesmo grupo de pessoas.
  * Leads com atribuição exata ou provável contam no anúncio; desconhecida só no
  * total do cliente.
+ *
+ * DOIS MODOS DE LER O MESMO PERÍODO
+ *
+ * Coorte — os contatos que CHEGARAM no período, e o que aconteceu com eles
+ * depois. Um lead de 1º de setembro que fechou em 20 pertence a setembro. É o
+ * modo para julgar campanha: relaciona a verba gasta com o que ela trouxe.
+ *
+ * Período — o que ACONTECEU no período. A mesma venda de 20 de setembro entra
+ * em setembro mesmo que o lead seja de agosto. É o modo para falar de
+ * faturamento do mês.
+ *
+ * Misturar os dois produz relatório errado sem ninguém perceber: some venda
+ * que existiu, ou aparece venda que a verba do período não pagou. Por isso o
+ * modo é obrigatório na chamada e fica escrito na tela.
  */
+
+export type ModoAnalise = "coorte" | "periodo";
+
+export const ROTULO_MODO: Record<ModoAnalise, { curto: string; explica: string }> = {
+  coorte: {
+    curto: "Contatos que chegaram",
+    explica:
+      "Vendas contadas no período em que o contato chegou, mesmo que tenham fechado depois. É como se julga a campanha.",
+  },
+  periodo: {
+    curto: "O que aconteceu no mês",
+    explica:
+      "Vendas contadas no período em que fecharam, mesmo que o contato seja de antes. É como se fala de faturamento.",
+  },
+};
 
 export type LinhaMetrica = {
   chave: string;
@@ -35,6 +62,7 @@ export async function metricasPorAnuncio(params: {
   ate: Date;
   nivel?: Nivel;
   fuso?: string;
+  modo?: ModoAnalise;
 }): Promise<{
   linhas: LinhaMetrica[];
   total: LinhaMetrica;
@@ -43,18 +71,54 @@ export async function metricasPorAnuncio(params: {
   vendasSemValor: number;
   /** Contatos que ainda não fecharam nem se perderam: a taxa vai mudar. */
   emAberto: number;
+  /** O modo usado, para a tela dizer qual pergunta está respondendo. */
+  modo: ModoAnalise;
+  /** No modo período: vendas que ficaram de fora por não terem data de fechamento. */
+  vendasSemDataFechamento: number;
 }> {
-  const { clienteId, de, ate, nivel = "ad", fuso = FUSO_PADRAO } = params;
+  const { clienteId, de, ate, nivel = "ad", fuso = FUSO_PADRAO, modo = "coorte" } = params;
 
-  const leads = await prisma.lead.findMany({
+  const campos = {
+    status: true,
+    atribuicao: true,
+    valorVenda: true,
+    clique: { select: { adId: true, adsetId: true, campaignId: true, utmContent: true, utmCampaign: true } },
+  } as const;
+
+  /* Chegada é sempre pelo período: contato que entrou é movimento do período
+     nos dois modos. O que muda é de onde vem a venda. */
+  const chegaram = await prisma.lead.findMany({
     where: { clienteId, arquivadoEm: null, criadoEm: { gte: de, lte: ate } },
-    select: {
-      status: true,
-      atribuicao: true,
-      valorVenda: true,
-      clique: { select: { adId: true, adsetId: true, campaignId: true, utmContent: true, utmCampaign: true } },
-    },
+    select: campos,
   });
+
+  /* Venda sem data de fechamento não entra no modo período — e some em
+     silêncio se ninguém contar. Lead fechado antes de o sistema registrar a
+     data é o caso comum, e faz a leitura do mês parecer um desastre. */
+  const vendasSemDataFechamento =
+    modo === "periodo"
+      ? await prisma.lead.count({
+          where: { clienteId, arquivadoEm: null, status: "FECHADO", fechadoEm: null },
+        })
+      : 0;
+
+  const fecharam =
+    modo === "periodo"
+      ? await prisma.lead.findMany({
+          where: {
+            clienteId,
+            arquivadoEm: null,
+            status: "FECHADO",
+            fechadoEm: { gte: de, lte: ate },
+          },
+          select: campos,
+        })
+      : chegaram.filter((l) => l.status === "FECHADO");
+
+  /* O laço abaixo conta contato de `chegaram` e venda de `fecharam`. No modo
+     coorte as duas listas são a mesma origem, e nada muda. */
+  const vendas = new Set(fecharam);
+  const leads = [...chegaram, ...fecharam.filter((l) => !chegaram.includes(l))];
 
   // Gasto é por dia de calendário: compara com os dias do período no fuso, não
   // com os instantes — o fim do período em UTC já cai no dia seguinte.
@@ -104,18 +168,24 @@ export async function metricasPorAnuncio(params: {
   for (const lead of leads) {
     const chave = chaveDe(lead.clique);
     const valor = lead.valorVenda ? Number(lead.valorVenda) : 0;
-    if (lead.status === "FECHADO" && !lead.valorVenda) vendasSemValor++;
-    if (lead.status !== "FECHADO" && lead.status !== "PERDIDO") emAberto++;
+    // Contato conta quando chegou no período; venda, conforme o modo.
+    const chegou = chegaram.includes(lead);
+    const vendeu = vendas.has(lead);
 
-    total.leads++;
-    if (lead.atribuicao === "EXATA") total.leadsExatos++;
-    if (lead.status === "FECHADO") {
+    if (vendeu && !lead.valorVenda) vendasSemValor++;
+    if (chegou && lead.status !== "FECHADO" && lead.status !== "PERDIDO") emAberto++;
+
+    if (chegou) {
+      total.leads++;
+      if (lead.atribuicao === "EXATA") total.leadsExatos++;
+    }
+    if (vendeu) {
       total.fechados++;
       total.receita += valor;
     }
 
     if (!chave || lead.atribuicao === "DESCONHECIDA") {
-      semAtribuicao++;
+      if (chegou) semAtribuicao++;
       continue;
     }
 
@@ -127,9 +197,11 @@ export async function metricasPorAnuncio(params: {
           : chave;
 
     const l = linha(chave, rotulo);
-    l.leads++;
-    if (lead.atribuicao === "EXATA") l.leadsExatos++;
-    if (lead.status === "FECHADO") {
+    if (chegou) {
+      l.leads++;
+      if (lead.atribuicao === "EXATA") l.leadsExatos++;
+    }
+    if (vendeu) {
       l.fechados++;
       l.receita += valor;
     }
@@ -165,5 +237,13 @@ export async function metricasPorAnuncio(params: {
     .map(calcular)
     .sort((a, b) => b.leads - a.leads || b.gasto - a.gasto);
 
-  return { linhas, total: calcular(total), semAtribuicao, vendasSemValor, emAberto };
+  return {
+    linhas,
+    total: calcular(total),
+    semAtribuicao,
+    vendasSemValor,
+    emAberto,
+    modo,
+    vendasSemDataFechamento,
+  };
 }
