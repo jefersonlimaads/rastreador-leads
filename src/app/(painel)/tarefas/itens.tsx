@@ -8,6 +8,7 @@ import {
   acaoCriarTarefa,
   type EstadoTarefa,
 } from "./acoes";
+import { RECORRENCIAS } from "@/lib/regras";
 
 const vazio: EstadoTarefa = {};
 
@@ -158,6 +159,23 @@ export function FormularioTarefa({
             </select>
           </label>
         )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs text-suave">Repete</span>
+          <select name="recorrencia" defaultValue="" className={campo}>
+            {RECORRENCIAS.map((r) => (
+              <option key={r.valor} value={r.valor}>
+                {r.rotulo}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-end gap-2 pb-2.5 text-sm">
+          <input type="checkbox" name="prioridade" value="1" className="size-4 accent-marca" />
+          Prioridade alta
+        </label>
       </div>
 
       {/* Com hora, a tarefa ocupa um bloco na agenda; sem, fica no dia inteiro. */}

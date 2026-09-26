@@ -74,6 +74,8 @@ export type ResumoFinanceiro = {
   emProspeccao: number;
   /** Custo direto somado dos clientes ativos: freelancer, ferramenta, edição. */
   custoDireto: number;
+  /** true quando algum cliente entrou pela estimativa, não por despesa lançada. */
+  custoEstimado: boolean;
   /** O que sobra por mês depois do custo direto. */
   margem: number;
   /** Margem sobre a receita recorrente (0 a 1). */
@@ -86,10 +88,10 @@ export async function resumoFinanceiro(agenciaId: string, fuso = FUSO_PADRAO): P
   // marcava como atrasada a fatura que vence hoje.
   const hoje = hojeComoDataPura(fuso);
 
-  const [clientes, doMes, abertas] = await Promise.all([
+  const [clientes, doMes, abertas, custos] = await Promise.all([
     prisma.cliente.findMany({
       where: { agenciaId, ativo: true },
-      select: { ciclo: true, feeMensal: true, custoMensal: true },
+      select: { id: true, ciclo: true, feeMensal: true },
     }),
     prisma.fatura.findMany({
       where: { competencia, cliente: { agenciaId } },
@@ -99,6 +101,7 @@ export async function resumoFinanceiro(agenciaId: string, fuso = FUSO_PADRAO): P
       where: { status: "ABERTA", cliente: { agenciaId } },
       select: { valor: true, vencimento: true },
     }),
+    custoPorCliente(agenciaId, competencia),
   ]);
 
   const soma = (lista: { valor: unknown }[]) =>
@@ -108,7 +111,9 @@ export async function resumoFinanceiro(agenciaId: string, fuso = FUSO_PADRAO): P
 
   const ativos = clientes.filter((c) => c.ciclo === "ATIVO");
   const receitaRecorrente = ativos.reduce((t, c) => t + Number(c.feeMensal ?? 0), 0);
-  const custoDireto = ativos.reduce((t, c) => t + Number(c.custoMensal ?? 0), 0);
+  // Despesa lançada manda; sem ela, vale a estimativa do cadastro.
+  const custoDireto = ativos.reduce((t, c) => t + (custos.get(c.id)?.valor ?? 0), 0);
+  const algumEstimado = ativos.some((c) => custos.get(c.id)?.origem === "estimado");
 
   return {
     receitaRecorrente,
@@ -122,6 +127,7 @@ export async function resumoFinanceiro(agenciaId: string, fuso = FUSO_PADRAO): P
       (CICLOS_EM_PROSPECCAO as readonly string[]).includes(c.ciclo),
     ).length,
     custoDireto,
+    custoEstimado: algumEstimado,
     margem: receitaRecorrente - custoDireto,
     margemPct: receitaRecorrente > 0 ? (receitaRecorrente - custoDireto) / receitaRecorrente : null,
   };
@@ -134,14 +140,17 @@ export async function carteiraComercial(agenciaId: string, fuso = FUSO_PADRAO) {
   const hoje = hojeComoDataPura(fuso);
   const competencia = competenciaDe();
 
-  const clientes = await prisma.cliente.findMany({
-    where: { agenciaId, ativo: true },
-    orderBy: [{ ciclo: "asc" }, { nome: "asc" }],
-    include: {
-      faturas: { orderBy: { competencia: "desc" }, take: 3 },
-      _count: { select: { leads: true } },
-    },
-  });
+  const [clientes, custos] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { agenciaId, ativo: true },
+      orderBy: [{ ciclo: "asc" }, { nome: "asc" }],
+      include: {
+        faturas: { orderBy: { competencia: "desc" }, take: 3 },
+        _count: { select: { leads: true } },
+      },
+    }),
+    custoPorCliente(agenciaId, competencia),
+  ]);
 
   return clientes.map((c) => {
     const doMes = c.faturas.find(
@@ -154,9 +163,10 @@ export async function carteiraComercial(agenciaId: string, fuso = FUSO_PADRAO) {
       nome: c.nome,
       ciclo: c.ciclo,
       feeMensal: c.feeMensal ? Number(c.feeMensal) : null,
-      custoMensal: c.custoMensal ? Number(c.custoMensal) : null,
+      custoMensal: custos.get(c.id)?.valor ?? null,
+      custoEstimado: custos.get(c.id)?.origem === "estimado",
       // Margem só existe quando há fee: sem os dois números, ela seria chute.
-      margem: c.feeMensal ? Number(c.feeMensal) - Number(c.custoMensal ?? 0) : null,
+      margem: c.feeMensal ? Number(c.feeMensal) - (custos.get(c.id)?.valor ?? 0) : null,
       diaVencimento: c.diaVencimento,
       contatoNome: c.contatoNome,
       leads: c._count.leads,
@@ -228,5 +238,162 @@ export async function abrirTarefasDeRenovacao(fuso = FUSO_PADRAO) {
     criadas++;
   }
 
+  return criadas;
+}
+
+/* ——— Despesas e fluxo de caixa ——— */
+
+export const CATEGORIAS_DESPESA = [
+  "Ferramenta",
+  "Freelancer",
+  "Mídia",
+  "Imposto",
+  "Escritório",
+  "Outro",
+] as const;
+
+export type MesDeCaixa = {
+  /** Primeiro dia do mês. */
+  competencia: Date;
+  rotulo: string;
+  receitaPrevista: number;
+  receitaRecebida: number;
+  despesaLancada: number;
+  despesaPaga: number;
+  /** Previsto menos lançado: o que o mês promete. */
+  saldoPrevisto: number;
+  /** Recebido menos pago: o que de fato entrou e saiu. */
+  saldoRealizado: number;
+};
+
+/**
+ * O caixa mês a mês, do mais antigo para o mais novo.
+ *
+ * Dois saldos de propósito. O previsto diz se o mês fecha no azul; o realizado
+ * diz o que já passou pela conta. Misturar os dois é como se acha que está
+ * tudo bem em um mês que ninguém pagou ainda.
+ */
+export async function fluxoDeCaixa(agenciaId: string, meses = 6): Promise<MesDeCaixa[]> {
+  const hoje = competenciaDe();
+  const primeiro = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - (meses - 1), 1));
+
+  const [faturas, despesas] = await Promise.all([
+    prisma.fatura.findMany({
+      where: { cliente: { agenciaId }, competencia: { gte: primeiro }, status: { not: "CANCELADA" } },
+      select: { competencia: true, valor: true, status: true },
+    }),
+    prisma.despesa.findMany({
+      where: { agenciaId, competencia: { gte: primeiro } },
+      select: { competencia: true, valor: true, pagoEm: true },
+    }),
+  ]);
+
+  const mapa = new Map<string, MesDeCaixa>();
+  for (let i = 0; i < meses; i++) {
+    const c = new Date(Date.UTC(primeiro.getUTCFullYear(), primeiro.getUTCMonth() + i, 1));
+    mapa.set(c.toISOString().slice(0, 7), {
+      competencia: c,
+      rotulo: c.toLocaleDateString("pt-BR", { month: "short", year: "2-digit", timeZone: "UTC" }),
+      receitaPrevista: 0,
+      receitaRecebida: 0,
+      despesaLancada: 0,
+      despesaPaga: 0,
+      saldoPrevisto: 0,
+      saldoRealizado: 0,
+    });
+  }
+
+  for (const f of faturas) {
+    const m = mapa.get(f.competencia.toISOString().slice(0, 7));
+    if (!m) continue;
+    const valor = Number(f.valor);
+    m.receitaPrevista += valor;
+    if (f.status === "PAGA") m.receitaRecebida += valor;
+  }
+
+  for (const d of despesas) {
+    const m = mapa.get(d.competencia.toISOString().slice(0, 7));
+    if (!m) continue;
+    const valor = Number(d.valor);
+    m.despesaLancada += valor;
+    if (d.pagoEm) m.despesaPaga += valor;
+  }
+
+  for (const m of mapa.values()) {
+    m.saldoPrevisto = m.receitaPrevista - m.despesaLancada;
+    m.saldoRealizado = m.receitaRecebida - m.despesaPaga;
+  }
+
+  return [...mapa.values()];
+}
+
+/**
+ * O custo de cada cliente no mês, e de onde ele veio.
+ *
+ * Havendo despesa lançada, ela manda: é o que de fato aconteceu. Não havendo,
+ * vale o custo mensal combinado no cadastro. A origem volta junto para a tela
+ * dizer qual das duas está no número — duas fontes para o mesmo valor, sem
+ * dizer qual, é como relatório perde credibilidade.
+ */
+export async function custoPorCliente(
+  agenciaId: string,
+  competencia = competenciaDe(),
+): Promise<Map<string, { valor: number; origem: "lancado" | "estimado" }>> {
+  const [clientes, despesas] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { agenciaId, ativo: true },
+      select: { id: true, custoMensal: true },
+    }),
+    prisma.despesa.groupBy({
+      by: ["clienteId"],
+      where: { agenciaId, competencia, clienteId: { not: null } },
+      _sum: { valor: true },
+    }),
+  ]);
+
+  const lancado = new Map(despesas.map((d) => [d.clienteId!, Number(d._sum.valor ?? 0)]));
+  const saida = new Map<string, { valor: number; origem: "lancado" | "estimado" }>();
+
+  for (const c of clientes) {
+    const real = lancado.get(c.id);
+    if (real != null && real > 0) saida.set(c.id, { valor: real, origem: "lancado" });
+    else if (c.custoMensal) saida.set(c.id, { valor: Number(c.custoMensal), origem: "estimado" });
+  }
+  return saida;
+}
+
+/**
+ * Despesa recorrente do mês novo. Idempotente pela descrição e competência:
+ * roda todo dia sem duplicar.
+ */
+export async function gerarDespesasRecorrentes(competencia = competenciaDe()) {
+  const anterior = new Date(Date.UTC(competencia.getUTCFullYear(), competencia.getUTCMonth() - 1, 1));
+  const modelos = await prisma.despesa.findMany({
+    where: { recorrente: true, competencia: anterior },
+    select: { agenciaId: true, clienteId: true, descricao: true, categoria: true, valor: true, vencimento: true },
+  });
+
+  let criadas = 0;
+  for (const m of modelos) {
+    const existe = await prisma.despesa.findFirst({
+      where: { agenciaId: m.agenciaId, descricao: m.descricao, competencia },
+      select: { id: true },
+    });
+    if (existe) continue;
+
+    await prisma.despesa.create({
+      data: {
+        ...m,
+        competencia,
+        // O vencimento anda junto com o mês, mantendo o dia combinado.
+        vencimento: m.vencimento
+          ? new Date(Date.UTC(competencia.getUTCFullYear(), competencia.getUTCMonth(), m.vencimento.getUTCDate()))
+          : null,
+        pagoEm: null,
+        recorrente: true,
+      },
+    });
+    criadas++;
+  }
   return criadas;
 }

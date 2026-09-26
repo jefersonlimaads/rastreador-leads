@@ -203,3 +203,48 @@ export const ROTULO_FATURA: Record<string, string> = {
 export const PARAMETROS_URL_META =
   "utm_source=facebook&utm_medium=cpc&utm_campaign={{campaign.name}}&utm_content={{ad.name}}" +
   "&campaign_id={{campaign.id}}&adset_id={{adset.id}}&ad_id={{ad.id}}";
+
+/**
+ * De quanto em quanto tempo uma tarefa volta. Fica aqui, e não nas ações,
+ * porque arquivo "use server" só exporta função — e a tela precisa da lista.
+ */
+export const RECORRENCIAS = [
+  { valor: "", rotulo: "Uma vez" },
+  { valor: "semanal", rotulo: "Toda semana" },
+  { valor: "quinzenal", rotulo: "A cada 15 dias" },
+  { valor: "mensal", rotulo: "Todo mês" },
+] as const;
+
+export const DIAS_DA_RECORRENCIA: Record<string, number> = {
+  semanal: 7,
+  quinzenal: 15,
+  mensal: 30,
+};
+
+/**
+ * Quando a próxima ocorrência cai.
+ *
+ * Conta a partir do prazo da tarefa concluída, não da data em que ela foi
+ * feita: senão uma tarefa semanal entregue com três dias de atraso empurraria
+ * a série inteira, e em dois meses a "reunião de segunda" estaria na quinta.
+ *
+ * Sem prazo, não há série a preservar: conta a partir de hoje.
+ */
+export function proximaOcorrencia(
+  prazo: Date | null,
+  recorrencia: string | null,
+  hoje = new Date(),
+): Date | null {
+  const dias = DIAS_DA_RECORRENCIA[recorrencia ?? ""];
+  if (!dias) return null;
+
+  const base = prazo ?? hoje;
+  let proximo = new Date(base.getTime() + dias * 24 * 60 * 60 * 1000);
+
+  /* Tarefa muito atrasada geraria a próxima já vencida, e o painel abriria com
+     uma cobrança do passado. Anda até cair no futuro, mantendo o ritmo. */
+  while (proximo.getTime() <= hoje.getTime() - 24 * 60 * 60 * 1000) {
+    proximo = new Date(proximo.getTime() + dias * 24 * 60 * 60 * 1000);
+  }
+  return proximo;
+}

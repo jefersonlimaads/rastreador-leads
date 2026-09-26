@@ -2,10 +2,15 @@ import Link from "next/link";
 import { exigirAdmin } from "@/lib/auth";
 import {
   carteiraComercial,
+  CATEGORIAS_DESPESA,
+  competenciaDe,
+  fluxoDeCaixa,
   resumoFinanceiro,
   ROTULO_CICLO,
   CICLOS_EM_PROSPECCAO,
 } from "@/lib/financeiro";
+import { prisma } from "@/lib/prisma";
+import { Despesas } from "./despesas";
 import { formatarDataPura } from "@/lib/datas";
 import { riscosDaCarteira } from "@/lib/risco";
 import { moeda, Selo, Vazio } from "../componentes";
@@ -18,10 +23,20 @@ import { BotaoGerarFaturas, BotaoPagar } from "./botoes";
 export default async function PaginaNegocio() {
   const sessao = await exigirAdmin();
 
-  const [resumo, clientes, riscos] = await Promise.all([
+  const competencia = competenciaDe();
+  const [resumo, clientes, riscos, caixa, despesas] = await Promise.all([
     resumoFinanceiro(sessao.agenciaId),
     carteiraComercial(sessao.agenciaId),
     riscosDaCarteira(sessao.agenciaId),
+    fluxoDeCaixa(sessao.agenciaId, 6),
+    prisma.despesa.findMany({
+      where: { agenciaId: sessao.agenciaId, competencia },
+      orderBy: { criadoEm: "desc" },
+      select: {
+        id: true, descricao: true, categoria: true, valor: true,
+        pagoEm: true, recorrente: true, cliente: { select: { nome: true } },
+      },
+    }),
   ]);
   const porRisco = new Map(riscos.map((r) => [r.clienteId, r]));
   const emCarteira = clientes.filter(
@@ -60,7 +75,7 @@ export default async function PaginaNegocio() {
           valor={moeda(resumo.margem)}
           nota={
             resumo.custoDireto > 0
-              ? `${Math.round((resumo.margemPct ?? 0) * 100)}% · custo ${moeda(resumo.custoDireto)}`
+              ? `${Math.round((resumo.margemPct ?? 0) * 100)}% · custo ${moeda(resumo.custoDireto)}${resumo.custoEstimado ? " (parte estimada)" : ""}`
               : "sem custo lançado"
           }
         />
@@ -71,6 +86,57 @@ export default async function PaginaNegocio() {
           alerta={resumo.atrasado > 0}
         />
       </section>
+
+      <section className="mt-6">
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-suave">
+          Fluxo de caixa
+        </h2>
+        <div className="overflow-x-auto rounded-2xl border border-borda bg-superficie">
+          <table className="w-full min-w-[34rem] text-sm">
+            <thead>
+              <tr className="border-b border-borda text-left text-xs uppercase tracking-wide text-suave">
+                <th className="px-3 py-2.5">Mês</th>
+                <th className="px-3 py-2.5 text-right">Receita</th>
+                <th className="px-3 py-2.5 text-right">Despesa</th>
+                <th className="px-3 py-2.5 text-right">Previsto</th>
+                <th className="px-3 py-2.5 text-right">Realizado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {caixa.map((m) => (
+                <tr key={m.rotulo} className="border-b border-borda last:border-0">
+                  <td className="px-3 py-2.5">{m.rotulo}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {moeda(m.receitaPrevista)}
+                    <span className="block text-xs text-suave">{moeda(m.receitaRecebida)} recebido</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {moeda(m.despesaLancada)}
+                    <span className="block text-xs text-suave">{moeda(m.despesaPaga)} pago</span>
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">{moeda(m.saldoPrevisto)}</td>
+                  <td
+                    className={`px-3 py-2.5 text-right font-medium tabular-nums ${m.saldoRealizado < 0 ? "text-alerta" : ""}`}
+                  >
+                    {moeda(m.saldoRealizado)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-xs text-suave">
+          Previsto é o que o mês promete; realizado é o que já passou pela conta. Misturar os dois
+          faz um mês que ninguém pagou ainda parecer saudável.
+        </p>
+      </section>
+
+      <Despesas
+        despesas={despesas.map((d) => ({ ...d, valor: Number(d.valor) }))}
+        clientes={clientes.map((c) => ({ id: c.id, nome: c.nome }))}
+        categorias={CATEGORIAS_DESPESA}
+        competencia={competencia.toISOString().slice(0, 7)}
+      />
 
       {riscos.length > 0 && (
         <section className="mt-6">

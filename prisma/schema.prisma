@@ -159,6 +159,7 @@ model Agencia {
   clientes Cliente[]
   usuarios Usuario[]
   servicos ServicoProposta[]
+  despesas Despesa[]
   tarefas  Tarefa[]
   buscas   BuscaProspeccao[]
 }
@@ -232,6 +233,7 @@ model Cliente {
   numeros    NumeroWhatsapp[]
   usuarios   Usuario[]
   acessos    AcessoCliente[]
+  despesas   Despesa[]
   cliques    Clique[]
   leads      Lead[]
   eventos    Evento[]
@@ -284,6 +286,10 @@ model Tarefa {
   titulo    String
   descricao String?
   prazo     DateTime?    @db.Date
+  /** 0 normal, 1 alta. Sem escala de cinco: ninguém usa a do meio. */
+  prioridade Int         @default(0)
+  /** Repete sozinha: "semanal", "quinzenal", "mensal". Nulo = uma vez só. */
+  recorrencia String?
   status    StatusTarefa @default(ABERTA)
   criadoEm  DateTime     @default(now())
   feitoEm   DateTime?
@@ -393,6 +399,40 @@ model Fatura {
   @@unique([clienteId, competencia])
   @@index([clienteId, vencimento])
   @@index([status, vencimento])
+}
+
+/**
+ * Uma saída de caixa da agência. Pode ser de um cliente (freelancer que editou
+ * o vídeo dele) ou da casa (ferramenta, imposto, contador).
+ *
+ * Convive com Cliente.custoMensal, que é a ESTIMATIVA combinada. A regra, para
+ * não haver duas verdades: havendo despesa lançada no mês, ela manda; não
+ * havendo, vale a estimativa — e a tela diz qual das duas está no número.
+ */
+model Despesa {
+  id        String  @id @default(cuid())
+  agenciaId String
+  /** Nulo = despesa da agência, não de um cliente. */
+  clienteId String?
+
+  descricao String
+  /** ferramenta, freelancer, imposto, escritório, outro */
+  categoria String?
+  valor     Decimal  @db.Decimal(12, 2)
+  /** Mês a que pertence, sempre o dia 1. */
+  competencia DateTime @db.Date
+  vencimento  DateTime? @db.Date
+  pagoEm      DateTime? @db.Date
+  /** Repete todo mês: a rotina diária cria a do mês novo. */
+  recorrente Boolean @default(false)
+
+  criadoEm DateTime @default(now())
+
+  agencia Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: SetNull)
+
+  @@index([agenciaId, competencia])
+  @@index([clienteId, competencia])
 }
 
 model NumeroWhatsapp {

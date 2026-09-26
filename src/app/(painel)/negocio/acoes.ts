@@ -295,3 +295,56 @@ export async function acaoApagarEntrega(formData: FormData): Promise<void> {
   await prisma.entrega.delete({ where: { id: entrega.id } });
   revalidatePath(`/negocio/${entrega.clienteId}`);
 }
+
+const NovaDespesa = z.object({
+  descricao: z.string().min(2).max(160),
+  valor: z.string().min(1),
+  categoria: z.string().max(40).optional(),
+  clienteId: z.string().max(64).optional(),
+  competencia: z.string().optional(),
+  recorrente: z.string().optional(),
+});
+
+/** O que sai do caixa. Sem isso a margem por cliente é chute. */
+export async function acaoLancarDespesa(
+  _estado: EstadoNegocio,
+  formData: FormData,
+): Promise<EstadoNegocio> {
+  const sessao = await exigirAdmin();
+  const dados = NovaDespesa.safeParse(Object.fromEntries(formData));
+  if (!dados.success) return { erro: "Confira a descrição e o valor." };
+  const d = dados.data;
+
+  const valor = dinheiro(d.valor);
+  if (valor === null || valor <= 0) return { erro: "Informe um valor maior que zero." };
+
+  // Cliente vindo do formulário só passa se for desta agência.
+  const clienteId =
+    d.clienteId && (await clienteDaAgencia(d.clienteId, sessao.agenciaId)) ? d.clienteId : null;
+
+  const mes = /^\d{4}-\d{2}$/.test(d.competencia ?? "")
+    ? new Date(`${d.competencia}-01T00:00:00Z`)
+    : competenciaDe();
+
+  await prisma.despesa.create({
+    data: {
+      agenciaId: sessao.agenciaId,
+      clienteId,
+      descricao: d.descricao.trim(),
+      categoria: d.categoria?.trim() || null,
+      valor,
+      competencia: mes,
+      recorrente: d.recorrente === "1",
+    },
+  });
+
+  revalidatePath("/negocio");
+  return { ok: "Despesa lançada." };
+}
+
+export async function acaoApagarDespesa(formData: FormData): Promise<void> {
+  const sessao = await exigirAdmin();
+  const id = String(formData.get("id") ?? "");
+  await prisma.despesa.deleteMany({ where: { id, agenciaId: sessao.agenciaId } });
+  revalidatePath("/negocio");
+}

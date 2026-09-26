@@ -4,7 +4,7 @@ import { sincronizarGastos } from "@/lib/meta/marketing";
 import { reenviarFalhas } from "@/lib/meta/capi";
 import { encerrarCliquesSemContato } from "@/lib/atribuicao";
 import { aplicarRetencao } from "@/lib/retencao";
-import { abrirTarefasDeRenovacao, gerarFaturasDoMes } from "@/lib/financeiro";
+import { abrirTarefasDeRenovacao, gerarDespesasRecorrentes, gerarFaturasDoMes } from "@/lib/financeiro";
 import { gerarRelatoriosDoMesPassado } from "@/lib/relatorio";
 
 // Roda em São Paulo, junto do banco.
@@ -36,6 +36,9 @@ export async function GET(request: NextRequest) {
   // Contrato vencendo: a conversa de renovação entra na agenda 30 dias antes.
   const renovacoes = await abrirTarefasDeRenovacao();
 
+  // Despesa que se repete todo mês: idempotente, não duplica rodando todo dia.
+  const despesas = await gerarDespesasRecorrentes();
+
   const clientes = await prisma.cliente.findMany({ where: { ativo: true } });
   const resultado = [];
 
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
     faturas,
     relatorios: relatorios.length,
     renovacoes,
+    despesas,
     resultado,
   });
 }
