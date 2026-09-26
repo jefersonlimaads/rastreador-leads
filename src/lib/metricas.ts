@@ -54,7 +54,12 @@ export type LinhaMetrica = {
   roas: number | null;
 };
 
-export type Nivel = "ad" | "adset" | "campaign";
+/**
+ * Até onde a leitura desce. "creative" existe porque a mesma peça roda em
+ * anúncios e campanhas diferentes: comparar criativo com criativo é o que diz
+ * qual peça funciona, e não qual embrulho dela teve mais verba.
+ */
+export type Nivel = "ad" | "adset" | "campaign" | "creative";
 
 export async function metricasPorAnuncio(params: {
   clienteId: string;
@@ -75,6 +80,8 @@ export async function metricasPorAnuncio(params: {
   modo: ModoAnalise;
   /** No modo período: vendas que ficaram de fora por não terem data de fechamento. */
   vendasSemDataFechamento: number;
+  /** No nível de criativo: gasto de linhas que a Meta ainda não associou a uma peça. */
+  gastoSemCriativo: number;
 }> {
   const { clienteId, de, ate, nivel = "ad", fuso = FUSO_PADRAO, modo = "coorte" } = params;
 
@@ -126,6 +133,35 @@ export async function metricasPorAnuncio(params: {
     where: { clienteId, dia: { gte: dataPuraDe(de, fuso), lte: dataPuraDe(ate, fuso) } },
   });
 
+  /* O lead conhece o anúncio, não o criativo: a ponte entre os dois só existe
+     na linha de gasto, que é onde a Meta informa a peça. */
+  const criativoDoAnuncio = new Map<string, string>();
+  const nomeDoCriativo = new Map<string, { nome: string; gasto: number; anuncios: Set<string> }>();
+  for (const g of gastos) {
+    if (!g.creativeId) continue;
+    criativoDoAnuncio.set(g.adId, g.creativeId);
+    const atual = nomeDoCriativo.get(g.creativeId) ?? {
+      nome: g.adNome ?? g.creativeId,
+      gasto: 0,
+      anuncios: new Set<string>(),
+    };
+    atual.anuncios.add(g.adId);
+    // O nome exibido é o do anúncio que mais gastou com a peça.
+    const valor = Number(g.valor);
+    if (valor > atual.gasto) {
+      atual.gasto = valor;
+      atual.nome = g.adNome ?? g.creativeId;
+    }
+    nomeDoCriativo.set(g.creativeId, atual);
+  }
+
+  /** "Reels depoimento" ou "Reels depoimento · em 3 anúncios". */
+  const rotuloCriativo = (creativeId: string) => {
+    const c = nomeDoCriativo.get(creativeId);
+    if (!c) return creativeId;
+    return c.anuncios.size > 1 ? `${c.nome} · em ${c.anuncios.size} anúncios` : c.nome;
+  };
+
   const chaveDe = (c: {
     adId: string | null;
     adsetId: string | null;
@@ -134,6 +170,7 @@ export async function metricasPorAnuncio(params: {
     if (!c) return null;
     if (nivel === "ad") return c.adId;
     if (nivel === "adset") return c.adsetId;
+    if (nivel === "creative") return c.adId ? (criativoDoAnuncio.get(c.adId) ?? null) : null;
     return c.campaignId;
   };
 
@@ -190,11 +227,13 @@ export async function metricasPorAnuncio(params: {
     }
 
     const rotulo =
-      nivel === "ad"
-        ? (lead.clique?.utmContent ?? chave)
-        : nivel === "campaign"
-          ? (lead.clique?.utmCampaign ?? chave)
-          : chave;
+      nivel === "creative"
+        ? rotuloCriativo(chave)
+        : nivel === "ad"
+          ? (lead.clique?.utmContent ?? chave)
+          : nivel === "campaign"
+            ? (lead.clique?.utmCampaign ?? chave)
+            : chave;
 
     const l = linha(chave, rotulo);
     if (chegou) {
@@ -209,16 +248,26 @@ export async function metricasPorAnuncio(params: {
 
   for (const gasto of gastos) {
     const chave =
-      nivel === "ad" ? gasto.adId : nivel === "adset" ? gasto.adsetId : gasto.campaignId;
+      nivel === "ad"
+        ? gasto.adId
+        : nivel === "adset"
+          ? gasto.adsetId
+          : nivel === "creative"
+            ? gasto.creativeId
+            : gasto.campaignId;
     const valor = Number(gasto.valor);
+    // O total do cliente soma todo o gasto, inclusive o que ainda não tem
+    // criativo informado: senão o investimento encolheria ao trocar de nível.
     total.gasto += valor;
     if (!chave) continue;
     const rotulo =
-      nivel === "ad"
-        ? (gasto.adNome ?? chave)
-        : nivel === "adset"
-          ? (gasto.adsetNome ?? chave)
-          : (gasto.campaignNome ?? chave);
+      nivel === "creative"
+        ? rotuloCriativo(chave)
+        : nivel === "ad"
+          ? (gasto.adNome ?? chave)
+          : nivel === "adset"
+            ? (gasto.adsetNome ?? chave)
+            : (gasto.campaignNome ?? chave);
     const l = linha(chave, rotulo);
     // O nome vindo do Meta é melhor que o id que o lead trouxe: troca quando houver.
     if (l.rotulo === chave && rotulo !== chave) l.rotulo = rotulo;
@@ -237,6 +286,11 @@ export async function metricasPorAnuncio(params: {
     .map(calcular)
     .sort((a, b) => b.leads - a.leads || b.gasto - a.gasto);
 
+  const gastoSemCriativo =
+    nivel === "creative"
+      ? gastos.filter((g) => !g.creativeId).reduce((soma, g) => soma + Number(g.valor), 0)
+      : 0;
+
   return {
     linhas,
     total: calcular(total),
@@ -245,5 +299,6 @@ export async function metricasPorAnuncio(params: {
     emAberto,
     modo,
     vendasSemDataFechamento,
+    gastoSemCriativo,
   };
 }

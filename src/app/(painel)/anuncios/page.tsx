@@ -32,6 +32,7 @@ const NIVEIS: { valor: Nivel; rotulo: string }[] = [
   { valor: "ad", rotulo: "Anúncio" },
   { valor: "adset", rotulo: "Conjunto" },
   { valor: "campaign", rotulo: "Campanha" },
+  { valor: "creative", rotulo: "Criativo" },
 ];
 
 export default async function PaginaAnuncios({ searchParams }: PageProps<"/anuncios">) {
@@ -62,7 +63,15 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
   const dias = Math.max(1, Math.ceil((ate.getTime() - de.getTime()) / 864e5));
 
   const [
-    { linhas, total, semAtribuicao, vendasSemValor, emAberto, vendasSemDataFechamento },
+    {
+      linhas,
+      total,
+      semAtribuicao,
+      vendasSemValor,
+      emAberto,
+      vendasSemDataFechamento,
+      gastoSemCriativo,
+    },
     doMeta,
     inteligencia,
     ritmo,
@@ -263,6 +272,15 @@ export default async function PaginaAnuncios({ searchParams }: PageProps<"/anunc
           rotuloNivel={NIVEIS.find((n) => n.valor === nivel)?.rotulo ?? "Anúncio"}
           vendas={inteligencia.vendas}
         />
+      )}
+
+      {/* O criativo vem numa chamada à parte à Meta; linha antiga não tem. */}
+      {nivel === "creative" && gastoSemCriativo > 0 && (
+        <p className="mt-3 text-sm text-suave">
+          {moeda(gastoSemCriativo)} estão em linhas que a Meta ainda não associou a um criativo —
+          elas entram no total e não nas linhas acima. A associação chega na próxima
+          sincronização.
+        </p>
       )}
 
       {semAtribuicao > 0 && (
