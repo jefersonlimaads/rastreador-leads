@@ -160,6 +160,7 @@ model Agencia {
   usuarios Usuario[]
   servicos ServicoProposta[]
   despesas Despesa[]
+  parametros ParametroDiagnostico[]
   tarefas  Tarefa[]
   buscas   BuscaProspeccao[]
 }
@@ -234,6 +235,7 @@ model Cliente {
   usuarios   Usuario[]
   acessos    AcessoCliente[]
   despesas   Despesa[]
+  parametros ParametroDiagnostico[]
   cliques    Clique[]
   leads      Lead[]
   eventos    Evento[]
@@ -409,6 +411,40 @@ model Fatura {
  * não haver duas verdades: havendo despesa lançada no mês, ela manda; não
  * havendo, vale a estimativa — e a tela diz qual das duas está no número.
  */
+/**
+ * O que conta como bom, regular ou ruim em cada etapa do funil.
+ *
+ * Fica no banco, e não no código, porque a régua muda com o nicho e com o
+ * ticket: 3% de conversão de página é ruim para e-commerce e excelente para
+ * consultoria de R$ 20 mil. Régua errada é pior que régua nenhuma — manda
+ * trocar o criativo que estava funcionando.
+ *
+ * Resolve do mais específico para o mais geral: cliente, depois nicho, depois
+ * agência, depois o padrão do código.
+ */
+model ParametroDiagnostico {
+  id        String  @id @default(cuid())
+  agenciaId String
+  /** Preenchido = régua daquele cliente. */
+  clienteId String?
+  /** Preenchido = régua daquele nicho, para os clientes sem régua própria. */
+  nicho     String?
+
+  /** ctr, conexao, pagina, fechamento. */
+  chave String
+  /** Abaixo disso é ruim; a partir de `bom`, é bom; no meio, regular. */
+  ruim  Float
+  bom   Float
+
+  criadoEm DateTime @default(now())
+
+  agencia Agencia  @relation(fields: [agenciaId], references: [id], onDelete: Cascade)
+  cliente Cliente? @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([agenciaId, clienteId, nicho, chave])
+  @@index([agenciaId, chave])
+}
+
 model Despesa {
   id        String  @id @default(cuid())
   agenciaId String

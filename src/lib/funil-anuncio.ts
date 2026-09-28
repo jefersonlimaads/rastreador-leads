@@ -1,5 +1,5 @@
 import type { AnuncioPeriodo } from "./inteligencia";
-import type { TipoResultado } from "./resultados";
+import { CTR_POR_TIPO, PADRAO_DAS_REGUAS, type Faixa, type Reguas } from "./reguas";
 
 /**
  * Onde o anúncio está perdendo gente.
@@ -43,36 +43,6 @@ export type DiagnosticoFunil = {
   gargalo: { chave: ChaveEtapa; titulo: string; motivo: string; acao: string } | null;
 };
 
-type Faixa = { ruim: number; bom: number };
-
-/*
- * Faixas de referência.
- *
- * São ponto de partida, não lei: variam com nicho, ticket e público. O valor
- * está menos no número exato e mais na comparação entre as etapas — a pior
- * delas é onde mexer primeiro. Calibre com os seus dados quando houver
- * histórico suficiente.
- */
-const CTR_PADRAO: Faixa = { ruim: 0.008, bom: 0.02 };
-const CTR_POR_TIPO: Partial<Record<TipoResultado, Faixa>> = {
-  conversas: { ruim: 0.01, bom: 0.025 },
-  compras: { ruim: 0.006, bom: 0.015 },
-  visualizacoes_video: { ruim: 0.004, bom: 0.012 },
-  thruplays: { ruim: 0.004, bom: 0.012 },
-};
-
-/**
- * Clique que chega a abrir a página. Perda aqui é caminho, não conteúdo:
- * página lenta, redirecionamento, ou quem desistiu no carregamento.
- */
-const CONEXAO: Faixa = { ruim: 0.55, bom: 0.8 };
-
-/** Visita que vira pedido de contato. É a régua da página e da oferta. */
-const PAGINA: Faixa = { ruim: 0.03, bom: 0.12 };
-
-/** Contato que vira venda. Depende do atendimento, e é onde o cliente atua. */
-const FECHAMENTO: Faixa = { ruim: 0.08, bom: 0.25 };
-
 /** Volume mínimo para a taxa significar alguma coisa. */
 const MINIMO = { impressoes: 500, cliques: 30, visitas: 20, pedidos: 10, contatos: 8 };
 
@@ -92,7 +62,11 @@ const razao = (a: number, b: number) => (b > 0 ? a / b : null);
  * esse cliente: sem ele, visita sempre seria zero e a leitura acusaria uma
  * página que na verdade nunca foi medida.
  */
-export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): DiagnosticoFunil {
+export function funilDoAnuncio(
+  a: AnuncioPeriodo,
+  paginaRastreada: boolean,
+  reguas: Reguas = PADRAO_DAS_REGUAS,
+): DiagnosticoFunil {
   /* Campanha de WhatsApp e de formulário do Meta não passam por página: a
      conversa começa dentro da própria plataforma. */
   const temPagina =
@@ -114,7 +88,7 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
       valor: a.cliquesLink,
       taxa: razao(a.cliquesLink, a.impressoes),
       mede: "O criativo convence a clicar",
-      referencia: CTR_POR_TIPO[a.tipo] ?? CTR_PADRAO,
+      referencia: CTR_POR_TIPO[a.tipo] ?? reguas.ctr,
       estado: "sem_referencia",
     },
   ];
@@ -126,7 +100,7 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
       valor: a.visualizacoesPagina,
       taxa: razao(a.visualizacoesPagina, a.cliquesLink),
       mede: "A página abre para quem clicou",
-      referencia: CONEXAO,
+      referencia: reguas.conexao,
       estado: "sem_referencia",
     });
     etapas.push({
@@ -135,7 +109,7 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
       valor: a.pedidosContato,
       taxa: razao(a.pedidosContato, a.visualizacoesPagina || a.cliquesLink),
       mede: "Quem abriu preenche o formulário ou chama no WhatsApp",
-      referencia: PAGINA,
+      referencia: reguas.pagina,
       estado: "sem_referencia",
     });
   }
@@ -160,7 +134,7 @@ export function funilDoAnuncio(a: AnuncioPeriodo, paginaRastreada: boolean): Dia
     valor: a.fechados,
     taxa: razao(a.fechados, a.contatosPainel),
     mede: "O atendimento fecha",
-    referencia: FECHAMENTO,
+    referencia: reguas.fechamento,
     estado: "sem_referencia",
   });
 

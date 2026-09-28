@@ -9,6 +9,8 @@ import { BlocoCopiavel } from "./copiar";
 import { ContasDoCliente, type ContaListada } from "./meta";
 import { Bloco, FormApiConversoes, FormFunil, FormMetas, FormNovoUsuario, FormNumero, FormPuxarMeta } from "./formularios";
 import { PainelSaude } from "./saude";
+import { Reguas } from "./reguas";
+import { reguasDoCliente } from "@/lib/parametros";
 import { saudeDoCliente } from "@/lib/saude-cliente";
 
 // "Puxar dados do Meta agora" busca 90 dias e pode passar de um minuto.
@@ -53,6 +55,7 @@ export default async function PaginaAjustes({
   }
 
   const saude = ehAdmin ? await saudeDoCliente(cliente.id) : null;
+  const reguas = await reguasDoCliente(cliente.id);
   const appUrl = process.env.APP_URL ?? "https://painel.jlads.com.br";
   const numero = cliente.numeros[0]?.numero;
   const script = `<script async src="${appUrl}/jl.js"
@@ -145,6 +148,15 @@ export default async function PaginaAjustes({
           descricao="Avisa o Meta de cada lead e venda pelo servidor, sem depender do pixel do navegador."
         >
           <FormApiConversoes clienteId={cliente.id} ligada={Boolean(cliente.pixelId && cliente.capiToken)} />
+        </Bloco>
+      )}
+
+      {ehGestor && (
+        <Bloco
+          titulo="Régua do diagnóstico"
+          descricao="O que o painel considera bom, regular e ruim em cada etapa. Varia com nicho e ticket."
+        >
+          <Reguas reguas={reguas} clienteNome={cliente.nome} />
         </Bloco>
       )}
 

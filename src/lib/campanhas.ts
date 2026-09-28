@@ -4,6 +4,7 @@ import { dataPuraDe, FUSO_PADRAO, instanteLocal } from "./datas";
 import { quantidade, tipoDoResultado, type Acoes } from "./resultados";
 import { rankingPorVenda, recomendar, type AnuncioPeriodo } from "./inteligencia";
 import { funilDoAnuncio, type DiagnosticoFunil } from "./funil-anuncio";
+import { apenasFaixas, reguasDoCliente } from "./parametros";
 
 /**
  * Números por anúncio, do jeito que a inteligência precisa: o período pedido e
@@ -181,9 +182,13 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
      isso o funil acusaria uma página que nunca foi medida. */
   const paginaRastreada = atual.some((a) => a.pedidosContato > 0);
 
+  /* A régua sai do cliente, do nicho dele ou da agência — nessa ordem —, e só
+     cai no padrão do código quando ninguém configurou. */
+  const reguas = apenasFaixas(await reguasDoCliente(clienteId));
+
   const funis = new Map<string, DiagnosticoFunil>();
   for (const a of atual) {
-    if (a.gasto > 0) funis.set(a.adId, funilDoAnuncio(a, paginaRastreada));
+    if (a.gasto > 0) funis.set(a.adId, funilDoAnuncio(a, paginaRastreada, reguas));
   }
 
   return {

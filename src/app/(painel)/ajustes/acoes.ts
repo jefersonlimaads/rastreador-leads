@@ -4,9 +4,19 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { normalizarContaAnuncios, normalizarTelefone } from "@/lib/telefone";
-import { exigirSessao, exigirAdmin, hashSenha, conferirSenha, clienteDaAgencia } from "@/lib/auth";
+import {
+  exigirSessao,
+  exigirAdmin,
+  exigirCliente,
+  hashSenha,
+  conferirSenha,
+  clienteDaAgencia,
+  podeVerDinheiro,
+} from "@/lib/auth";
 import { chaveValida, cifrar } from "@/lib/cripto";
 import { sincronizarGastos, testarToken } from "@/lib/meta/marketing";
+import { definirRegua } from "@/lib/parametros";
+import { PADRAO_DAS_REGUAS, type ChaveRegua } from "@/lib/reguas";
 
 export type EstadoAjustes = { erro?: string; ok?: string };
 
@@ -330,4 +340,40 @@ export async function acaoSalvarMetas(
   revalidatePath("/anuncios");
   revalidatePath("/carteira");
   return { ok: "Metas salvas." };
+}
+
+/**
+ * Salva uma régua do diagnóstico para o cliente em foco.
+ *
+ * O valor chega em porcentagem, que é como se fala ("2%"), e é guardado em
+ * fração, que é como se calcula. A conversão fica aqui para o resto do sistema
+ * não precisar saber de nenhuma das duas convenções.
+ */
+export async function acaoSalvarRegua(
+  _estado: EstadoAjustes,
+  formData: FormData,
+): Promise<EstadoAjustes> {
+  const { sessao, clienteId } = await exigirCliente(null);
+  if (!podeVerDinheiro(sessao.papel)) return { erro: "Só gestor ou administrador ajusta a régua." };
+
+  const chave = String(formData.get("chave") ?? "") as ChaveRegua;
+  if (!(chave in PADRAO_DAS_REGUAS)) return { erro: "Régua desconhecida." };
+
+  const numero = (nome: string) => {
+    const bruto = String(formData.get(nome) ?? "").replace(",", ".").replace("%", "").trim();
+    const v = Number(bruto);
+    return Number.isNaN(v) ? null : v / 100;
+  };
+
+  const ruim = numero("ruim");
+  const bom = numero("bom");
+  if (ruim === null || bom === null) return { erro: "Use números, como 2,5." };
+  if (ruim < 0 || bom > 1) return { erro: "Os valores vão de 0 a 100%." };
+
+  const r = await definirRegua({ agenciaId: sessao.agenciaId, clienteId, chave, ruim, bom });
+  if (r && "erro" in r) return { erro: r.erro };
+
+  revalidatePath("/ajustes");
+  revalidatePath("/anuncios");
+  return { ok: r?.voltouAoPadrao ? "Voltou a herdar a régua padrão." : "Régua salva." };
 }
