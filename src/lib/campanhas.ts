@@ -181,6 +181,9 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
   /* Se nenhum anúncio trouxe visita registrada, o script não está no ar: sem
      isso o funil acusaria uma página que nunca foi medida. */
   const paginaRastreada = atual.some((a) => a.pedidosContato > 0);
+  /* Conta sem pixel não reporta visualização de página: a etapa sai do funil
+     em vez de aparecer zerada e virar gargalo falso. */
+  const contaReportaVisitas = atual.some((a) => a.visualizacoesPagina > 0);
 
   /* A régua sai do cliente, do nicho dele ou da agência — nessa ordem —, e só
      cai no padrão do código quando ninguém configurou. */
@@ -188,7 +191,7 @@ export async function inteligenciaDoCliente(clienteId: string, de: Date, ate: Da
 
   const funis = new Map<string, DiagnosticoFunil>();
   for (const a of atual) {
-    if (a.gasto > 0) funis.set(a.adId, funilDoAnuncio(a, paginaRastreada, reguas));
+    if (a.gasto > 0) funis.set(a.adId, funilDoAnuncio(a, paginaRastreada, reguas, contaReportaVisitas));
   }
 
   return {

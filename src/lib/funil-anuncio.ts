@@ -49,6 +49,10 @@ const MINIMO = { impressoes: 500, cliques: 30, visitas: 20, pedidos: 10, contato
 function avaliar(taxa: number | null, faixa: Faixa | null, temVolume: boolean): EtapaFunil["estado"] {
   if (faixa == null) return "sem_referencia";
   if (!temVolume) return "sem_volume";
+  /* Taxa acima de 100% quer dizer que a base não explica o número — chegou
+     contato que não veio dos cliques deste anúncio. Julgar contra a régua diria
+     "excelente" sobre uma conta que não fecha. */
+  if (taxa != null && taxa > 1) return "sem_referencia";
   if (taxa == null) return "ruim";
   if (taxa >= faixa.bom) return "bom";
   if (taxa >= faixa.ruim) return "ok";
@@ -66,11 +70,18 @@ export function funilDoAnuncio(
   a: AnuncioPeriodo,
   paginaRastreada: boolean,
   reguas: Reguas = PADRAO_DAS_REGUAS,
+  /**
+   * A conta reporta visualização da página de destino? Nem toda reporta — sem
+   * pixel, o Meta não conta. Julgar essa etapa sem o número faz a tela acusar
+   * "o clique não está virando visita" em campanha saudável.
+   */
+  contaReportaVisitas = true,
 ): DiagnosticoFunil {
   /* Campanha de WhatsApp e de formulário do Meta não passam por página: a
      conversa começa dentro da própria plataforma. */
   const temPagina =
     paginaRastreada && a.tipo !== "conversas" && a.tipo !== "leads_formulario";
+  const temVisitas = temPagina && contaReportaVisitas;
 
   const etapas: EtapaFunil[] = [
     {
@@ -93,7 +104,8 @@ export function funilDoAnuncio(
     },
   ];
 
-  if (temPagina) {
+  // Só quando a conta reporta: sem o número, a etapa apareceria zerada.
+  if (temVisitas) {
     etapas.push({
       chave: "visitas",
       rotulo: "Visitas na página",
@@ -103,12 +115,19 @@ export function funilDoAnuncio(
       referencia: reguas.conexao,
       estado: "sem_referencia",
     });
+  }
+
+  /* O pedido de contato existe sempre que há página, mesmo sem a etapa de
+     visita: aí ele é medido sobre o clique, que é a base disponível. */
+  if (temPagina) {
     etapas.push({
       chave: "pedidos",
       rotulo: "Pediram contato",
       valor: a.pedidosContato,
-      taxa: razao(a.pedidosContato, a.visualizacoesPagina || a.cliquesLink),
-      mede: "Quem abriu preenche o formulário ou chama no WhatsApp",
+      taxa: razao(a.pedidosContato, temVisitas ? a.visualizacoesPagina : a.cliquesLink),
+      mede: temVisitas
+        ? "Quem abriu preenche o formulário ou chama no WhatsApp"
+        : "Quem clicou preenche o formulário ou chama no WhatsApp",
       referencia: reguas.pagina,
       estado: "sem_referencia",
     });
@@ -143,7 +162,7 @@ export function funilDoAnuncio(
     impressoes: Infinity,
     cliques: a.impressoes >= MINIMO.impressoes ? Infinity : 0,
     visitas: a.cliquesLink >= MINIMO.cliques ? Infinity : 0,
-    pedidos: (a.visualizacoesPagina || a.cliquesLink) >= MINIMO.visitas ? Infinity : 0,
+    pedidos: (temVisitas ? a.visualizacoesPagina : a.cliquesLink) >= MINIMO.visitas ? Infinity : 0,
     contatos: (temPagina ? a.pedidosContato : a.cliquesLink) >= MINIMO.pedidos ? Infinity : 0,
     vendas: a.contatosPainel >= MINIMO.contatos ? Infinity : 0,
   };

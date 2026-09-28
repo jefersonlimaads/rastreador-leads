@@ -103,3 +103,36 @@ describe("funil do anúncio", () => {
     expect(funilDoAnuncio(anuncio({}), true).gargalo).toBeNull();
   });
 });
+
+describe("quando a base não sustenta a leitura", () => {
+  const anuncio = (p: Partial<AnuncioPeriodo>): AnuncioPeriodo => ({
+    adId: "a", nome: "Anúncio", campanha: null, tipo: "leads_site",
+    gasto: 500, impressoes: 50000, cliquesLink: 484, cliquesSaida: 484,
+    resultados: 40, visualizacoesPagina: 0, conversasIniciadas: 0,
+    pedidosContato: 625, contatosPainel: 79, fechados: 16, receita: 40000,
+    ...p,
+  });
+
+  it("conta que não reporta visita não é julgada por ela", () => {
+    // Sem pixel, o Meta não conta visualização de página. A etapa some, em vez
+    // de aparecer zerada e virar "o clique não está virando visita".
+    const f = funilDoAnuncio(anuncio({}), true, undefined, false);
+    expect(f.etapas.some((e) => e.chave === "visitas")).toBe(false);
+    expect(f.gargalo?.chave).not.toBe("visitas");
+  });
+
+  it("taxa acima de 100% não vira elogio nem gargalo", () => {
+    // 625 pedidos para 484 cliques: chegou gente que não veio deste anúncio.
+    const f = funilDoAnuncio(anuncio({}), true, undefined, false);
+    const pedidos = f.etapas.find((e) => e.chave === "pedidos")!;
+    expect(pedidos.taxa).toBeGreaterThan(1);
+    expect(pedidos.estado).toBe("sem_referencia");
+  });
+
+  it("reportando visita, a etapa volta e a base muda", () => {
+    const f = funilDoAnuncio(anuncio({ visualizacoesPagina: 400, pedidosContato: 40 }), true, undefined, true);
+    expect(f.etapas.some((e) => e.chave === "visitas")).toBe(true);
+    // Pedido passa a ser medido sobre quem abriu, não sobre quem clicou.
+    expect(f.etapas.find((e) => e.chave === "pedidos")?.taxa).toBeCloseTo(0.1);
+  });
+});
